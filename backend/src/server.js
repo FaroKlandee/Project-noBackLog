@@ -16,6 +16,13 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+//Route imnport
+const boardRoutes = require("./routes/boardRoutes");
+const listRoutes = require("./routes/listRoutes");
+
+//Route mounting
+app.use("/api/boards", boardRoutes);
+app.use("/api/lists", listRoutes);
 //Routes
 app.get("/", (req, res) => {
   res.json({ message: "NoBackLog API is running..." });
