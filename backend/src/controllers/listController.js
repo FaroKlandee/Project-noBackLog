@@ -6,9 +6,17 @@ const { Board, List } = require("../models");
  * @access public
  */
 exports.createList = async (req, res) => {
-  try {
+	try {
+		//Check if body exists and has content
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Request body is required",
+      });
+    }
     // Validate name field exists and isn't empty
-    if (!req.body.name || req.body.name.trim() === "") {
+		if (!req.body.name || typeof req.body.name !== "string"
+			|| req.body.name.trim() === "") {
       return res.status(400).json({
         success: false,
         message: "List name is required.",
@@ -117,16 +125,17 @@ exports.updateList = async (req, res) => {
 		let list_Id = req.params.id;
 		//Extract the data pending update
 		let payload = req.body;
-		//Validation on content
-		if (req.body.name && req.body.name.trim() === "") {
+		//Validate name field if provided
+		if (req.body.name !== undefined && (typeof req.body.name !== "string"
+			|| req.body.name.trim() === "")) {
 			return res.status(400).json({
 				success: false,
-				message: "Empty body",
+				message: "List name must be a non-empty string.",
 			});
 		}
 		//If boardId is being updated, verify it exists
 		if (req.body.boardId) {
-			const board_exist = await Board.findById(req.board.boardId);
+			const board_exist = await Board.findById(req.body.boardId);
 			if (!board_exist) {
 				return res.status(404).json({
 					success: false,

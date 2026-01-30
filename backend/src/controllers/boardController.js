@@ -70,7 +70,7 @@ exports.getAllBoards = async (req, res) => {
 exports.getBoardById = async (req, res) => {
   try {
     //init var for param.id
-    let id = req.params.id;
+    let id = req.params.id
     //run search by ID
     const board = await Board.findById(id);
     // Check if result is null

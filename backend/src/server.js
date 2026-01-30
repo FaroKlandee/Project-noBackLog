@@ -19,10 +19,12 @@ app.use(express.json());
 //Route imnport
 const boardRoutes = require("./routes/boardRoutes");
 const listRoutes = require("./routes/listRoutes");
+const cardRoutes = require("./routes/cardRoutes");
 
 //Route mounting
 app.use("/api/boards", boardRoutes);
 app.use("/api/lists", listRoutes);
+app.use("/api/cards", cardRoutes);
 //Routes
 app.get("/", (req, res) => {
   res.json({ message: "NoBackLog API is running..." });
