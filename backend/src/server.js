@@ -20,11 +20,13 @@ app.use(express.json());
 const boardRoutes = require("./routes/boardRoutes");
 const listRoutes = require("./routes/listRoutes");
 const cardRoutes = require("./routes/cardRoutes");
+const timeLogRoutes = require("./routes/timeLogRoutes");
 
 //Route mounting
 app.use("/api/boards", boardRoutes);
 app.use("/api/lists", listRoutes);
 app.use("/api/cards", cardRoutes);
+app.use("/api/timelogs", timeLogRoutes);
 //Routes
 app.get("/", (req, res) => {
   res.json({ message: "NoBackLog API is running..." });
