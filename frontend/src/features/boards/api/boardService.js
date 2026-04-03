@@ -1,11 +1,8 @@
-import api from "../../../shared/api/api";
-/* Using native Fetch API service for handling function calls on frontend */
+import api from '../../../shared/api/api';
 
 async function getAllBoards() {
 	try {
-		const response = await api.get('/api/boards/');
-		console.log(response.status);
-		return response.json();
+		return await api.get('/api/boards/');
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -13,9 +10,7 @@ async function getAllBoards() {
 
 async function getBoardById(id) {
 	try {
-		const response = await api.get(`/api/boards/${id}`);
-		console.log(response.status);
-		return response.json();
+		return await api.get(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -23,20 +18,15 @@ async function getBoardById(id) {
 
 async function createBoard(data) {
 	try {
-		const response = await api.post('/api/boards/', data);
-		console.log(response.status);
-		return response.json();
+		return await api.post('/api/boards/', data);
 	} catch (error) {
 		console.error(`${error}`);
 	}
 }
 
 async function updateBoard(id, data) {
-
 	try {
-		const response = await api.put(`/api/boards/${id}`, data);
-		console.log(response.status);
-		return response.json();
+		return await api.put(`/api/boards/${id}`, data);
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -44,9 +34,7 @@ async function updateBoard(id, data) {
 
 async function deleteBoard(id) {
 	try {
-		const response = await api.delete(`/api/boards/${id}`);
-		console.log(response.status);
-		return response.json();
+		return await api.delete(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
 	}

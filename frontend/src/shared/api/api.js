@@ -25,7 +25,7 @@ async function request(method, path, data = null) {
 			throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
 		}
 
-		return response;
+		return response.json();
 	} catch (error) {
 		clearTimeout(timeoutId);
 		if (error.name === 'AbortError') {
