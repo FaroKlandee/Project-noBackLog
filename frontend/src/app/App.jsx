@@ -1,4 +1,5 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import Boards from '../features/boards/components/Boards';
 
 const theme = createTheme({
   palette: {
@@ -12,7 +13,8 @@ const theme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
+			<CssBaseline />
+      <Boards />
     </ThemeProvider>
   )
 }

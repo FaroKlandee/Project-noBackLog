@@ -2,8 +2,7 @@ import api from '../../../shared/api/api';
 
 async function getAllBoards() {
 	try {
-		const response = await api.get('/api/boards/');
-		return response.data;
+		return await api.get('/api/boards/');
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -11,9 +10,7 @@ async function getAllBoards() {
 
 async function getBoardById(id) {
 	try {
-		const response = await api.get(`/api/boards/${id}`);
-return response.data;
-
+		return await api.get(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -21,9 +18,7 @@ return response.data;
 
 async function createBoard(data) {
 	try {
-		const response = await api.post('/api/boards/', data);
-return response.data;
-
+		return await api.post('/api/boards/', data);
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -31,9 +26,7 @@ return response.data;
 
 async function updateBoard(id, data) {
 	try {
-		const response = await api.put(`/api/boards/${id}`, data);
-return response.data;
-
+		return await api.put(`/api/boards/${id}`, data);
 	} catch (error) {
 		console.error(`${error}`);
 	}
@@ -41,8 +34,7 @@ return response.data;
 
 async function deleteBoard(id) {
 	try {
-		const response = await api.delete(`/api/boards/${id}`);
-return response.message;
+		return await api.delete(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
 	}

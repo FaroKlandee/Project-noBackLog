@@ -8,8 +8,8 @@ export function useBoards() {
 
 	useEffect(() => {
 		const fetchBoards = async () => {
-			const data = await getAllBoards();
-			setBoards(data);
+			const response = await getAllBoards();
+			setBoards(response.data);
 		};
 
 		fetchBoards()
