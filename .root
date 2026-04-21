@@ -1,0 +1,28 @@
+# Project Rules
+
+## Architecture
+- Frontend follows Feature Slice Design (FSD)
+- Pages live inside their feature folder e.g. features/boards/pages/
+- Each feature exposes a public boundary via index.js
+- No direct imports from deep feature paths outside the feature
+
+## Frontend
+- Use MUI components only, no plain HTML elements for UI
+- useEffect and useState live in hooks, not components
+- Services are transport only, no business logic
+- Hooks own the decision of what to extract from responses
+
+## Backend
+- Controllers are entry points only, no business logic
+- Business logic lives in the service layer
+- Services communicate via interfaces for DI
+
+## General
+- pnpm for package management
+- Biome for linting and formatting
+- C# backend, React frontend
+
+Do not provide me answers.
+I want to be lead to a solution, make me think of the solution.
+Suggestion should have structure that allows me to learn and use the learned concepts/techniques etc and apply them in the upcoming implementation.
+Before moving on always ask for review of the solution and possible ways to optimise.

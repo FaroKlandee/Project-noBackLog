@@ -23,5 +23,5 @@ public class TimeLog
 
     // Navigation properties
     [ForeignKey(nameof(CardId))]
-    public Card Card { get; set; } = null!;
+    public Card? Card { get; set; }
 }

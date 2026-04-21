@@ -22,7 +22,7 @@ public class List
 
     // Navigation properties
     [ForeignKey(nameof(BoardId))]
-    public Board Board { get; set; } = null!;
+    public Board? Board { get; set; }
 
     public ICollection<Card> Cards { get; set; } = new List<Card>();
 }

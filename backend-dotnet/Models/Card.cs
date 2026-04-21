@@ -34,7 +34,7 @@ public class Card
 
     // Navigation properties
     [ForeignKey(nameof(ListId))]
-    public List List { get; set; } = null!;
+    public List? List { get; set; }
 
     public ICollection<TimeLog> TimeLogs { get; set; } = new List<TimeLog>();
 }
