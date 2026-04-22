@@ -81,63 +81,87 @@ const TIMEOUT_MS = 5000;
  *   the server returns a non-2xx HTTP status code.
  */
 async function request(method, path, data = null) {
-	// Create an AbortController so we can cancel the fetch if it takes too long.
-	// Each call gets its own controller instance to avoid cross-request interference.
+	/*
+	 * Create an AbortController so we can cancel the fetch if it takes too long.
+	 * Each call gets its own controller instance to avoid cross-request interference.
+	 */
 	const controller = new AbortController();
 
-	// Schedule the abort to fire after TIMEOUT_MS milliseconds.
-	// The returned timeoutId is used later to cancel the timer if the request
-	// finishes before the deadline.
+	/*
+	 * Schedule the abort to fire after TIMEOUT_MS milliseconds.
+	 * The returned timeoutId is used later to cancel the timer if the request
+	 * finishes before the deadline.
+	 */
 	const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-	// Build the fetch options object shared by all HTTP methods.
-	// `signal` wires up the AbortController so the timeout can cancel the fetch.
+	/*
+	 * Build the fetch options object shared by all HTTP methods.
+	 * `signal` wires up the AbortController so the timeout can cancel the fetch.
+	 */
 	const options = {
 		method,
 		signal: controller.signal,
 		headers: {
-			// Tell the server we are sending (and expecting) JSON.
+			/*
+			 * Tell the server we are sending (and expecting) JSON.
+			 */
 			'Content-Type': 'application/json',
 		},
 	};
 
-	// Only attach a body when the caller supplied data.
-	// GET and DELETE requests must not include a body; POST and PUT always will.
+	/*
+	 * Only attach a body when the caller supplied data.
+	 * GET and DELETE requests must not include a body; POST and PUT always will.
+	 */
 	if (data) {
 		options.body = JSON.stringify(data);
 	}
 
 	try {
-		// Perform the HTTP request.  This will reject if the network is
-		// unavailable or if controller.abort() fires before a response arrives.
+		/*
+		 * Perform the HTTP request.  This will reject if the network is
+		 * unavailable or if controller.abort() fires before a response arrives.
+		 */
 		const response = await fetch(`${BASE_URL}${path}`, options);
 
-		// Request completed before the timeout — cancel the scheduled abort
-		// so it does not fire spuriously after the response is already handled.
+		/*
+		 * Request completed before the timeout — cancel the scheduled abort
+		 * so it does not fire spuriously after the response is already handled.
+		 */
 		clearTimeout(timeoutId);
 
-		// `response.ok` is true only for 2xx status codes.
-		// Fetch itself does NOT throw on 4xx/5xx, so we must check manually.
+		/*
+		 * `response.ok` is true only for 2xx status codes.
+		 * Fetch itself does NOT throw on 4xx/5xx, so we must check manually.
+		 */
 		if (!response.ok) {
 			throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
 		}
 
-		// Deserialise and return the JSON body.
-		// Feature-level service functions receive this value directly.
+		/*
+		 * Deserialise and return the JSON body.
+		 * Feature-level service functions receive this value directly.
+		 */
 		return response.json();
 	} catch (error) {
-		// Always clear the timeout in the error path too — if the fetch rejected
-		// immediately (e.g. DNS failure) we don't want a stale timer lingering.
+		/*
+		 * Always clear the timeout in the error path too — if the fetch rejected
+		 * immediately (e.g. DNS failure) we don't want a stale timer lingering.
+		 */
 		clearTimeout(timeoutId);
 
-		// Convert the cryptic AbortError into a friendlier message so callers
-		// and end-users see "Request timed out" rather than "The operation was aborted".
+		/*
+		 * Convert the cryptic AbortError into a friendlier message so callers
+		 * and end-users see "Request timed out" rather than "The operation was aborted".
+		 */
 		if (error.name === 'AbortError') {
 			throw new Error(`Request timed out after ${TIMEOUT_MS}ms`);
 		}
 
-		// Re-throw everything else (network errors, the HTTP error we threw
-		// above, JSON parse failures, etc.) unchanged so callers can inspect them.
+		/*
+		 * Re-throw everything else (network errors, the HTTP error we threw
+		 * above, JSON parse failures, etc.) unchanged so callers can inspect them.
+		 */
 		throw error;
 	}
 }

@@ -5,12 +5,16 @@
  * boards listing page in the nobacklog project management app.
  */
 
-// useBoards is a custom hook that encapsulates all data-fetching logic
-// for the boards collection (loading state, error state, and the data itself).
+/*
+ * useBoards is a custom hook that encapsulates all data-fetching logic
+ * for the boards collection (loading state, error state, and the data itself).
+ */
 import { useBoards } from "../hooks/useBoards";
 
-// BoardCard is the presentational component used to render each individual
-// board as a clickable Material UI card with a link to that board's detail page.
+/*
+ * BoardCard is the presentational component used to render each individual
+ * board as a clickable Material UI card with a link to that board's detail page.
+ */
 import BoardCard from "./BoardCard";
 
 /**
@@ -35,25 +39,31 @@ import BoardCard from "./BoardCard";
  * <Boards />
  */
 export default function Boards() {
-	// Destructure the three pieces of state exposed by useBoards:
-	//   boards  — the array of board objects returned from the API
-	//   loading — boolean; true while the fetch request is in flight
-	//   error   — holds an error message string if the fetch failed, otherwise null
+	/*
+	 * Destructure the three pieces of state exposed by useBoards:
+	 *   boards  — the array of board objects returned from the API
+	 *   loading — boolean; true while the fetch request is in flight
+	 *   error   — holds an error message string if the fetch failed, otherwise null
+	 */
 	const { boards, loading, error } = useBoards();
 
-	// Temporary debug logging — useful during development to inspect
-	// the raw values coming out of the hook without opening DevTools manually.
-	// These should be removed (or replaced with a proper logger) before production.
+	/*
+	 * Temporary debug logging — useful during development to inspect
+	 * the raw values coming out of the hook without opening DevTools manually.
+	 * These should be removed (or replaced with a proper logger) before production.
+	 */
 	console.log('boards', boards);
 	console.log('loading', loading);
 	console.log('error', error);
 
 	return (
-		// Ternary guard: if the boards array is empty (either because none exist
-		// yet, or because the fetch hasn't resolved) render a plain-text fallback.
-		// Otherwise, iterate over the boards and render a BoardCard for each one.
+		/*
+		 * Ternary guard: if the boards array is empty (either because none exist
+		 * yet, or because the fetch hasn't resolved) render a plain-text fallback.
+		 * Otherwise, iterate over the boards and render a BoardCard for each one.
+		 */
 		boards.length === 0 ? "No boards yet" : boards.map((board) => (
-			/**
+			/*
 			 * BoardCard receives the full board object as a prop.
 			 * The `key` prop is set to `board.id` (the unique database identifier)
 			 * so that React can efficiently reconcile the list when it changes

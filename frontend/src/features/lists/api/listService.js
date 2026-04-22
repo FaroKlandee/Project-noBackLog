@@ -5,7 +5,7 @@
  * `api` client (`shared/api/api.js`).  Each wrapper follows the same
  * try/catch pattern:
  *   - on success  → returns the parsed JSON response object from the server
- *   - on failure  → logs the error to the console and returns `undefined`
+ *   - on failure  → logs the error to the console and re-throws
  *
  * The module is consumed primarily by the `useLists` hook and can also be
  * imported directly via the lists feature barrel (`features/lists/index.js`).
@@ -26,16 +26,18 @@
  */
 import api from '../../../shared/api/api';
 
-// ---------------------------------------------------------------------------
-// READ operations
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * READ operations
+ * ---------------------------------------------------------------------------
+ */
 
 /**
- * Fetch every list that belongs to a specific board.
+ * Fetch every list that belongs
+ to a specific board.
  *
  * Calls `GET /api/lists?boardId=<boardId>`.  The server is expected to filter
- * its list collection and return only those records
- whose `boardId` foreign
+ * its list collection and return only those records whose `boardId` foreign
  * key matches the supplied value.
  *
  * This is the primary way lists are loaded — always scoped to a single board
@@ -51,13 +53,18 @@ import api from '../../../shared/api/api';
  */
 async function getAllLists(boardId) {
 	try {
-		// Append boardId as a query-string parameter so the server can scope
-		// the result set to only the lists belonging to this board.
+		/*
+		 * Append boardId as a query-string parameter so the server can scope
+		 * the result set to only the lists belonging to this board.
+		 */
 		return await api.get(`/api/lists?boardId=${boardId}`)
 	} catch (error) {
-		// Log the error for debugging; returning undefined signals failure to
-		// the caller without propagating an unhandled rejection.
+		/*
+		 * Log the error for debugging, then re-throw the original error so
+		 * callers can inspect the message and handle it appropriately.
+		 */
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
@@ -78,16 +85,21 @@ async function getAllLists(boardId) {
  */
 async function getListById(id) {
 	try {
-		// Use a path parameter (/:id) to target the exact list resource.
+		/*
+		 * Use a path parameter (/:id) to target the exact list resource.
+		 */
 		return await api.get(`/api/lists/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
-// ---------------------------------------------------------------------------
-// WRITE operations
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * WRITE operations
+ * ---------------------------------------------------------------------------
+ */
 
 /**
  * Create a new list on the server.
@@ -97,10 +109,7 @@ async function getListById(id) {
  * record.  The created list object is returned in the response so the caller
  * can immediately update local state without a follow-up GET.
  *
- * Typical payload shape:
- * ```nobacklog/frontend/src/features/lists/api/listService.js#L1-1
- * { name: "To Do", boardId: 3, position: 0 }
- * ```
+ * Typical payload shape: { name: "To Do", boardId: 3, position: 0 }
  *
  * @async
  * @param {Object} data - Plain object containing the fields for the new list.
@@ -111,11 +120,14 @@ async function getListById(id) {
  */
 async function createList(data) {
 	try {
-		// POST to the collection endpoint; `data` is serialised to JSON by the
-		// shared api client before being sent in the request body.
+		/*
+		 * POST to the collection endpoint; `data` is serialised to JSON by the
+		 * shared api client before being sent in the request body.
+		 */
 		return await api.post('/api/lists/', data);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
@@ -143,11 +155,14 @@ async function createList(data) {
  */
 async function updateList(id, data) {
 	try {
-		// Pass both the path parameter (which list) and the request body
-		// (what to change) to the api client's PUT method.
+		/*
+		 * Pass both the path parameter (which list) and the request body
+		 * (what to change) to the api client's PUT method.
+		 */
 		return await api.put(`/api/lists/${id}`, data);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
@@ -170,17 +185,22 @@ async function updateList(id, data) {
  */
 async function deleteList(id) {
 	try {
-		// DELETE requests carry no body; the resource to remove is identified
-		// solely by the path parameter.
+		/*
+		 * DELETE requests carry no body; the resource to remove is identified
+		 * solely by the path parameter.
+		 */
 		return await api.delete(`/api/lists/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+/*
+ * ---------------------------------------------------------------------------
+ * Exports
+ * ---------------------------------------------------------------------------
+ */
 
 /**
  * Named exports for all list service functions.

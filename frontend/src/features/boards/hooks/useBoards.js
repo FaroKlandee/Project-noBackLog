@@ -1,3 +1,17 @@
+/**
+ * @file useBoards.js
+ * @description Custom React hook for fetching and managing the full list of
+ * boards in the nobacklog application. Abstracts all data-fetching logic away
+ * from UI components so they only need to consume the returned state values.
+ *
+ * Consumed by:
+ *   - Boards  (src/features/boards/components/Boards.jsx)
+ *
+ * Depends on:
+ *   - getAllBoards  (src/features/boards/api/boardService.js)
+ *   - React's built-in `useState` and `useEffect` hooks
+ */
+
 import { useEffect, useState } from 'react';
 import { getAllBoards } from '../api/boardService';
 
@@ -42,37 +56,47 @@ import { getAllBoards } from '../api/boardService';
  * }
  */
 export function useBoards() {
-	// ---------------------------------------------------------------------------
-	// State declarations
-	// ---------------------------------------------------------------------------
+	/*
+	 * ---------------------------------------------------------------------------
+	 * State declarations
+	 * ---------------------------------------------------------------------------
+	 */
 
-	/**
+	/*
 	 * The list of board objects fetched from the API.
 	 * Initialised to an empty array so that consumers can always safely call
 	 * array methods on it (e.g. `.map`, `.length`) even before the fetch
 	 * completes — no null-checks required.
+	 *
+	 * @type {[Array<Object>, Function]}
 	 */
 	const [boards, setBoards] = useState([]);
 
-	/**
+	/*
 	 * Tracks whether an async fetch is currently in-flight.
 	 * Initialised to `true` because a fetch begins immediately on mount; this
 	 * way consumers never see a brief false→true flicker at startup.
+	 *
+	 * @type {[boolean, Function]}
 	 */
 	const [loading, setLoading] = useState(true);
 
-	/**
+	/*
 	 * Holds the error message string if the fetch failed, or `null` if
 	 * everything is fine. Using `null` (rather than `undefined` or `false`)
 	 * makes truthiness checks straightforward: `if (error) { ... }`.
+	 *
+	 * @type {[string|null, Function]}
 	 */
 	const [error, setError] = useState(null);
 
-	// ---------------------------------------------------------------------------
-	// Side effect: fetch boards on mount
-	// ---------------------------------------------------------------------------
+	/*
+	 * ---------------------------------------------------------------------------
+	 * Side effect: fetch boards on mount
+	 * ---------------------------------------------------------------------------
+	 */
 
-	/**
+	/*
 	 * `useEffect` with an empty dependency array (`[]`) runs exactly once —
 	 * after the component that called this hook first mounts to the DOM. This
 	 * is the standard React pattern for "fetch data on mount".
@@ -97,38 +121,49 @@ export function useBoards() {
 		 * @returns {Promise<void>}
 		 */
 		const fetchBoards = async () => {
-			// Call the boards API service function and await the JSON response.
+			/* Call the boards API service function and await the JSON response. */
 			const response = await getAllBoards();
 
-			// Store the board records in state, triggering a re-render so that
-			// consuming components receive the freshly loaded data.
+			/*
+			 * Store the board records in state, triggering a re-render so that
+			 * consuming components receive the freshly loaded data.
+			 */
 			setBoards(response.data);
 		};
 
-		// Invoke the async function, then attach promise handlers to manage the
-		// remaining state transitions.
+		/*
+		 * Invoke the async function, then attach promise handlers to manage the
+		 * remaining state transitions.
+		 */
 		fetchBoards()
-			// If `fetchBoards` rejects for any reason (network error, timeout,
-			// non-2xx HTTP status, or a JSON parse failure), capture the human-
-			// readable message and store it in `error` state so the UI can
-			// surface it. Using `.catch` on the returned promise rather than a
-			// try/catch inside `fetchBoards` keeps the error-handling path
-			// visible at the call site and avoids swallowing errors silently.
+			/*
+			 * If `fetchBoards` rejects for any reason (network error, timeout,
+			 * non-2xx HTTP status, or a JSON parse failure), capture the human-
+			 * readable message and store it in `error` state so the UI can
+			 * surface it. Using `.catch` on the returned promise rather than a
+			 * try/catch inside `fetchBoards` keeps the error-handling path
+			 * visible at the call site and avoids swallowing errors silently.
+			 */
 			.catch(err => setError(err.message))
 
-			// `.finally` runs regardless of whether the promise resolved or
-			// rejected, making it the correct place to clear the loading flag.
-			// This guarantees that `loading` always returns to `false` after
-			// the fetch settles, even if it failed — preventing the UI from
-			// being permanently stuck in a loading state.
+			/*
+			 * `.finally` runs regardless of whether the promise resolved or
+			 * rejected, making it the correct place to clear the loading flag.
+			 * This guarantees that `loading` always returns to `false` after
+			 * the fetch settles, even if it failed — preventing the UI from
+			 * being permanently stuck in a loading state.
+			 */
 			.finally(() => setLoading(false));
-	}, []); // Empty array → effect runs only on mount, never on updates.
 
-	// ---------------------------------------------------------------------------
-	// Return value
-	// ---------------------------------------------------------------------------
+	}, []); /* Empty array — effect runs only on mount, never on updates. */
 
-	/**
+	/*
+	 * ---------------------------------------------------------------------------
+	 * Return value
+	 * ---------------------------------------------------------------------------
+	 */
+
+	/*
 	 * Expose the three pieces of state as a plain object so that consumers
 	 * can destructure only what they need:
 	 *

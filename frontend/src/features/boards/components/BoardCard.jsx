@@ -5,16 +5,20 @@
  * to that board's dedicated detail page via a React Router client-side link.
  */
 
-// Material UI components used to build the card layout:
-//  - Card:            the outermost surface / container with elevation shadow
-//  - CardActionArea:  wraps the entire card surface so the whole card is clickable
-//  - CardContent:     adds consistent inner padding around the card's text content
-//  - Typography:      renders text with MUI's type-scale and spacing utilities
+/*
+ * Material UI components used to build the card layout:
+ *  - Card:            the outermost surface / container with elevation shadow
+ *  - CardActionArea:  wraps the entire card surface so the whole card is clickable
+ *  - CardContent:     adds consistent inner padding around the card's text content
+ *  - Typography:      renders text with MUI's type-scale and spacing utilities
+ */
 import { Typography, CardContent, Card, CardActionArea } from '@mui/material';
 
-// Link from react-router provides client-side navigation without a full page
-// reload. It is passed as the `component` prop to CardActionArea so MUI renders
-// its interactive surface as a router-aware anchor element.
+/*
+ * Link from react-router provides client-side navigation without a full page
+ * reload. It is passed as the `component` prop to CardActionArea so MUI renders
+ * its interactive surface as a router-aware anchor element.
+ */
 import { Link } from "react-router";
 
 /**
@@ -26,11 +30,11 @@ import { Link } from "react-router";
  * that navigates to `/boards/:id` when activated.
  *
  * @component
- * @param {Object}  props           - Component props.
- * @param {Object}  props.board     - The board data object to display.
+ * @param {Object}        props            - Component props.
+ * @param {Object}        props.board      - The board data object to display.
  * @param {string|number} props.board.id   - Unique identifier for the board,
  *                                          used to build the navigation URL.
- * @param {string}  props.board.name       - Human-readable name of the board,
+ * @param {string}        props.board.name - Human-readable name of the board,
  *                                          displayed as the card's heading.
  * @returns {JSX.Element} A Material UI Card that links to the board detail page.
  *
@@ -40,8 +44,10 @@ import { Link } from "react-router";
  */
 export default function BoardCard({ board }) {
 	return (
-		// Card: the MUI surface container. By default it renders with a subtle
-		// drop-shadow (elevation) to lift it visually off the background.
+		/*
+		 * Card: the MUI surface container. By default it renders with a subtle
+		 * drop-shadow (elevation) to lift it visually off the background.
+		 */
 		<Card>
 			{/*
 			 * CardActionArea: makes the entire card surface interactive (hover

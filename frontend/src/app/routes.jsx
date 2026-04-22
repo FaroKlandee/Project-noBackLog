@@ -54,14 +54,18 @@ import { BoardDetailPage, BoardsPage } from "../pages/index";
  */
 const router = createBrowserRouter([
 	{
-		// Route 1: Boards list page — matches the exact path "/boards".
+		/*
+		 * Route 1: Boards list page — matches the exact path "/boards".
+		 */
 		path: "/boards",
 		element: <BoardsPage/>,
 	},
 	{
-		// Route 2: Board detail page — matches "/boards/<any id>" where
-		// `:boardId` is a named dynamic segment captured from the URL.
-		// Example: "/boards/7" → boardId = "7"
+		/*
+		 * Route 2: Board detail page — matches "/boards/<any id>" where
+		 * `:boardId` is a named dynamic segment captured from the URL.
+		 * Example: "/boards/7" → boardId = "7"
+		 */
 		path: "/boards/:boardId",
 		element: <BoardDetailPage/>,
 	}

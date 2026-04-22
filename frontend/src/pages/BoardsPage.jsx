@@ -15,11 +15,11 @@
  *               └─ BoardCard[] (src/features/boards/components/BoardCard.jsx)
  */
 
-// ---------------------------------------------------------------------------
-// Imports
-// ---------------------------------------------------------------------------
+/*
+ * Imports
+ */
 
-/**
+/*
  * `Boards` is the feature-level smart component responsible for:
  *   - Fetching all boards from the backend via the `useBoards` hook
  *   - Rendering a `BoardCard` for every board returned by the API
@@ -32,9 +32,9 @@
  */
 import { Boards } from "../features/boards/index.js";
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+/*
+ * Component
+ */
 
 /**
  * BoardsPage
@@ -63,10 +63,12 @@ import { Boards } from "../features/boards/index.js";
  */
 export default function BoardsPage() {
 	return (
-		// Render the Boards feature component.
-		// All data-fetching (via useBoards), loading/error state handling,
-		// and the list-of-BoardCard rendering all happen inside <Boards />.
-		// BoardsPage itself stays as a pure, stateless wrapper.
+		/*
+		 * Render the Boards feature component.
+		 * All data-fetching (via useBoards), loading/error state handling,
+		 * and the list-of-BoardCard rendering all happen inside <Boards />.
+		 * BoardsPage itself stays as a pure, stateless wrapper.
+		 */
 		<Boards />
 	)
 }

@@ -17,13 +17,14 @@
  * @module features/timeLogs
  */
 
-// ---------------------------------------------------------------------------
-// API service layer
-// ---------------------------------------------------------------------------
-// Re-exports every named export from timeLogService.js, which contains the raw
-// async functions responsible for communicating with the backend REST API
-// (e.g. getAllTimeLogs, getTimeLogById, createTimeLog, updateTimeLog,
-// deleteTimeLog). Consumers that only need to perform direct HTTP operations —
-// such as other hooks, thunks, or one-off utility scripts — can pull these
-// functions straight from this barrel without going deeper into the folder tree.
+/*
+ * API service layer
+ * -----------------
+ * Re-exports every named export from timeLogService.js, which contains the raw
+ * async functions responsible for communicating with the backend REST API
+ * (e.g. getAllTimeLogs, getTimeLogById, createTimeLog, updateTimeLog,
+ * deleteTimeLog). Consumers that only need to perform direct HTTP operations —
+ * such as other hooks, thunks, or one-off utility scripts — can pull these
+ * functions straight from this barrel without going deeper into the folder tree.
+ */
 export * from './api/timeLogService';

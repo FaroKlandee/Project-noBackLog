@@ -3,7 +3,7 @@ import { useLists, Lists } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 
-/**
+/*
  * @file BoardDetailPage.jsx
  * @description Route-level page component for displaying the detail view of a
  * single board. This page is rendered when the user navigates to
@@ -38,7 +38,7 @@ import Alert from '@mui/material/Alert';
  * // lists from the backend.
  */
 export default function BoardDetailPage() {
-	/**
+	/*
 	 * Extract the `boardId` dynamic route parameter from the current URL.
 	 *
 	 * `useParams()` is a React Router hook that returns an object whose keys
@@ -54,7 +54,7 @@ export default function BoardDetailPage() {
 	 */
 	const { boardId } = useParams();
 
-	/**
+	/*
 	 * Fetch all lists that belong to this board.
 	 *
 	 * `useLists` is a custom React hook (defined in
@@ -68,39 +68,39 @@ export default function BoardDetailPage() {
 	 * expects. Passing a non-numeric string here would result in `NaN`, so a
 	 * future improvement could add validation before calling the hook.
 	 *
-	 * The full response object is stored in `responseList` for debugging
-	 * purposes while the feature is still under active development.
-	 *
 	 * @type {{ lists: Array<Object>, loading: boolean, error: string|null }}
 	 */
 	const { lists, loading, error } = useLists(Number(boardId));
 
 	if (loading === true) {
-		return <CircularProgress aria-label="Loading…" />
+		return <CircularProgress aria-label="Loading…" />;
 	}
 
 	if (error !== null) {
-		return <Alert variant="filled" severity="error">
-			An error has occurred.
-</Alert>
+		return <Alert variant="filled" severity="error">An error has occurred.</Alert>;
 	}
 
 	return (
-		// Outermost wrapper for the board detail layout.
-		// Will eventually contain the board header, list columns, and
-		// card drag-and-drop functionality once the feature is complete.
+		/*
+		 * Outermost wrapper for the board detail layout.
+		 * Will eventually contain the board header, list columns, and
+		 * card drag-and-drop functionality once the feature is complete.
+		 */
 		<div>
-			{/* Temporary display of the raw boardId URL parameter.
-			    This is a development placeholder that confirms the correct
-			    board ID has been extracted from the URL before real content
-			    rendering is implemented. */}
+			{/*
+			  * Temporary display of the raw boardId URL parameter.
+			  * This is a development placeholder that confirms the correct
+			  * board ID has been extracted from the URL before real content
+			  * rendering is implemented.
+			  */}
 			<p>{boardId}</p>
 
-			{/* Render the Lists presenter component, passing the lists array
-			    from the useLists hook response. Lists is purely presentational —
-			    it does not fetch data itself, it only renders what it receives. */}
+			{/*
+			  * Render the Lists presenter component, passing the lists array
+			  * from the useLists hook response. Lists is purely presentational —
+			  * it does not fetch data itself, it only renders what it receives.
+			  */}
 			<Lists lists={lists} />
 		</div>
-
-	)
+	);
 }

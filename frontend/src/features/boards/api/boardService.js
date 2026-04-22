@@ -9,16 +9,15 @@
  * All functions are async and follow the same pattern:
  *   - Issue the request through the shared `api` client.
  *   - Return the resolved response on success.
- *   - Log the error to the console on failure (silent fail — callers receive
- *     `undefined` when an error occurs, so callers / hooks should guard for
- *     that case).
+ *   - Log the error to the console on failure, then re-throw so callers
+ *     can catch and inspect the error message themselves.
  */
 
 /**
  * Shared API client instance.
  *
  * Wraps the native `fetch` API with a base URL, a request timeout, JSON
- * serialisation/deserialisation, and unified error handling.  Exposes four
+ * serialisation/deserialisation, and unified error handling. Exposes four
  * convenience methods: `get`, `post`, `put`, and `delete`.
  *
  * Imported from the shared layer so that every feature uses the same
@@ -28,16 +27,15 @@
  */
 import api from '../../../shared/api/api';
 
-// ---------------------------------------------------------------------------
-// READ operations
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * READ operations
+ * --------------------------------------------------------------------------- */
 
 /**
  * Fetches every board that exists in the system.
  *
  * Calls `GET /api/boards/` and returns the full list of board objects as
- * parsed JSON.  Intended to be used
- by list views and dashboard components
+ * parsed JSON. Intended to be used by list views and dashboard components
  * that need to display all available boards at once.
  *
  * @async
@@ -54,13 +52,18 @@ import api from '../../../shared/api/api';
  */
 async function getAllBoards() {
 	try {
-		// Issue a GET request to the boards collection endpoint and return the
-		// parsed JSON response directly to the caller.
+		/*
+		 * Issue a GET request to the boards collection endpoint and return the
+		 * parsed JSON response directly to the caller.
+		 */
 		return await api.get('/api/boards/');
 	} catch (error) {
-		// Log the error without re-throwing so the app degrades gracefully.
-		// The caller will receive `undefined` and should handle that case.
+		/*
+		 * Log the error to the console for debugging, then re-throw the original
+		 * error object so callers can catch and inspect the message themselves.
+		 */
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
@@ -87,22 +90,25 @@ async function getAllBoards() {
  */
 async function getBoardById(id) {
 	try {
-		// Interpolate the board ID into the path to target the correct resource.
+		/*
+		 * Interpolate the board ID into the path to target the correct resource.
+		 */
 		return await api.get(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
-// ---------------------------------------------------------------------------
-// WRITE operations
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * WRITE operations
+ * --------------------------------------------------------------------------- */
 
 /**
  * Creates a new board with the supplied payload.
  *
  * Calls `POST /api/boards/` with `data` serialised as JSON in the request
- * body.  The backend is expected to validate the payload, persist the new
+ * body. The backend is expected to validate the payload, persist the new
  * board, and return the created board object (including its generated `id`).
  *
  * @async
@@ -120,18 +126,21 @@ async function getBoardById(id) {
  */
 async function createBoard(data) {
 	try {
-		// POST the new board payload to the collection endpoint.
-		// The shared api client serialises `data` to JSON automatically.
+		/*
+		 * POST the new board payload to the collection endpoint.
+		 * The shared api client serialises `data` to JSON automatically.
+		 */
 		return await api.post('/api/boards/', data);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
 /**
  * Replaces (full update) an existing board's data.
  *
- * Calls `PUT /api/boards/:id` with `data` as the request body.  A PUT
+ * Calls `PUT /api/boards/:id` with `data` as the request body. A PUT
  * request semantically replaces the entire resource, so `data` should
  * contain all fields the backend expects, not just the changed ones.
  * For partial updates a PATCH endpoint would be more appropriate, but the
@@ -153,23 +162,26 @@ async function createBoard(data) {
  */
 async function updateBoard(id, data) {
 	try {
-		// Target the specific board by ID and send the full updated payload.
+		/*
+		 * Target the specific board by ID and send the full updated payload.
+		 */
 		return await api.put(`/api/boards/${id}`, data);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
-// ---------------------------------------------------------------------------
-// DELETE operations
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * DELETE operations
+ * --------------------------------------------------------------------------- */
 
 /**
  * Permanently deletes a board from the system.
  *
- * Calls `DELETE /api/boards/:id`.  This action is destructive and
+ * Calls `DELETE /api/boards/:id`. This action is destructive and
  * irreversible — the backend is expected to cascade-delete any related
- * resources (columns, cards, etc.) that belong to the board.  Callers
+ * resources (columns, cards, etc.) that belong to the board. Callers
  * should present a confirmation dialog to the user before invoking this.
  *
  * @async
@@ -185,16 +197,19 @@ async function updateBoard(id, data) {
  */
 async function deleteBoard(id) {
 	try {
-		// Target the specific board by ID and issue the DELETE request.
+		/*
+		 * Target the specific board by ID and issue the DELETE request.
+		 */
 		return await api.delete(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
+		throw error;
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Exports
+ * --------------------------------------------------------------------------- */
 
 /**
  * Named exports for all board service functions.
