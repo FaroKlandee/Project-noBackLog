@@ -20,7 +20,7 @@
  * Both are imported from the cards feature barrel so this file never reaches
  * into the cards feature's internal folder structure directly.
  */
-import { useCards, Cards } from '../../cards';
+import { Cards, useCards } from "../../cards";
 
 /*
  * MUI components used:

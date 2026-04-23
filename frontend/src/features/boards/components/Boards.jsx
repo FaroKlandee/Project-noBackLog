@@ -45,16 +45,7 @@ export default function Boards() {
 	 *   loading — boolean; true while the fetch request is in flight
 	 *   error   — holds an error message string if the fetch failed, otherwise null
 	 */
-	const { boards, loading, error } = useBoards();
-
-	/*
-	 * Temporary debug logging — useful during development to inspect
-	 * the raw values coming out of the hook without opening DevTools manually.
-	 * These should be removed (or replaced with a proper logger) before production.
-	 */
-	console.log('boards', boards);
-	console.log('loading', loading);
-	console.log('error', error);
+	const { boards } = useBoards();
 
 	return (
 		/*

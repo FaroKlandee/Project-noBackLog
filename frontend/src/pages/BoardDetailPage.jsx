@@ -88,14 +88,6 @@ export default function BoardDetailPage() {
 		 */
 		<div>
 			{/*
-			  * Temporary display of the raw boardId URL parameter.
-			  * This is a development placeholder that confirms the correct
-			  * board ID has been extracted from the URL before real content
-			  * rendering is implemented.
-			  */}
-			<p>{boardId}</p>
-
-			{/*
 			  * Render the Lists presenter component, passing the lists array
 			  * from the useLists hook response. Lists is purely presentational —
 			  * it does not fetch data itself, it only renders what it receives.

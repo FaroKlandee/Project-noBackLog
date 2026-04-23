@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using NoBacklog.Api.Data;
 using NoBacklog.Api.Services;
@@ -6,7 +7,11 @@ using NoBacklog.Api.Services.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+.AddJsonOptions(options =>
+	{
+		options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+	});
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContext<AppDbContext>(options =>
