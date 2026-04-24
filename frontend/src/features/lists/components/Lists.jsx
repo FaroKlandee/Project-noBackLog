@@ -14,7 +14,7 @@
  * It calls useCards internally and renders the column header + Cards presenter.
  */
 import ListColumn from './ListColumn';
-
+import { Box } from '@mui/material';
 /**
  * Lists component — presentational renderer for a board's list columns.
  *
@@ -57,7 +57,20 @@ export default function Lists({ lists }) {
 	 * The full `list` object is forwarded so ListColumn has access to both
 	 * `id` (for the useCards call) and `name` (for the column header).
 	 */
-	return lists.map((list) => (
-		<ListColumn key={list.id} list={list} />
-	));
+	return (
+		<Box
+			sx={{
+				display:'flex',
+				flexDirection:'row',
+				flexWrap:'nowrap',
+				overflowX:'auto',
+				height: 'calc(100vh - 64px)',
+				gap: 2,
+			}}
+		>
+		{lists.map((list) => (
+			<ListColumn key={list.id} list={list} />
+		))}
+		</Box>
+	);
 }

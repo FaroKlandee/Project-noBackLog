@@ -104,8 +104,10 @@ export default function ListColumn({ list }) {
 		<Box
 			component="section"
 			sx={{
+				flexGrow: 0,
+				flexShrink: 0,
 				width: 280,
-				bgcolor: 'grey.100',
+				bgcolor: '#0066CC',
 				borderRadius: 2,
 				p: 2,
 			}}
