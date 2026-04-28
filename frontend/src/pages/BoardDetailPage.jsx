@@ -2,6 +2,8 @@ import { useParams } from "react-router";
 import { useLists, Lists } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import { useBoardDetails } from "../features/boards";
+import { Typography } from "@mui/material";
 
 /*
  * @file BoardDetailPage.jsx
@@ -70,13 +72,15 @@ export default function BoardDetailPage() {
 	 *
 	 * @type {{ lists: Array<Object>, loading: boolean, error: string|null }}
 	 */
-	const { lists, loading, error } = useLists(Number(boardId));
+	const { lists, loading: loadingList, error: errorList } = useLists(Number(boardId));
 
-	if (loading === true) {
+	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
+
+	if (loadingList === true || loadingBoard === true) {
 		return <CircularProgress aria-label="Loading…" />;
 	}
 
-	if (error !== null) {
+	if (errorList !== null || errorBoard !== null) {
 		return <Alert variant="filled" severity="error">An error has occurred.</Alert>;
 	}
 
@@ -87,6 +91,7 @@ export default function BoardDetailPage() {
 		 * card drag-and-drop functionality once the feature is complete.
 		 */
 		<div>
+			<Typography gutterBottom variant='h5'>{board.name}</Typography>
 			{/*
 			  * Render the Lists presenter component, passing the lists array
 			  * from the useLists hook response. Lists is purely presentational —

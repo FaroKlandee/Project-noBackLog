@@ -22,9 +22,17 @@ export * from './api/boardService';
 /*
  * Custom hooks — React hooks that encapsulate boards-related state and side
  * effects, built on top of the service layer.
- * Re-exports: useBoards
+ * Re-exports: useBoards, useBoardDetails
  */
 export * from './hooks/useBoards';
+
+/*
+ * useBoardDetails — fetches a single board by its numeric ID and exposes
+ * { board, loading, error } state. Used by components that need to display
+ * one board's metadata (e.g. a board header or detail page title).
+ * Re-exports: useBoardDetails
+ */
+export * from './hooks/useBoardDetails';
 
 /*
  * UI Components — React components that render boards-related views.

@@ -9,6 +9,7 @@
  * useBoards is a custom hook that encapsulates all data-fetching logic
  * for the boards collection (loading state, error state, and the data itself).
  */
+import { Alert, Box, CircularProgress } from "@mui/material";
 import { useBoards } from "../hooks/useBoards";
 
 /*
@@ -45,22 +46,37 @@ export default function Boards() {
 	 *   loading — boolean; true while the fetch request is in flight
 	 *   error   — holds an error message string if the fetch failed, otherwise null
 	 */
-	const { boards } = useBoards();
+	const { boards, loading, error } = useBoards();
+
+	if (loading) {
+		return <CircularProgress aria-label={`Loading boards...`} />;
+	}
+
+	if (error) {
+		return (
+			<Alert variant="filled" severity="error" color="error">
+				Failed to load boards.
+			</Alert>
+		);
+	}
 
 	return (
+		<Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'}}>
+			{boards.length === 0 ? "No boards yet" : boards.map((board) => (
+				/*
+				 * BoardCard receives the full board object as a prop.
+				 * The `key` prop is set to `board.id` (the unique database identifier)
+				 * so that React can efficiently reconcile the list when it changes
+				 * (e.g. after a board is added or removed).
+				 */
+				<BoardCard key={board.id} board={board} />
+			))}
+		</Box>
 		/*
 		 * Ternary guard: if the boards array is empty (either because none exist
 		 * yet, or because the fetch hasn't resolved) render a plain-text fallback.
 		 * Otherwise, iterate over the boards and render a BoardCard for each one.
 		 */
-		boards.length === 0 ? "No boards yet" : boards.map((board) => (
-			/*
-			 * BoardCard receives the full board object as a prop.
-			 * The `key` prop is set to `board.id` (the unique database identifier)
-			 * so that React can efficiently reconcile the list when it changes
-			 * (e.g. after a board is added or removed).
-			 */
-			<BoardCard key={board.id} board={board} />
-		))
+
 	)
 }
