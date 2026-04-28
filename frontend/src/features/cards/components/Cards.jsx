@@ -14,7 +14,7 @@
  *   ListItemText — renders primary text (card title) with MUI typography styles.
  *   Chip         — compact badge used to display the card's priority label.
  */
-import { List, ListItem, ListItemText, Chip } from '@mui/material';
+import { List, ListItem, ListItemText, Chip, Typography } from '@mui/material';
 
 /*
  * Maps each Priority value returned by the API to a MUI Chip colour.
@@ -64,60 +64,117 @@ export default function Cards({ cards }) {
 	 * Guard: render a plain-text fallback when there are no cards so the user
 	 * sees clear feedback rather than an empty, invisible container.
 	 */
-	if (cards.length === 0) {
-		return "No cards yet";
-	}
+		if (cards.length === 0) {
+  return (
+    <Typography
+      sx={{
+        color: '#8B5CF6',
+        fontSize: '0.875rem',
+        opacity: 0.75,
+      }}
+    >
+      No cards yet
+    </Typography>
+  );
+}
 
 	return (
 		/*
 		 * MUI List: semantic <ul> wrapper that applies consistent vertical
 		 * spacing and list-role accessibility attributes to its children.
 		 */
-		<List>
-			{cards.map((card) => (
-				/*
-				 * ListItem: a single <li> row for one card.
-				 *
-				 * `key` uses `card.id` (unique DB primary key) so React can
-				 * efficiently reconcile the list on updates without remounting
-				 * unchanged items.
-				 *
-				 * `secondaryAction` anchors content to the trailing edge of the
-				 * row — used here to position the priority Chip on the right so
-				 * it does not interfere with the title text flow.
-				 */
-				<ListItem
-					key={card.id}
-					secondaryAction={
-						/*
-						 * Chip: compact badge that displays the priority label.
-						 *
-						 * `label`   — the text shown inside the chip ("Low" / "Medium" / "High").
-						 * `color`   — resolved from PRIORITY_COLOUR; falls back to "default"
-						 *             if the API returns an unexpected value.
-						 * `size`    — "small" keeps the chip visually lightweight alongside
-						 *             the title text.
-						 * `variant` — "outlined" gives a lighter appearance than a filled chip,
-						 *             reducing visual noise when many cards are visible.
-						 */
-						<Chip
-							label={card.priority}
-							color={PRIORITY_COLOUR[card.priority] ?? 'default'}
-							size="small"
-							variant="outlined"
-						/>
-					}
-				>
-					{/*
-					  * ListItemText: renders card.title using MUI's typographic scale.
-					  *
-					  * `primary` maps to the main line of text — displayed as body1 by
-					  * default. Additional card details (description, due date, etc.) can
-					  * be added later via the `secondary` prop without restructuring markup.
-					  */}
-					<ListItemText primary={card.title} />
-				</ListItem>
-			))}
-		</List>
+			<List
+  sx={{
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 1.5,
+    p: 0,
+  }}
+>
+  {cards.map((card) => (
+    <ListItem
+      key={card.id}
+      secondaryAction={
+      <Chip
+        label={card.priority}
+        size="small"
+        variant="outlined"
+        sx={{
+          fontWeight: 700,
+          fontSize: '0.7rem',
+          height: 24,
+          backgroundColor: 'transparent',
+
+          ...(card.priority === 'Low' && {
+            color: '#4ADE80',
+            borderColor: 'rgba(74, 222, 128, 0.6)',
+          }),
+
+          ...(card.priority === 'Medium' && {
+            color: '#FBBF24',
+            borderColor: 'rgba(251, 191, 36, 0.6)',
+          }),
+
+          ...(card.priority === 'High' && {
+            color: '#F87171',
+            borderColor: 'rgba(248, 113, 113, 0.7)',
+
+            boxShadow: `
+              0 0 6px rgba(248, 113, 113, 0.6),
+              0 0 14px rgba(239, 68, 68, 0.4)
+            `,
+          }),
+        }}
+      />
+      }
+      sx={{
+        borderRadius: 2.5,
+        px: 2,
+        py: 1.5,
+
+        background: `
+          linear-gradient(
+            180deg,
+            rgba(31, 18, 55, 0.95),
+            rgba(20, 12, 40, 0.95)
+          )
+        `,
+
+        border: '1px solid rgba(168, 85, 247, 0.18)',
+
+        boxShadow: `
+          0 6px 18px rgba(0,0,0,0.22),
+          0 0 18px rgba(124, 58, 237, 0.08)
+        `,
+
+        transition: 'all 160ms ease',
+
+        '&:hover': {
+          transform: 'translateY(-1px)',
+          borderColor: 'rgba(168, 85, 247, 0.38)',
+          boxShadow: `
+            0 8px 24px rgba(0,0,0,0.3),
+            0 0 22px rgba(124, 58, 237, 0.18)
+          `,
+        },
+
+        '& .MuiListItemSecondaryAction-root': {
+          right: 16,
+        },
+      }}
+    >
+      <ListItemText
+        primary={card.title}
+        primaryTypographyProps={{
+          sx: {
+            color: '#E9D5FF',
+            fontWeight: 600,
+            pr: 8,
+          },
+        }}
+      />
+    </ListItem>
+  ))}
+</List>
 	);
 }

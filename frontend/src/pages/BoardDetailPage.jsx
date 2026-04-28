@@ -3,7 +3,8 @@ import { useLists, Lists } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
-import { Typography } from "@mui/material";
+import { Box, Divider, Typography } from "@mui/material";
+import { lightBlue } from "@mui/material/colors";
 
 /*
  * @file BoardDetailPage.jsx
@@ -90,14 +91,105 @@ export default function BoardDetailPage() {
 		 * Will eventually contain the board header, list columns, and
 		 * card drag-and-drop functionality once the feature is complete.
 		 */
-		<div>
-			<Typography gutterBottom variant='h5'>{board.name}</Typography>
-			{/*
-			  * Render the Lists presenter component, passing the lists array
-			  * from the useLists hook response. Lists is purely presentational —
-			  * it does not fetch data itself, it only renders what it receives.
-			  */}
-			<Lists lists={lists} />
-		</div>
+			<Box
+  sx={{
+    minHeight: '100vh',
+    background: `
+      radial-gradient(circle at 20% 0%, rgba(124,58,237,0.25), transparent 40%),
+      radial-gradient(circle at 80% 100%, rgba(147,51,234,0.2), transparent 50%),
+      linear-gradient(
+        130deg,
+        transparent 25%,
+        rgba(168, 85, 247, 0.12) 30%,
+        rgba(124, 58, 237, 0.35) 35%,
+        rgba(168, 85, 247, 0.12) 50%,
+        transparent 75%
+      ),
+
+      #0B0120
+    `,
+    color: '#E9D5FF',
+  }}
+>
+			<Box
+  sx={{
+    position: 'relative',
+    px: 3,
+    py: 2,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    background: `
+      linear-gradient(
+        90deg,
+        rgba(12, 10, 35, 0.96) 0%,
+        rgba(24, 13, 54, 0.94) 45%,
+        rgba(45, 14, 83, 0.88) 100%
+      )
+    `,
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid rgba(168, 85, 247, 0.4)',
+    boxShadow: `
+      0 1px 0 rgba(168, 85, 247, 0.6),
+      0 6px 25px rgba(124, 58, 237, 0.25)
+    `,
+    overflow: 'hidden',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      inset: 0,
+      background: `
+        radial-gradient(circle at 20% 50%, rgba(124,58,237,0.35), transparent 60%),
+        radial-gradient(circle at 80% 50%, rgba(147,51,234,0.25), transparent 60%)
+      `,
+      opacity: 0.6,
+      zIndex: 0,
+    },
+
+    '& > *': {
+      position: 'relative',
+      zIndex: 1,
+    },
+  }}
+>
+	<Typography
+  variant="h5"
+  sx={{
+    fontWeight: 600,
+    color: '#E9D5FF',
+    letterSpacing: '0.3px',
+    textShadow: '0 0 12px rgba(124, 58, 237, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+  }}
+				>{board.name}
+				</Typography>
+			</Box>
+			<Divider
+  sx={{
+    mx: 3,
+    my: 1.5,
+    borderColor: 'transparent',
+    height: '1px',
+    background: 'linear-gradient(90deg, transparent, #3B1F5C, transparent)',
+    opacity: 0.6,
+    boxShadow: '0 0 8px rgba(168, 85, 247, 0.6)',
+  }}
+/>
+			<Box
+				sx={{
+					px: 3,
+					py: 2,
+				}}
+			>
+				{/*
+				  * Render the Lists presenter component, passing the lists array
+				  * from the useLists hook response. Lists is purely presentational —
+				  * it does not fetch data itself, it only renders what it receives.
+				  */}
+				<Lists lists={lists} />
+			</Box>
+		</Box>
 	);
 }

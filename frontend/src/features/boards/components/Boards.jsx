@@ -48,11 +48,11 @@ export default function Boards() {
 	 */
 	const { boards, loading, error } = useBoards();
 
-	if (loading) {
+	if (loading === true) {
 		return <CircularProgress aria-label={`Loading boards...`} />;
 	}
 
-	if (error) {
+	if (error != null) {
 		return (
 			<Alert variant="filled" severity="error" color="error">
 				Failed to load boards.

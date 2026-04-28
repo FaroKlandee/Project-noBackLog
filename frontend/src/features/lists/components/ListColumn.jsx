@@ -101,26 +101,48 @@ export default function ListColumn({ list }) {
 		 * column is a distinct section of the board. Inline sx styles are used
 		 * here to keep the component self-contained without a separate CSS file.
 		 */
-		<Box
-			component="section"
-			sx={{
-				flexGrow: 0,
-				flexShrink: 0,
-				width: 280,
-				bgcolor: '#0066CC',
-				borderRadius: 2,
-				p: 2,
-			}}
-		>
+			<Box
+  component="section"
+  sx={{
+    flexGrow: 0,
+    flexShrink: 0,
+    width: 300,
+    minHeight: 220,
+    p: 2,
+    borderRadius: 3,
+    background: `
+      linear-gradient(
+        180deg,
+        rgba(26, 11, 46, 0.88),
+        rgba(15, 6, 35, 0.92)
+      )
+    `,
+    border: '1px solid rgba(168, 85, 247, 0.22)',
+    boxShadow: `
+      0 0 0 1px rgba(255,255,255,0.025) inset,
+      0 12px 35px rgba(0,0,0,0.25),
+      0 0 28px rgba(124, 58, 237, 0.12)
+    `,
+    backdropFilter: 'blur(10px)',
+  }}
+>
 			{/*
 			  * Typography variant="h6": renders the list name as a column heading
 			  * using MUI's typographic scale. `gutterBottom` adds spacing between
 			  * the header and the card list beneath it.
 			  */}
-			<Typography variant="h6" gutterBottom>
-				{list.name}
-			</Typography>
-
+			<Typography
+  variant="h6"
+  sx={{
+    mb: 2,
+    fontWeight: 700,
+    color: '#E9D5FF',
+    fontSize: '1rem',
+    letterSpacing: '0.2px',
+  }}
+>
+  {list.name}
+</Typography>
 			{/*
 			  * Cards: purely presentational — receives the already-fetched cards
 			  * array and renders each card as a MUI ListItem with a priority Chip.

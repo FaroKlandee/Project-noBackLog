@@ -59,15 +59,27 @@ export default function Lists({ lists }) {
 	 */
 	return (
 		<Box
-			sx={{
-				display:'flex',
-				flexDirection:'row',
-				flexWrap:'nowrap',
-				overflowX:'auto',
-				height: 'calc(100vh - 64px)',
-				gap: 2,
-			}}
-		>
+  sx={{
+    px: 2,
+    py: 1,
+    borderRadius: '12px',
+
+    background: '#1A0B2E',
+    border: '1px solid #2E1A47',
+
+    color: '#C4B5FD',
+
+    display: 'flex',
+    flexDirection:'row',
+		flexWrap:'nowrap',
+		overflowX:'auto',
+		flexGrow: 1,
+    gap: 2,
+
+    transition: 'all 0.2s ease',
+
+  }}
+>
 		{lists.map((list) => (
 			<ListColumn key={list.id} list={list} />
 		))}
