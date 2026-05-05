@@ -12,7 +12,7 @@
  * Exported surface area
  * ─────────────────────
  * • listService  – raw async CRUD functions that talk to the REST API
- *                  (getAllLists, getListById, createList, updateList, deleteList)
+ *                  (getAllLists, getListById, createList, updateList, deleteList, reorderLists)
  * • useLists     – React hook that fetches all lists for a given board and
  *                  tracks loading / error state for the calling component
  * • Lists        – Presentational component that renders a board's list columns
@@ -23,7 +23,7 @@
 /*
  * Re-export every named export from the lists API service layer.
  * This surfaces the raw async functions (getAllLists, getListById, createList,
- * updateList, deleteList) so that non-React code (e.g. route loaders, tests,
+ * updateList, deleteList, reorderLists) so that non-React code (e.g. route loaders, tests,
  * or other services) can call the API without going through a hook.
  */
 export * from './api/listService';

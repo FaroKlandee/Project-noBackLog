@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NoBacklog.Api.Models;
+
 using NoBacklog.Api.Services.Interfaces;
 
 namespace NoBacklog.Api.Controllers;
@@ -87,5 +88,25 @@ public class ListsController : ControllerBase
             return NotFound(new { success = false, message = "List not found." });
 
         return Ok(new { success = true, message = "List successfully deleted." });
+    }
+
+    // PATCH /api/lists/reorder
+    // Receives an ordered array of { id, position } items and persists
+    // the new position values in a single SaveChangesAsync call.
+    [HttpPatch("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] int[] orderedIds)
+    {
+        if (orderedIds is null || orderedIds.Length == 0)
+            return BadRequest(new { success = false, message = "Reorder payload cannot be empty." });
+
+        try
+        {
+            await _listService.ReorderListsAsync(orderedIds);
+            return Ok(new { success = true, message = "Lists reordered successfully." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
     }
 }

@@ -226,6 +226,18 @@ const api = {
 	 * @returns {Promise<any>} Parsed JSON response body (typically empty or a confirmation).
 	 */
 	delete: (path) => request('DELETE', path),
+
+	/**
+	 * Send an HTTP PATCH request with a JSON body.
+	 * Used for partial updates to an existing resource — only the supplied
+	 * fields are changed, unlike PUT which replaces the whole resource.
+	 *
+	 * @memberof api
+	 * @param {string} path   - API path relative to {@link BASE_URL}.
+	 * @param {Object} data   - Payload to JSON-serialise and send as the body.
+	 * @returns {Promise<any>} Parsed JSON response body.
+	 */
+	patch: (path, data) => request('PATCH', path, data),
 };
 
 /**

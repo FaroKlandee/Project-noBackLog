@@ -4,7 +4,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
 import { Box, Divider, Typography } from "@mui/material";
-import { lightBlue } from "@mui/material/colors";
+import { DragDropProvider } from "@dnd-kit/react";
+import { move } from "@dnd-kit/helpers";
+import { reorderLists } from "../features/lists/";
 
 /*
  * @file BoardDetailPage.jsx
@@ -73,9 +75,33 @@ export default function BoardDetailPage() {
 	 *
 	 * @type {{ lists: Array<Object>, loading: boolean, error: string|null }}
 	 */
-	const { lists, loading: loadingList, error: errorList } = useLists(Number(boardId));
+	const { lists, loading: loadingList, error: errorList, updateListOrder } = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
+
+	function handleDragEnd(event) {
+		/* Guard: drag was cancelled (e.g. user pressed Escape). */
+		if (event.canceled) {
+			return;
+		}
+
+		/* Guard: no valid drop target — dragged outside any droppable zone. */
+		if (event.operation.target === null) {
+			return;
+		}
+
+		/*
+		 * move() from @dnd-kit/helpers uses the full event object (source index
+		 * and target index) to return a new ordered array of full list objects.
+		 */
+		const newOrderedLists = move(lists, event);
+
+		/* Update local state immediately for a responsive UI. */
+		updateListOrder(newOrderedLists);
+
+		/* Persist the new order to the backend as an array of IDs. */
+		reorderLists(newOrderedLists.map(list => list.id));
+	}
 
 	if (loadingList === true || loadingBoard === true) {
 		return <CircularProgress aria-label="Loading…" />;
@@ -86,11 +112,12 @@ export default function BoardDetailPage() {
 	}
 
 	return (
-		/*
-		 * Outermost wrapper for the board detail layout.
-		 * Will eventually contain the board header, list columns, and
-		 * card drag-and-drop functionality once the feature is complete.
-		 */
+		<DragDropProvider onDragEnd={handleDragEnd}>
+			{/*
+			  * Outermost wrapper for the board detail layout.
+			  * Will eventually contain the board header, list columns, and
+			  * card drag-and-drop functionality once the feature is complete.
+			  */}
 			<Box
   sx={{
     minHeight: '100vh',
@@ -191,5 +218,6 @@ export default function BoardDetailPage() {
 				<Lists lists={lists} />
 			</Box>
 		</Box>
+		</DragDropProvider>
 	);
 }

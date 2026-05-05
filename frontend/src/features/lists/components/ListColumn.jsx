@@ -23,6 +23,14 @@
 import { Cards, useCards } from "../../cards";
 
 /*
+ * useSortable from @dnd-kit/react/sortable makes this column both draggable
+ * and droppable. It requires the item's unique `id` and its current `index`
+ * in the list array. The hook returns a `ref` that must be attached to the
+ * column's root DOM element so the library can track its position.
+ */
+import { useSortable } from "@dnd-kit/react/sortable";
+
+/*
  * MUI components used:
  *   CircularProgress — indeterminate spinner shown while cards are loading.
  *   Alert            — error banner shown when the useCards fetch fails.
@@ -48,22 +56,35 @@ import { CircularProgress, Alert, Typography, Box } from '@mui/material';
  * @component
  * @param {Object} props
  * @param {Object} props.list         - The list object for this column.
- * @param {number} props.list.id      - Unique identifier used to fetch cards.
+ * @param {number} props.list.id      - Unique identifier used to fetch cards
+ *                                      and passed to useSortable as `id`.
  * @param {string} props.list.name    - Display name rendered as the column header.
+ * @param {number} props.index        - The column's current zero-based position
+ *                                      in the lists array. Passed to useSortable
+ *                                      so the DragDropProvider can calculate
+ *                                      the correct drop target index.
  *
  * @returns {JSX.Element} The rendered column: a spinner, an error banner, or
  *   the column header + card list depending on the fetch state.
  *
  * @example
  * // Rendered by Lists.jsx for each list in the board:
- * <ListColumn list={{ id: 3, name: "In Progress" }} />
+ * <ListColumn list={{ id: 3, name: "In Progress" }} index={2} />
  */
-export default function ListColumn({ list }) {
+export default function ListColumn({ list, index }) {
 	/*
 	 * Fetch all cards that belong to this list column.
 	 * useCards is re-triggered automatically if list.id ever changes, ensuring
 	 * the correct cards are always shown without unmounting the component.
 	 */
+	/*
+	 * useSortable registers this column as a sortable drag-and-drop item.
+	 * `id` identifies which list is being dragged; `index` tells the provider
+	 * where it currently sits so it can compute the new order on drop.
+	 * The returned `ref` must be attached to the root element.
+	 */
+	const { ref } = useSortable({ id: list.id, index });
+
 	const { cards, loading, error } = useCards(list.id);
 
 	/*
@@ -102,6 +123,7 @@ export default function ListColumn({ list }) {
 		 * here to keep the component self-contained without a separate CSS file.
 		 */
 			<Box
+  ref={ref}
   component="section"
   sx={{
     flexGrow: 0,

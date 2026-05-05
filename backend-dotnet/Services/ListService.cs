@@ -3,6 +3,7 @@ using NoBacklog.Api.Data;
 using NoBacklog.Api.Models;
 using NoBacklog.Api.Services.Interfaces;
 
+
 namespace NoBacklog.Api.Services;
 
 public class ListService : IListService
@@ -77,6 +78,36 @@ public class ListService : IListService
         if (list is null) return false;
 
         _context.Lists.Remove(list);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> ReorderListsAsync(IEnumerable<int> orderedIds)
+    {
+        /* Convert to a list so we can iterate with an index. */
+        var ordered = orderedIds.ToList();
+
+        /*
+         * Loop through the supplied IDs in their new sequence.
+         * Each list's position is set to its zero-based index in the array,
+         * so the first ID gets position 0, the second gets 1, and so on.
+         */
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            var list = await _context.Lists.FindAsync(ordered[i]);
+
+            /* Skip silently if an ID doesn't match any list in the database. */
+            if (list is null) continue;
+
+            list.Position = i;
+            list.UpdatedAt = DateTime.UtcNow;
+        }
+
+        /*
+         * A single SaveChangesAsync call persists all position updates in one
+         * database round-trip rather than issuing one UPDATE per list.
+         */
         await _context.SaveChangesAsync();
 
         return true;

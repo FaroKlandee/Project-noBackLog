@@ -36,20 +36,24 @@ import { getAllLists } from "../api/listService";
  *   `useParams()` in BoardDetailPage.
  *
  * @returns {{
- *   lists:   Array<Object>,
- *   loading: boolean,
- *   error:   string|null
+ *   lists:           Array<Object>,
+ *   loading:         boolean,
+ *   error:           string|null,
+ *   updateListOrder: Function
  * }} An object containing:
- *   - `lists`   – The array of list objects returned by the API. Each object
- *                 represents a single column on the board (e.g. "To Do",
- *                 "In Progress", "Done"). Starts as an empty array before the
- *                 fetch completes.
- *   - `loading` – `true` while the HTTP request is in-flight; flips to `false`
- *                 once the request either resolves or rejects. Useful for
- *                 rendering a spinner or skeleton UI.
- *   - `error`   – `null` on success; set to the caught error's `.message`
- *                 string if the fetch fails. Allows the consumer to display a
- *                 user-facing error message.
+ *   - `lists`           – The array of list objects returned by the API. Each object
+ *                         represents a single column on the board (e.g. "To Do",
+ *                         "In Progress", "Done"). Starts as an empty array before the
+ *                         fetch completes.
+ *   - `loading`         – `true` while the HTTP request is in-flight; flips to `false`
+ *                         once the request either resolves or rejects. Useful for
+ *                         rendering a spinner or skeleton UI.
+ *   - `error`           – `null` on success; set to the caught error's `.message`
+ *                         string if the fetch fails. Allows the consumer to display a
+ *                         user-facing error message.
+ *   - `updateListOrder` – Controlled setter that replaces the lists array with a
+ *                         new ordered array. Consumers call this after a drag-and-drop
+ *                         reorder to update local state without triggering a full refetch.
  *
  * @example
  * // Inside a component that receives the boardId from the URL:
@@ -94,6 +98,10 @@ export function useLists(id) {
 	 */
 	const [error, setError] = useState(null);
 
+	function updateListOrder(newOrderedLists) {
+		setLists(newOrderedLists);
+	}
+
 	/*
 	 * -------------------------------------------------------------------------
 	 * Side effect: fetch lists whenever the board ID changes
@@ -134,8 +142,7 @@ export function useLists(id) {
 			 */
 			.catch(err => setError(err.message))
 			/*
-			 * Always
- runs after either resolution or rejection. Marks the loading
+			 * Always runs after either resolution or rejection. Marks the loading
 			 * phase as complete so consumers can hide spinners / skeletons.
 			 */
 			.finally(() => setLoading(false));
@@ -157,5 +164,5 @@ export function useLists(id) {
 	 * Expose state as a plain object so consumers can destructure only what they
 	 * need: const { lists } = useLists(id)  ← valid; unused values are ignored.
 	 */
-	return { lists, loading, error };
+	return { lists, loading, error, updateListOrder };
 }

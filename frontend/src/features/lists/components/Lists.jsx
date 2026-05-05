@@ -80,8 +80,8 @@ export default function Lists({ lists }) {
 
   }}
 >
-		{lists.map((list) => (
-			<ListColumn key={list.id} list={list} />
+		{lists.map((list, index) => (
+			<ListColumn key={list.id} list={list} index={index} />
 		))}
 		</Box>
 	);

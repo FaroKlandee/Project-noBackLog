@@ -5,7 +5,7 @@
  * `api` client (`shared/api/api.js`).  Each wrapper follows the same
  * try/catch pattern:
  *   - on success  → returns the parsed JSON response object from the server
- *   - on failure  → logs the error to the console and re-throws
+ *   - on failure  → re-throws the original error so callers can handle it
  *
  * The module is consumed primarily by the `useLists` hook and can also be
  * imported directly via the lists feature barrel (`features/lists/index.js`).
@@ -59,11 +59,6 @@ async function getAllLists(boardId) {
 		 */
 		return await api.get(`/api/lists?boardId=${boardId}`)
 	} catch (error) {
-		/*
-		 * Log the error for debugging, then re-throw the original error so
-		 * callers can inspect the message and handle it appropriately.
-		 */
-		console.error(`${error}`);
 		throw error;
 	}
 }
@@ -90,7 +85,6 @@ async function getListById(id) {
 		 */
 		return await api.get(`/api/lists/${id}`);
 	} catch (error) {
-		console.error(`${error}`);
 		throw error;
 	}
 }
@@ -126,7 +120,6 @@ async function createList(data) {
 		 */
 		return await api.post('/api/lists/', data);
 	} catch (error) {
-		console.error(`${error}`);
 		throw error;
 	}
 }
@@ -161,7 +154,6 @@ async function updateList(id, data) {
 		 */
 		return await api.put(`/api/lists/${id}`, data);
 	} catch (error) {
-		console.error(`${error}`);
 		throw error;
 	}
 }
@@ -191,7 +183,14 @@ async function deleteList(id) {
 		 */
 		return await api.delete(`/api/lists/${id}`);
 	} catch (error) {
-		console.error(`${error}`);
+		throw error;
+	}
+}
+
+async function reorderLists(data) {
+	try {
+		return await api.patch(`/api/lists/reorder`, data);
+	} catch (error) {
 		throw error;
 	}
 }
@@ -213,4 +212,4 @@ async function deleteList(id) {
  *   import { getAllLists, createList } from '../api/listService';
  *   import { getAllLists } from '../../lists';           // via barrel
  */
-export { getAllLists, getListById, createList, updateList, deleteList };
+export { getAllLists, getListById, createList, updateList, deleteList, reorderLists };
