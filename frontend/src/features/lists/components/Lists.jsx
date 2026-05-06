@@ -14,7 +14,10 @@
  * It calls useCards internally and renders the column header + Cards presenter.
  */
 import ListColumn from './ListColumn';
-import { Box } from '@mui/material';
+import { Box, Button } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import { grey, purple } from '@mui/material/colors';
+
 /**
  * Lists component — presentational renderer for a board's list columns.
  *
@@ -83,6 +86,20 @@ export default function Lists({ lists }) {
 		{lists.map((list, index) => (
 			<ListColumn key={list.id} list={list} index={index} />
 		))}
+			<Box
+				sx={{
+					width: 300,
+					minHeight: 220,
+				}}
+			>
+				<Button sx={{ bgcolor: purple[500], color: grey[100], borderColor: purple[500], borderRadius: 3 }}
+					variant='outlined'
+					fullWidth
+					startIcon={<AddIcon fontSize='inherit' />}
+				>
+					Add new list
+				</Button>
+			</Box>
 		</Box>
 	);
 }

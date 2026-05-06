@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
  * getAllLists is the service function responsible for sending the HTTP GET
  * request that retrieves every list belonging to the given board ID.
  */
-import { getAllLists } from "../api/listService";
+import { createList, getAllLists } from "../api/listService";
 
 /**
  * Custom hook that fetches all lists associated with a given board and exposes
@@ -102,6 +102,18 @@ export function useLists(id) {
 		setLists(newOrderedLists);
 	}
 
+	async function createNewList(name) {
+		setLoading(true);
+		try {
+			const list = await createList(name);
+			setLists([...lists, list]);
+		} catch (error) {
+			setError(error.message);
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	/*
 	 * -------------------------------------------------------------------------
 	 * Side effect: fetch lists whenever the board ID changes
@@ -164,5 +176,5 @@ export function useLists(id) {
 	 * Expose state as a plain object so consumers can destructure only what they
 	 * need: const { lists } = useLists(id)  ← valid; unused values are ignored.
 	 */
-	return { lists, loading, error, updateListOrder };
+	return { lists, loading, error, updateListOrder, createNewList };
 }
