@@ -75,7 +75,7 @@ export default function BoardDetailPage() {
 	 *
 	 * @type {{ lists: Array<Object>, loading: boolean, error: string|null }}
 	 */
-	const { lists, loading: loadingList, error: errorList, updateListOrder } = useLists(Number(boardId));
+	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList } = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
 
@@ -215,7 +215,7 @@ export default function BoardDetailPage() {
 				  * from the useLists hook response. Lists is purely presentational —
 				  * it does not fetch data itself, it only renders what it receives.
 				  */}
-				<Lists lists={lists} />
+					<Lists lists={lists} createNewList={createNewList} />
 			</Box>
 		</Box>
 		</DragDropProvider>

@@ -14,9 +14,11 @@
  * It calls useCards internally and renders the column header + Cards presenter.
  */
 import ListColumn from './ListColumn';
-import { Box, Button } from '@mui/material';
+import { Box, Button, IconButton, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import { grey, purple } from '@mui/material/colors';
+import { useState } from 'react';
 
 /**
  * Lists component — presentational renderer for a board's list columns.
@@ -44,62 +46,111 @@ import { grey, purple } from '@mui/material/colors';
  * @example
  * <Lists lists={[]} />
  */
-export default function Lists({ lists }) {
-	/*
-	 * Guard: if the lists array is empty (board has no lists yet, or the fetch
-	 * hasn't resolved), render a plain-text fallback instead of an empty
-	 * container. This gives the user clear feedback rather than a blank page.
-	 */
-	if (lists.length === 0) {
-		return "No lists yet";
-	}
+export default function Lists({ lists, createNewList }) {
+  const [isAdding, setIsAdding] = useState(false);
 
-	/*
-	 * Map each list object to a ListColumn. The `key` prop uses `list.id` so
-	 * React can efficiently reconcile columns when they are added or removed.
-	 * The full `list` object is forwarded so ListColumn has access to both
-	 * `id` (for the useCards call) and `name` (for the column header).
-	 */
-	return (
-		<Box
-  sx={{
-    px: 2,
-    py: 1,
-    borderRadius: '12px',
+  const [newListName, setNewListName] = useState('');
 
-    background: '#1A0B2E',
-    border: '1px solid #2E1A47',
+   async function handleConfirm() {
+    if (newListName.trim() === '') return;
+    await createNewList(newListName);
+    setNewListName('');
+    setIsAdding(false);
+  }
 
-    color: '#C4B5FD',
+  function handleCancel() {
+    setNewListName('');
+    setIsAdding(false);
+  }
 
-    display: 'flex',
-    flexDirection:'row',
-		flexWrap:'nowrap',
-		overflowX:'auto',
-		flexGrow: 1,
-    gap: 2,
+  /*
+   * Map each list object to a ListColumn. The `key` prop uses `list.id` so
+   * React can efficiently reconcile columns when they are added or removed.
+   * The full `list` object is forwarded so ListColumn has access to both
+   * `id` (for the useCards call) and `name` (for the column header).
+   */
 
-    transition: 'all 0.2s ease',
+  return (
+    <Box
+      sx={{
+        px: 2,
+        py: 1,
+        borderRadius: '12px',
 
-  }}
->
-		{lists.map((list, index) => (
-			<ListColumn key={list.id} list={list} index={index} />
-		))}
-			<Box
-				sx={{
-					width: 300,
-					minHeight: 220,
-				}}
-			>
-				<Button sx={{ bgcolor: purple[500], color: grey[100], borderColor: purple[500], borderRadius: 3 }}
-					variant='outlined'
-					fullWidth
-					startIcon={<AddIcon fontSize='inherit' />}
-				>
-					Add new list
-				</Button>
-			</Box>
-		</Box>
-	);
+        background: '#1A0B2E',
+        border: '1px solid #2E1A47',
+
+        color: '#C4B5FD',
+
+        display: 'flex',
+        flexDirection: 'row',
+        flexWrap: 'nowrap',
+        overflowX: 'auto',
+        flexGrow: 1,
+        gap: 2,
+
+        transition: 'all 0.2s ease',
+      }}
+		>
+			{lists.length === 0 ?
+				(<p>No lists for now...</p>) : (
+
+						lists.map((list, index) => (
+							<ListColumn key={list.id} list={list} index={index} />
+						))
+
+				)}
+
+      <Box sx={{ width: 300, minHeight: 220, flexShrink: 0 }}>
+        {isAdding ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+						<TextField
+						autoFocus
+              focused
+              value={newListName}
+              onChange={e => setNewListName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+              placeholder="Enter list name…"
+              color="secondary"
+              size="small"
+              sx={{
+                bgcolor: grey[300],
+                color: grey[100],
+                borderColor: purple[500],
+                borderRadius: 2,
+              }}
+            />
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={handleConfirm}
+                sx={{ bgcolor: purple[500] }}
+              >
+                Confirm
+              </Button>
+              <IconButton onClick={handleCancel} size="small">
+                <CloseIcon fontSize="large" sx={{ color: grey[400] }} />
+              </IconButton>
+            </Box>
+          </Box>
+        ) : (
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<AddIcon fontSize="inherit" />}
+            onClick={() => setIsAdding(true)}
+            sx={{
+              bgcolor: purple[500],
+              color: grey[100],
+              borderColor: purple[500],
+              borderRadius: 3,
+            }}
+          >
+            Add new list
+          </Button>
+        )}
+      </Box>
+    </Box>
+  );
 }

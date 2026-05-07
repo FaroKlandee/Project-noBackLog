@@ -105,7 +105,7 @@ export function useLists(id) {
 	async function createNewList(name) {
 		setLoading(true);
 		try {
-			const list = await createList(name);
+			const list = await createList({ name, boardId: id });
 			setLists([...lists, list]);
 		} catch (error) {
 			setError(error.message);
