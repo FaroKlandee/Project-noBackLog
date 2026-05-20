@@ -46,7 +46,7 @@ import { useState } from 'react';
  * @example
  * <Lists lists={[]} />
  */
-export default function Lists({ lists, createNewList }) {
+export default function Lists({ lists, createNewList, deleteExistingList}) {
   const [isAdding, setIsAdding] = useState(false);
 
   const [newListName, setNewListName] = useState('');
@@ -96,7 +96,7 @@ export default function Lists({ lists, createNewList }) {
 				(<p>No lists for now...</p>) : (
 
 						lists.map((list, index) => (
-							<ListColumn key={list.id} list={list} index={index} />
+							<ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
 						))
 
 				)}

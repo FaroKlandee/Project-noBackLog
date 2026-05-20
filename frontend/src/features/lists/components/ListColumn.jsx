@@ -21,7 +21,9 @@
  * into the cards feature's internal folder structure directly.
  */
 import { Cards, useCards } from "../../cards";
-
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { useState } from "react";
+import DeleteIcon from "@mui/icons-material/Delete"
 /*
  * useSortable from @dnd-kit/react/sortable makes this column both draggable
  * and droppable. It requires the item's unique `id` and its current `index`
@@ -39,7 +41,7 @@ import { useSortable } from "@dnd-kit/react/sortable";
  *   Box              — generic layout wrapper used to give the column a
  *                      visual boundary and consistent padding.
  */
-import { CircularProgress, Alert, Typography, Box } from '@mui/material';
+import { CircularProgress, Alert, Typography, Box, Button, IconButton, Menu, MenuItem, Stack } from '@mui/material';
 
 /**
  * ListColumn component — container for a single Kanban-style list column.
@@ -71,7 +73,18 @@ import { CircularProgress, Alert, Typography, Box } from '@mui/material';
  * // Rendered by Lists.jsx for each list in the board:
  * <ListColumn list={{ id: 3, name: "In Progress" }} index={2} />
  */
-export default function ListColumn({ list, index }) {
+export default function ListColumn({ list, index, deleteExistingList }) {
+
+	const [anchorEl, setAnchorEl] = useState(null);
+	const open = anchorEl !== null;
+
+	const handleClick = (event) => {
+		setAnchorEl(event.currentTarget);
+	};
+
+	const handleClose = () => {
+		setAnchorEl(null);
+	};
 	/*
 	 * Fetch all cards that belong to this list column.
 	 * useCards is re-triggered automatically if list.id ever changes, ensuring
@@ -109,6 +122,10 @@ export default function ListColumn({ list, index }) {
 		);
 	}
 
+	async function handleDelete(listId) {
+		await deleteExistingList(listId)
+	}
+
 	/*
 	 * Happy path — cards loaded successfully.
 	 * Render the column header using the list name, then pass the fetched cards
@@ -125,12 +142,13 @@ export default function ListColumn({ list, index }) {
 			<Box
   ref={ref}
   component="section"
-  sx={{
+			sx={{
     flexGrow: 0,
     flexShrink: 0,
     width: 300,
     minHeight: 220,
-    p: 2,
+				px: 2,
+    pt: 0.5,
     borderRadius: 3,
     background: `
       linear-gradient(
@@ -147,24 +165,64 @@ export default function ListColumn({ list, index }) {
     `,
     backdropFilter: 'blur(10px)',
   }}
->
-			{/*
-			  * Typography variant="h6": renders the list name as a column heading
-			  * using MUI's typographic scale. `gutterBottom` adds spacing between
-			  * the header and the card list beneath it.
-			  */}
-			<Typography
+		>
+			<Stack
+				direction='row'
+				sx={{
+					alignItems: 'Center',
+					mb: 2,
+				}}
+			>
+				<Typography
   variant="h6"
   sx={{
-    mb: 2,
     fontWeight: 700,
     color: '#E9D5FF',
     fontSize: '1rem',
     letterSpacing: '0.2px',
   }}
->
-  {list.name}
-</Typography>
+				>
+					{list.name}
+				</Typography>
+				<IconButton
+					aria-label="more"
+					aria-controls={open ? 'long menu' : undefined}
+					aria-expanded={open}
+					aria-haspopup="true"
+					onClick={handleClick}
+					sx={{
+						color: '#eceff1',
+						marginLeft: 'auto',
+
+					}}
+				>
+					<MoreVertIcon />
+				</IconButton>
+				<Menu
+					open={open}
+					onClose={handleClose}
+					anchorEl={anchorEl}
+					slotProps={{
+						paper: {
+							style: {
+								maxHeight: 20 * 4.5,
+								width: '20ch',
+								},
+						},
+					}}
+				>
+					<MenuItem
+						onClick={() => { handleClose(); handleDelete(list.id); }}>
+						Delete<DeleteIcon/>
+					</MenuItem>
+				</Menu>
+			</Stack>
+			{/*
+			  * Typography variant="h6": renders the list name as a column heading
+			  * using MUI's typographic scale. `gutterBottom` adds spacing between
+			  * the header and the card list beneath it.
+			  */}
+
 			{/*
 			  * Cards: purely presentational — receives the already-fetched cards
 			  * array and renders each card as a MUI ListItem with a priority Chip.
