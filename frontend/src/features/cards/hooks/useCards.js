@@ -61,10 +61,6 @@ import { getAllCards } from "../api/cardService";
  */
 export function useCards(listId) {
 
-	/* -------------------------------------------------------------------------
-	 * State declarations
-	 * ---------------------------------------------------------------------- */
-
 	/**
 	 * Holds the array of card objects fetched from the API.
 	 * Initialised to an empty array so that consumers can safely call
@@ -92,9 +88,6 @@ export function useCards(listId) {
 	 */
 	const [error, setError] = useState(null);
 
-	/* -------------------------------------------------------------------------
-	 * Side effect: fetch cards whenever the list ID changes
-	 * ---------------------------------------------------------------------- */
 
 	useEffect(() => {
 		/**
@@ -141,10 +134,6 @@ export function useCards(listId) {
 	 * without requiring a full page navigation or component unmount.
 	 */
 	}, [listId]);
-
-	/* -------------------------------------------------------------------------
-	 * Return value
-	 * ---------------------------------------------------------------------- */
 
 	/*
 	 * Expose state as a plain object so consumers can destructure only what they
