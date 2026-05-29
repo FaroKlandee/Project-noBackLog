@@ -73,39 +73,40 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
   return (
     <Box
       sx={{
-        px: 2,
-        py: 1,
-        borderRadius: '12px',
-
-        background: '#1A0B2E',
-        border: '1px solid #2E1A47',
-
-        color: '#C4B5FD',
-
         display: 'flex',
         flexDirection: 'row',
         flexWrap: 'nowrap',
         overflowX: 'auto',
         flexGrow: 1,
         gap: 2,
-
-        transition: 'all 0.2s ease',
+        alignItems: 'flex-start',
+        pb: 2,
       }}
-		>
-			{lists.length === 0 ?
-				(<p>No lists for now...</p>) : (
+    >
+      {lists.length === 0 ?
+        (<p>No lists for now...</p>) : (
 
-						lists.map((list, index) => (
-							<ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
-						))
+            lists.map((list, index) => (
+              <ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
+            ))
 
-				)}
+        )}
 
-      <Box sx={{ width: 300, minHeight: 220, flexShrink: 0 }}>
+      <Box sx={{ width: 280, flexShrink: 0 }}>
         {isAdding ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-						<TextField
-						autoFocus
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              bgcolor: '#12101F',
+              border: '1px solid #2A2545',
+              borderRadius: '12px',
+              p: 1.5,
+            }}
+          >
+            <TextField
+              autoFocus
               focused
               value={newListName}
               onChange={e => setNewListName(e.target.value)}
@@ -114,10 +115,13 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
               color="secondary"
               size="small"
               sx={{
-                bgcolor: grey[300],
-                color: grey[100],
-                borderColor: purple[500],
-                borderRadius: 2,
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#1C1A2E',
+                  borderRadius: 1,
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#3D3560' },
+                  '&:hover fieldset': { borderColor: '#7C3AED' },
+                },
               }}
             />
 
@@ -125,7 +129,12 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
               <Button
                 variant="contained"
                 onClick={handleConfirm}
-                sx={{ bgcolor: purple[500] }}
+                sx={{
+                  bgcolor: '#7C3AED',
+                  '&:hover': { bgcolor: '#6D28D9' },
+                  textTransform: 'none',
+                  borderRadius: 1,
+                }}
               >
                 Confirm
               </Button>
@@ -141,10 +150,18 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
             startIcon={<AddIcon fontSize="inherit" />}
             onClick={() => setIsAdding(true)}
             sx={{
-              bgcolor: purple[500],
-              color: grey[100],
-              borderColor: purple[500],
-              borderRadius: 3,
+              width: '100%',
+              justifyContent: 'flex-start',
+              color: '#7C6BAE',
+              borderColor: '#4B3F8A',
+              borderStyle: 'dashed',
+              borderWidth: '1px',
+              borderRadius: '12px',
+              py: 1.5,
+              px: 2,
+              textTransform: 'none',
+              bgcolor: 'transparent',
+              '&:hover': { bgcolor: 'rgba(124,107,174,0.08)', borderColor: '#7C6BAE' },
             }}
           >
             Add new list

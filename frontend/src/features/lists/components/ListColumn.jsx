@@ -20,7 +20,7 @@
  * Both are imported from the cards feature barrel so this file never reaches
  * into the cards feature's internal folder structure directly.
  */
-import { Cards, useCards } from "../../cards";
+import { Cards, useCards, createCard, deleteCard } from "../../cards";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { useState } from "react";
 import DeleteIcon from "@mui/icons-material/Delete"
@@ -41,7 +41,9 @@ import { useSortable } from "@dnd-kit/react/sortable";
  *   Box              — generic layout wrapper used to give the column a
  *                      visual boundary and consistent padding.
  */
-import { CircularProgress, Alert, Typography, Box, Button, IconButton, Menu, MenuItem, Stack } from '@mui/material';
+import { CircularProgress, Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 
 /**
  * ListColumn component — container for a single Kanban-style list column.
@@ -75,16 +77,43 @@ import { CircularProgress, Alert, Typography, Box, Button, IconButton, Menu, Men
  */
 export default function ListColumn({ list, index, deleteExistingList }) {
 
+	/* List-level MoreVert menu state */
 	const [anchorEl, setAnchorEl] = useState(null);
 	const open = anchorEl !== null;
 
-	const handleClick = (event) => {
-		setAnchorEl(event.currentTarget);
-	};
+	const handleClick = (event) => setAnchorEl(event.currentTarget);
+	const handleClose = () => setAnchorEl(null);
 
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
+	/* Add-card form state */
+	const [isAddingCard, setIsAddingCard] = useState(false);
+	const [newCardTitle, setNewCardTitle] = useState('');
+	const [newCardPriority, setNewCardPriority] = useState('Medium');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	async function handleCreateCard() {
+		if (newCardTitle.trim() === '') return;
+		setIsSubmitting(true);
+		try {
+			const response = await createCard({ title: newCardTitle, priority: newCardPriority, listId: list.id });
+			addCard(response.data);
+			setNewCardTitle('');
+			setNewCardPriority('Medium');
+			setIsAddingCard(false);
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	function handleCancelCard() {
+		setNewCardTitle('');
+		setNewCardPriority('Medium');
+		setIsAddingCard(false);
+	}
+
+	async function handleDeleteCard(cardId) {
+		await deleteCard(cardId);
+		removeCard(cardId);
+	}
 	/*
 	 * Fetch all cards that belong to this list column.
 	 * useCards is re-triggered automatically if list.id ever changes, ensuring
@@ -98,7 +127,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 */
 	const { ref } = useSortable({ id: list.id, index });
 
-	const { cards, loading, error } = useCards(list.id);
+	const { cards, loading, error, addCard, removeCard } = useCards(list.id);
 
 	/*
 	 * Traffic light — loading check first.
@@ -122,8 +151,8 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		);
 	}
 
-	async function handleDelete(listId) {
-		await deleteExistingList(listId)
+	async function handleDeleteList(listId) {
+		await deleteExistingList(listId);
 	}
 
 	/*
@@ -139,81 +168,54 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		 * column is a distinct section of the board. Inline sx styles are used
 		 * here to keep the component self-contained without a separate CSS file.
 		 */
-			<Box
-  ref={ref}
-  component="section"
+		<Box
+			ref={ref}
+			component="section"
 			sx={{
-    flexGrow: 0,
-    flexShrink: 0,
-    width: 300,
-    minHeight: 220,
-				px: 2,
-    pt: 0.5,
-    borderRadius: 3,
-    background: `
-      linear-gradient(
-        180deg,
-        rgba(26, 11, 46, 0.88),
-        rgba(15, 6, 35, 0.92)
-      )
-    `,
-    border: '1px solid rgba(168, 85, 247, 0.22)',
-    boxShadow: `
-      0 0 0 1px rgba(255,255,255,0.025) inset,
-      0 12px 35px rgba(0,0,0,0.25),
-      0 0 28px rgba(124, 58, 237, 0.12)
-    `,
-    backdropFilter: 'blur(10px)',
-  }}
+				flexGrow: 0,
+				flexShrink: 0,
+				width: 280,
+				bgcolor: '#12101F',
+				border: '1px solid #2A2545',
+				borderRadius: '12px',
+				p: 1.5,
+			}}
 		>
-			<Stack
-				direction='row'
-				sx={{
-					alignItems: 'Center',
-					mb: 2,
-				}}
-			>
-				<Typography
-  variant="h6"
-  sx={{
-    fontWeight: 700,
-    color: '#E9D5FF',
-    fontSize: '1rem',
-    letterSpacing: '0.2px',
-  }}
-				>
+			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
+				<Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem', flexGrow: 1 }}>
 					{list.name}
 				</Typography>
-				<IconButton
-					aria-label="more"
-					aria-controls={open ? 'long menu' : undefined}
-					aria-expanded={open}
-					aria-haspopup="true"
-					onClick={handleClick}
+				{/* Card count badge */}
+				<Box
+					component="span"
 					sx={{
-						color: '#eceff1',
-						marginLeft: 'auto',
-
+						ml: 1,
+						px: 1,
+						py: 0.25,
+						bgcolor: '#1E1B3A',
+						borderRadius: '999px',
+						fontSize: '0.75rem',
+						color: '#7C6BAE',
 					}}
 				>
-					<MoreVertIcon />
+					{cards.length}
+				</Box>
+				{/* Add card button */}
+				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: '#7C6BAE', p: 0.5 }}>
+					<AddIcon fontSize="small" />
+				</IconButton>
+				{/* List options menu */}
+				<IconButton size="small" onClick={handleClick} sx={{ color: '#7C6BAE', p: 0.5 }}>
+					<MoreVertIcon fontSize="small" />
 				</IconButton>
 				<Menu
 					open={open}
 					onClose={handleClose}
 					anchorEl={anchorEl}
-					slotProps={{
-						paper: {
-							style: {
-								maxHeight: 20 * 4.5,
-								width: '20ch',
-								},
-						},
-					}}
+					slotProps={{ paper: { sx: { bgcolor: '#1C1A2E', border: '1px solid #2A2545', borderRadius: 1 } } }}
 				>
-					<MenuItem
-						onClick={() => { handleClose(); handleDelete(list.id); }}>
-						Delete<DeleteIcon/>
+					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: '#F87171', gap: 1 }}>
+						<DeleteIcon fontSize="small" /> Delete list
 					</MenuItem>
 				</Menu>
 			</Stack>
@@ -228,7 +230,85 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			  * array and renders each card as a MUI ListItem with a priority Chip.
 			  * All fetch logic stays here in ListColumn; Cards never calls a hook.
 			  */}
-			<Cards cards={cards} />
+			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+
+			{/* Inline add-card form — appears below cards when isAddingCard is true */}
+			{isAddingCard && (
+				<Box
+					onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) handleCancelCard(); }}
+					sx={{
+						mt: 1,
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 1,
+						bgcolor: '#1C1A2E',
+						border: '1px solid #2A2545',
+						borderRadius: '8px',
+						p: 1.5,
+					}}
+				>
+					<TextField
+						autoFocus
+						placeholder="Enter card title…"
+						value={newCardTitle}
+						onChange={e => setNewCardTitle(e.target.value)}
+						onKeyDown={e => e.key === 'Enter' && handleCreateCard()}
+						size="small"
+						fullWidth
+						slotProps={{
+							input: {
+								sx: {
+									color: '#fff',
+									bgcolor: '#12101F',
+									borderRadius: 1,
+									fontSize: '0.9rem',
+								},
+							},
+						}}
+					/>
+					<Stack direction="row" spacing={1} alignItems="center">
+						<FormControl size="small" sx={{ minWidth: 110 }}>
+							<Select
+								value={newCardPriority}
+								onChange={e => setNewCardPriority(e.target.value)}
+								sx={{
+									color: '#fff',
+									bgcolor: '#12101F',
+									fontSize: '0.9rem',
+									'& .MuiNativeSelect-icon': { color: '#7C6BAE' },
+								}}
+								native
+							>
+								<option value="Low">Low</option>
+								<option value="Medium">Medium</option>
+								<option value="High">High</option>
+							</Select>
+						</FormControl>
+						<Box
+							component="button"
+							onClick={handleCreateCard}
+							disabled={isSubmitting}
+							sx={{
+								px: 2,
+								py: 0.75,
+								bgcolor: '#7C3AED',
+								color: '#fff',
+								border: 'none',
+								borderRadius: '6px',
+								cursor: 'pointer',
+								fontWeight: 600,
+								fontSize: '0.875rem',
+								'&:disabled': { opacity: 0.5 },
+							}}
+						>
+							{isSubmitting ? '…' : 'Add'}
+						</Box>
+						<IconButton size="small" onClick={handleCancelCard} sx={{ color: '#7C6BAE', p: 0.5 }}>
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					</Stack>
+				</Box>
+			)}
 		</Box>
 	);
 }

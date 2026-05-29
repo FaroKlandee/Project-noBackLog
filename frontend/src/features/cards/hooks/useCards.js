@@ -136,8 +136,24 @@ export function useCards(listId) {
 	}, [listId]);
 
 	/*
+	 * Controlled setter — appends a newly created card to the local cards array
+	 * so the UI updates immediately without a full refetch.
+	 */
+	function addCard(card) {
+		setCards(prev => [...prev, card]);
+	}
+
+	/*
+	 * Controlled setter — removes a card from local state by its ID so the UI
+	 * updates immediately without a full refetch.
+	 */
+	function removeCard(cardId) {
+		setCards(prev => prev.filter(c => c.id !== cardId));
+	}
+
+	/*
 	 * Expose state as a plain object so consumers can destructure only what they
 	 * need: const { cards } = useCards(listId)  ← valid; unused values are ignored.
 	 */
-	return { cards, loading, error };
+	return { cards, loading, error, addCard, removeCard };
 }
