@@ -1,28 +1,15 @@
 import api from '../../../shared/api/api';
 
 async function getAllCards(listId) {
-	try {
-
-		return await api.get(`/api/cards?listId=${listId}`)
-	} catch (error) {
-		throw console.error(`${error}`);
- }
+	return await api.get(`/api/cards?listId=${listId}`);
 }
 
 async function createCard(data) {
-	try {
-		return await api.post(`/api/cards/`, data)
-	} catch (error) {
-		throw error;
-	}
+	return await api.post(`/api/cards/`, data);
 }
 
 async function deleteCard(id) {
-	try {
-		return await api.delete(`/api/cards/${id}`)
-	} catch (error) {
-		throw error;
-	}
+	return await api.delete(`/api/cards/${id}`);
 }
 
 export { getAllCards, createCard, deleteCard };

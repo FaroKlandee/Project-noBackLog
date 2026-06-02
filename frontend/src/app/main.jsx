@@ -31,13 +31,11 @@ import ReactDOM from "react-dom/client"
  * MUI (Material UI) imports:
  *   ThemeProvider - Context provider that makes the custom `theme` object
  *                   available to every MUI component in the subtree.
- *   createTheme   - Factory function that merges a partial theme config with
- *                   MUI's default theme, producing a complete theme object.
  *   CssBaseline   - Injects a normalisation stylesheet (similar to normalize.css)
  *                   that removes browser inconsistencies (margin resets, box-sizing,
  *                   font smoothing, etc.) so MUI components render predictably.
  */
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material'
+import { ThemeProvider, CssBaseline } from '@mui/material'
 
 /*
  * RouterProvider is the top-level component required by React Router v7's
@@ -52,6 +50,7 @@ import { RouterProvider } from 'react-router/dom'
  * routes.jsx. It contains the full route hierarchy for the nobacklog app.
  */
 import { router } from './routes'
+import theme from './theme'
 
 /*
  * DOM Mount Point
@@ -61,37 +60,6 @@ import { router } from './routes'
  * be inserted here. If the element is missing the app will fail to mount.
  */
 const root = document.getElementById("root");
-
-/**
- * Application-wide MUI theme.
- *
- * `createTheme` accepts a partial theme configuration and deeply merges it
- * with MUI's built-in defaults, so only the values that deviate from the
- * defaults need to be specified here.
- *
- * Current overrides:
- *  - `palette.mode: 'light'`  — Selects the light colour scheme. MUI uses this
- *    flag to derive appropriate default colours for backgrounds, text, dividers,
- *    and component states across the whole design system.
- *  - `palette.primary.main: '#1976d2'` — The primary brand colour (a standard
- *    Material Design blue). MUI automatically generates lighter (`light`) and
- *    darker (`dark`) tonal variants, as well as a `contrastText` colour, from
- *    this single hex value.
- *
- * The resulting `theme` object is passed to `ThemeProvider` so that every MUI
- * component in the tree can read these values via the `useTheme` hook or the
- * `sx` prop without needing explicit colour props.
- */
-const theme = createTheme({
-  palette: {
-    /* Opt into the light colour scheme (as opposed to 'dark'). */
-    mode: 'light',
-    primary: {
-      /* Primary action colour used for buttons, links, focused inputs, etc. */
-      main: '#1976d2',
-    },
-  },
-})
 
 /*
  * Application Render

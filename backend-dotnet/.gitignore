@@ -15,6 +15,7 @@ obj/
 
 # dotnet secrets
 appsettings.Development.json
+appsettings.Staging.json
 secrets.json
 
 # NuGet

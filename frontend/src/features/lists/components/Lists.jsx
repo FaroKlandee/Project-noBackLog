@@ -17,7 +17,7 @@ import ListColumn from './ListColumn';
 import { Box, Button, IconButton, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import { grey, purple } from '@mui/material/colors';
+
 import { useState } from 'react';
 
 /**
@@ -73,39 +73,40 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
   return (
     <Box
       sx={{
-        px: 2,
-        py: 1,
-        borderRadius: '12px',
-
-        background: '#1A0B2E',
-        border: '1px solid #2E1A47',
-
-        color: '#C4B5FD',
-
         display: 'flex',
         flexDirection: 'row',
         flexWrap: 'nowrap',
         overflowX: 'auto',
         flexGrow: 1,
         gap: 2,
-
-        transition: 'all 0.2s ease',
+        alignItems: 'flex-start',
+        pb: 2,
       }}
-		>
-			{lists.length === 0 ?
-				(<p>No lists for now...</p>) : (
+    >
+      {lists.length === 0 ?
+        (<p>No lists for now...</p>) : (
 
-						lists.map((list, index) => (
-							<ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
-						))
+            lists.map((list, index) => (
+              <ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
+            ))
 
-				)}
+        )}
 
-      <Box sx={{ width: 300, minHeight: 220, flexShrink: 0 }}>
+      <Box sx={{ width: 280, flexShrink: 0 }}>
         {isAdding ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-						<TextField
-						autoFocus
+          <Box
+            sx={theme => ({
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              bgcolor: theme.palette.background.surface,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '12px',
+              p: 1.5,
+            })}
+          >
+            <TextField
+              autoFocus
               focused
               value={newListName}
               onChange={e => setNewListName(e.target.value)}
@@ -113,24 +114,32 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
               placeholder="Enter list name…"
               color="secondary"
               size="small"
-              sx={{
-                bgcolor: grey[300],
-                color: grey[100],
-                borderColor: purple[500],
-                borderRadius: 2,
-              }}
+              sx={theme => ({
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  color: 'text.primary',
+                  '& fieldset': { borderColor: theme.palette.border.focus },
+                  '&:hover fieldset': { borderColor: theme.palette.primary.main },
+                },
+              })}
             />
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Button
                 variant="contained"
                 onClick={handleConfirm}
-                sx={{ bgcolor: purple[500] }}
+                sx={{
+                  bgcolor: 'primary.main',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  textTransform: 'none',
+                  borderRadius: 1,
+                }}
               >
                 Confirm
               </Button>
               <IconButton onClick={handleCancel} size="small">
-                <CloseIcon fontSize="large" sx={{ color: grey[400] }} />
+                <CloseIcon fontSize="large" sx={{ color: 'text.secondary' }} />
               </IconButton>
             </Box>
           </Box>
@@ -140,12 +149,20 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
             fullWidth
             startIcon={<AddIcon fontSize="inherit" />}
             onClick={() => setIsAdding(true)}
-            sx={{
-              bgcolor: purple[500],
-              color: grey[100],
-              borderColor: purple[500],
-              borderRadius: 3,
-            }}
+            sx={theme => ({
+              width: '100%',
+              justifyContent: 'flex-start',
+              color: 'secondary.main',
+              borderColor: theme.palette.border.hover,
+              borderStyle: 'dashed',
+              borderWidth: '1px',
+              borderRadius: '12px',
+              py: 1.5,
+              px: 2,
+              textTransform: 'none',
+              bgcolor: 'transparent',
+              '&:hover': { bgcolor: 'action.hover', borderColor: 'secondary.main' },
+            })}
           >
             Add new list
           </Button>
