@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
  * getAllCards is the service function responsible for sending the HTTP GET
  * request that retrieves every card belonging to the given list ID.
  */
-import { getAllCards } from "../api/cardService";
+import { getAllCards, createCard, deleteCard } from "../api/cardService";
 
 /**
  * Custom hook that fetches all cards associated with a given list and exposes
@@ -80,13 +80,22 @@ export function useCards(listId) {
 	const [loading, setLoading] = useState(true);
 
 	/**
-	 * Holds the error message string if the fetch fails, or `null` when
-	 * everything is fine. Only the `.message` property of the caught Error
-	 * object is stored — keeping the exposed value serialisation-friendly.
+	 * Holds the error message string if the initial card fetch fails, or `null`
+	 * when the fetch succeeds. Triggers the column-level error banner that
+	 * replaces the entire column on load failure.
 	 *
 	 * @type {[string|null, Function]}
 	 */
-	const [error, setError] = useState(null);
+	const [fetchError, setFetchError] = useState(null);
+
+	/**
+	 * Holds the error message string if a mutation (create/delete) fails, or
+	 * `null` otherwise. Surfaces as an inline dismissible banner inside the
+	 * column without replacing it.
+	 *
+	 * @type {[string|null, Function]}
+	 */
+	const [mutationError, setMutationError] = useState(null);
 
 
 	useEffect(() => {
@@ -121,7 +130,7 @@ export function useCards(listId) {
 			 * after the 5 000 ms threshold in api.js, etc.) the caught error's message
 			 * string is stored so the consumer can surface a meaningful error to the user.
 			 */
-			.catch(err => setError(err.message))
+			.catch(err => setFetchError(err.message))
 			/*
 			 * Always runs after either resolution or rejection. Marks the loading
 			 * phase as complete so consumers can hide spinners / skeletons.
@@ -151,9 +160,45 @@ export function useCards(listId) {
 		setCards(prev => prev.filter(c => c.id !== cardId));
 	}
 
+	/**
+	 * Calls the createCard service, appends the new card to local state on
+	 * success, and surfaces any error via the shared `error` state so the
+	 * component never needs to reach the service layer directly.
+	 *
+	 * `listId` is closed over from the hook's parameter — the component only
+	 * supplies the card-specific fields it owns (title, priority).
+	 *
+	 * @param {{ title: string, priority: string }} data
+	 * @returns {Promise<void>}
+	 */
+	async function submitCreateCard(data) {
+		try {
+			const response = await createCard({ ...data, listId });
+			addCard(response.data);
+		} catch (err) {
+			setMutationError(err.message);
+		}
+	}
+
+	/**
+	 * Calls the deleteCard service and removes the card from local state on
+	 * success. Surfaces any error via the shared `error` state.
+	 *
+	 * @param {number} cardId
+	 * @returns {Promise<void>}
+	 */
+	async function submitDeleteCard(cardId) {
+		try {
+			await deleteCard(cardId);
+			removeCard(cardId);
+		} catch (err) {
+			setMutationError(err.message);
+		}
+	}
+
 	/*
 	 * Expose state as a plain object so consumers can destructure only what they
 	 * need: const { cards } = useCards(listId)  ← valid; unused values are ignored.
 	 */
-	return { cards, loading, error, addCard, removeCard };
+	return { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard };
 }

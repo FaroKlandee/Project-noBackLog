@@ -14,13 +14,14 @@
 
 /*
  * useCards — custom hook that fetches all cards belonging to a given list ID
- * and exposes { cards, loading, error } state.
+ * and exposes { cards, loading, fetchError, mutationError, setMutationError,
+ *               submitCreateCard, submitDeleteCard } state and mutations.
  * Cards    — presentational component that renders the cards array as a MUI List.
  *
  * Both are imported from the cards feature barrel so this file never reaches
  * into the cards feature's internal folder structure directly.
  */
-import { Cards, useCards, createCard, deleteCard } from "../../cards";
+import { Cards, useCards } from "../../cards";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { useState } from "react";
 import DeleteIcon from "@mui/icons-material/Delete"
@@ -84,6 +85,23 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	const handleClick = (event) => setAnchorEl(event.currentTarget);
 	const handleClose = () => setAnchorEl(null);
 
+	/*
+	 * useSortable registers this column as a sortable drag-and-drop item.
+	 * `id` identifies which list is being dragged; `index` tells the provider
+	 * where it currently sits so it can compute the new order on drop.
+	 * The returned `ref` must be attached to the root element.
+	 */
+	const { ref } = useSortable({ id: list.id, index });
+
+	/*
+	 * Fetch all cards that belong to this list column.
+	 * useCards is re-triggered automatically if list.id ever changes, ensuring
+	 * the correct cards are always shown without unmounting the component.
+	 * mutationError / setMutationError are owned by the hook so this component
+	 * never manages error state for card operations itself.
+	 */
+	const { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard } = useCards(list.id);
+
 	/* Add-card form state */
 	const [isAddingCard, setIsAddingCard] = useState(false);
 	const [newCardTitle, setNewCardTitle] = useState('');
@@ -94,8 +112,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		if (newCardTitle.trim() === '') return;
 		setIsSubmitting(true);
 		try {
-			const response = await createCard({ title: newCardTitle, priority: newCardPriority, listId: list.id });
-			addCard(response.data);
+			await submitCreateCard({ title: newCardTitle, priority: newCardPriority });
 			setNewCardTitle('');
 			setNewCardPriority('Medium');
 			setIsAddingCard(false);
@@ -111,23 +128,12 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	}
 
 	async function handleDeleteCard(cardId) {
-		await deleteCard(cardId);
-		removeCard(cardId);
+		await submitDeleteCard(cardId);
 	}
-	/*
-	 * Fetch all cards that belong to this list column.
-	 * useCards is re-triggered automatically if list.id ever changes, ensuring
-	 * the correct cards are always shown without unmounting the component.
-	 */
-	/*
-	 * useSortable registers this column as a sortable drag-and-drop item.
-	 * `id` identifies which list is being dragged; `index` tells the provider
-	 * where it currently sits so it can compute the new order on drop.
-	 * The returned `ref` must be attached to the root element.
-	 */
-	const { ref } = useSortable({ id: list.id, index });
 
-	const { cards, loading, error, addCard, removeCard } = useCards(list.id);
+	async function handleDeleteList(listId) {
+		await deleteExistingList(listId);
+	}
 
 	/*
 	 * Traffic light — loading check first.
@@ -143,16 +149,12 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 * If the fetch failed for any reason (network, timeout, non-2xx status),
 	 * surface a descriptive error banner rather than an empty or broken column.
 	 */
-	if (error) {
+	if (fetchError) {
 		return (
 			<Alert variant="filled" severity="error">
 				Failed to load cards for "{list.name}".
 			</Alert>
 		);
-	}
-
-	async function handleDeleteList(listId) {
-		await deleteExistingList(listId);
 	}
 
 	/*
@@ -171,50 +173,49 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		<Box
 			ref={ref}
 			component="section"
-			sx={{
+			sx={theme => ({
 				flexGrow: 0,
 				flexShrink: 0,
 				width: 280,
-				bgcolor: '#12101F',
-				border: '1px solid #2A2545',
+				bgcolor: theme.palette.background.surface,
+				border: `1px solid ${theme.palette.divider}`,
 				borderRadius: '12px',
 				p: 1.5,
-			}}
+			})}
 		>
 			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
-				<Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem', flexGrow: 1 }}>
+				<Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}>
 					{list.name}
 				</Typography>
 				{/* Card count badge */}
 				<Box
 					component="span"
-					sx={{
+					sx={theme => ({
 						ml: 1,
 						px: 1,
 						py: 0.25,
-						bgcolor: '#1E1B3A',
+						bgcolor: theme.palette.badge.bg,
 						borderRadius: '999px',
 						fontSize: '0.75rem',
-						color: '#7C6BAE',
-					}}
+						color: theme.palette.badge.text,
+					})}
 				>
 					{cards.length}
 				</Box>
 				{/* Add card button */}
-				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: '#7C6BAE', p: 0.5 }}>
+				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: 'secondary.main', p: 0.5 }}>
 					<AddIcon fontSize="small" />
 				</IconButton>
 				{/* List options menu */}
-				<IconButton size="small" onClick={handleClick} sx={{ color: '#7C6BAE', p: 0.5 }}>
+				<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
 					<MoreVertIcon fontSize="small" />
 				</IconButton>
 				<Menu
 					open={open}
 					onClose={handleClose}
 					anchorEl={anchorEl}
-					slotProps={{ paper: { sx: { bgcolor: '#1C1A2E', border: '1px solid #2A2545', borderRadius: 1 } } }}
 				>
-					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: '#F87171', gap: 1 }}>
+					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: 'error.main', gap: 1 }}>
 						<DeleteIcon fontSize="small" /> Delete list
 					</MenuItem>
 				</Menu>
@@ -230,19 +231,29 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			  * array and renders each card as a MUI ListItem with a priority Chip.
 			  * All fetch logic stays here in ListColumn; Cards never calls a hook.
 			  */}
+			{mutationError && (
+				<Alert severity="error" onClose={() => setMutationError(null)} sx={{ mb: 1, fontSize: '0.8rem' }}>
+					{mutationError}
+				</Alert>
+			)}
 			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
 
 			{/* Inline add-card form — appears below cards when isAddingCard is true */}
 			{isAddingCard && (
 				<Box
-					onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) handleCancelCard(); }}
+					onBlur={e => {
+						const focusLeftForm = !e.currentTarget.contains(e.relatedTarget);
+						const focusedAMuiPopover = e.relatedTarget?.closest('[role="listbox"]');
+						if (focusLeftForm && !focusedAMuiPopover) handleCancelCard();
+					}}
 					sx={{
 						mt: 1,
 						display: 'flex',
 						flexDirection: 'column',
 						gap: 1,
-						bgcolor: '#1C1A2E',
-						border: '1px solid #2A2545',
+						bgcolor: 'background.paper',
+						border: '1px solid',
+						borderColor: 'divider',
 						borderRadius: '8px',
 						p: 1.5,
 					}}
@@ -257,12 +268,12 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 						fullWidth
 						slotProps={{
 							input: {
-								sx: {
-									color: '#fff',
-									bgcolor: '#12101F',
+								sx: theme => ({
+									color: 'text.primary',
+									bgcolor: theme.palette.background.surface,
 									borderRadius: 1,
 									fontSize: '0.9rem',
-								},
+								}),
 							},
 						}}
 					/>
@@ -271,17 +282,16 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 							<Select
 								value={newCardPriority}
 								onChange={e => setNewCardPriority(e.target.value)}
-								sx={{
-									color: '#fff',
-									bgcolor: '#12101F',
+								sx={theme => ({
+									color: 'text.primary',
+									bgcolor: theme.palette.background.surface,
 									fontSize: '0.9rem',
-									'& .MuiNativeSelect-icon': { color: '#7C6BAE' },
-								}}
-								native
+									'& .MuiSelect-icon': { color: theme.palette.secondary.main },
+								})}
 							>
-								<option value="Low">Low</option>
-								<option value="Medium">Medium</option>
-								<option value="High">High</option>
+								<MenuItem value="Low">Low</MenuItem>
+								<MenuItem value="Medium">Medium</MenuItem>
+								<MenuItem value="High">High</MenuItem>
 							</Select>
 						</FormControl>
 						<Box
@@ -291,8 +301,8 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 							sx={{
 								px: 2,
 								py: 0.75,
-								bgcolor: '#7C3AED',
-								color: '#fff',
+								bgcolor: 'primary.main',
+								color: 'text.primary',
 								border: 'none',
 								borderRadius: '6px',
 								cursor: 'pointer',
@@ -303,7 +313,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 						>
 							{isSubmitting ? '…' : 'Add'}
 						</Box>
-						<IconButton size="small" onClick={handleCancelCard} sx={{ color: '#7C6BAE', p: 0.5 }}>
+						<IconButton size="small" onClick={handleCancelCard} sx={{ color: 'secondary.main', p: 0.5 }}>
 							<CloseIcon fontSize="small" />
 						</IconButton>
 					</Stack>

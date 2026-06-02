@@ -17,7 +17,7 @@ import ListColumn from './ListColumn';
 import { Box, Button, IconButton, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import { grey, purple } from '@mui/material/colors';
+
 import { useState } from 'react';
 
 /**
@@ -95,15 +95,15 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
       <Box sx={{ width: 280, flexShrink: 0 }}>
         {isAdding ? (
           <Box
-            sx={{
+            sx={theme => ({
               display: 'flex',
               flexDirection: 'column',
               gap: 1,
-              bgcolor: '#12101F',
-              border: '1px solid #2A2545',
+              bgcolor: theme.palette.background.surface,
+              border: `1px solid ${theme.palette.divider}`,
               borderRadius: '12px',
               p: 1.5,
-            }}
+            })}
           >
             <TextField
               autoFocus
@@ -114,15 +114,15 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
               placeholder="Enter list name…"
               color="secondary"
               size="small"
-              sx={{
+              sx={theme => ({
                 '& .MuiOutlinedInput-root': {
-                  bgcolor: '#1C1A2E',
+                  bgcolor: 'background.paper',
                   borderRadius: 1,
-                  color: '#fff',
-                  '& fieldset': { borderColor: '#3D3560' },
-                  '&:hover fieldset': { borderColor: '#7C3AED' },
+                  color: 'text.primary',
+                  '& fieldset': { borderColor: theme.palette.border.focus },
+                  '&:hover fieldset': { borderColor: theme.palette.primary.main },
                 },
-              }}
+              })}
             />
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -130,8 +130,8 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
                 variant="contained"
                 onClick={handleConfirm}
                 sx={{
-                  bgcolor: '#7C3AED',
-                  '&:hover': { bgcolor: '#6D28D9' },
+                  bgcolor: 'primary.main',
+                  '&:hover': { bgcolor: 'primary.dark' },
                   textTransform: 'none',
                   borderRadius: 1,
                 }}
@@ -139,7 +139,7 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
                 Confirm
               </Button>
               <IconButton onClick={handleCancel} size="small">
-                <CloseIcon fontSize="large" sx={{ color: grey[400] }} />
+                <CloseIcon fontSize="large" sx={{ color: 'text.secondary' }} />
               </IconButton>
             </Box>
           </Box>
@@ -149,11 +149,11 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
             fullWidth
             startIcon={<AddIcon fontSize="inherit" />}
             onClick={() => setIsAdding(true)}
-            sx={{
+            sx={theme => ({
               width: '100%',
               justifyContent: 'flex-start',
-              color: '#7C6BAE',
-              borderColor: '#4B3F8A',
+              color: 'secondary.main',
+              borderColor: theme.palette.border.hover,
               borderStyle: 'dashed',
               borderWidth: '1px',
               borderRadius: '12px',
@@ -161,8 +161,8 @@ export default function Lists({ lists, createNewList, deleteExistingList}) {
               px: 2,
               textTransform: 'none',
               bgcolor: 'transparent',
-              '&:hover': { bgcolor: 'rgba(124,107,174,0.08)', borderColor: '#7C6BAE' },
-            }}
+              '&:hover': { bgcolor: 'action.hover', borderColor: 'secondary.main' },
+            })}
           >
             Add new list
           </Button>

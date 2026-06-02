@@ -121,25 +121,25 @@ export default function BoardDetailPage() {
 			<Box
 				sx={{
 					minHeight: '100vh',
-					bgcolor: '#0D0B1E',
+					bgcolor: 'background.default',
 					backgroundImage: 'radial-gradient(ellipse at 85% 20%, rgba(109,40,217,0.35) 0%, transparent 55%)',
-					color: '#fff',
+					color: 'text.primary',
 				}}
 			>
 				<Box
-					sx={{
-						bgcolor: '#0D0B1E',
+					sx={theme => ({
+						bgcolor: 'background.default',
 						px: 3,
 						py: 1.5,
 						display: 'flex',
 						alignItems: 'center',
-						borderBottom: '1px solid #1E1B3A',
-					}}
+						borderBottom: `1px solid ${theme.palette.badge.bg}`,
+					})}
 				>
 					<Typography
 						sx={{
 							fontWeight: 700,
-							color: '#fff',
+							color: 'text.primary',
 							fontSize: '1.25rem',
 						}}
 					>{board.name}</Typography>

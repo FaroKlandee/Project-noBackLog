@@ -419,6 +419,41 @@ curl http://localhost:5000/
 
 ---
 
+## Running the App
+
+The project has two environments — **dev** and **staging** — designed to run simultaneously, each on its own port pair. This supports having both branches open in the same Zed window.
+
+| | Frontend | Backend | Database |
+|---|---|---|---|
+| **Dev** | `http://localhost:5173` | `http://localhost:5000` | `nobacklog` |
+| **Staging** | `http://localhost:5174` | `http://localhost:5001` | `nobacklog_staging` |
+
+### Dev
+
+```bash
+# Terminal 1 — backend (from backend-dotnet/)
+dotnet run --launch-profile http
+
+# Terminal 2 — frontend (from frontend/)
+npm run dev
+```
+
+### Staging
+
+```bash
+# Terminal 1 — backend (from backend-dotnet/)
+dotnet run --launch-profile staging
+
+# Terminal 2 — frontend (from frontend/)
+npm run dev:staging
+```
+
+### Running both simultaneously
+
+Open four terminals — one per process — and run all four commands above at the same time. Dev and staging use separate ports and separate databases so they won't interfere with each other.
+
+---
+
 ## Learning Resources
 
 ### Backend References

@@ -78,7 +78,7 @@ export default function Cards({ cards, onDeleteCard }) {
 		return (
 			<Typography
 				sx={{
-					color: '#8B5CF6',
+					color: 'text.secondary',
 					fontSize: '0.875rem',
 					opacity: 0.75,
 				}}
@@ -97,9 +97,9 @@ export default function Cards({ cards, onDeleteCard }) {
 			{cards.map((card) => (
 				<ListItem
 					key={card.id}
-					sx={{
-						bgcolor: '#1C1A2E',
-						border: '1px solid #2A2545',
+					sx={theme => ({
+						bgcolor: 'background.paper',
+						border: `1px solid ${theme.palette.divider}`,
 						borderRadius: '8px',
 						mb: 1,
 						px: 1.5,
@@ -107,19 +107,19 @@ export default function Cards({ cards, onDeleteCard }) {
 						display: 'flex',
 						flexDirection: 'column',
 						alignItems: 'flex-start',
-						'&:hover': { borderColor: '#4B3F8A' },
-					}}
+						'&:hover': { borderColor: theme.palette.border.hover },
+					})}
 					disablePadding={false}
 				>
 					<Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
 						<ListItemText
 							primary={card.title}
-							primaryTypographyProps={{ sx: { color: '#fff', fontWeight: 600, fontSize: '0.95rem' } }}
+							primaryTypographyProps={{ sx: { color: 'text.primary', fontWeight: 600, fontSize: '0.95rem' } }}
 						/>
 						<IconButton
 							size="small"
 							onClick={e => handleMenuOpen(e, card.id)}
-							sx={{ color: '#7C6BAE', p: 0.25, ml: 1, flexShrink: 0 }}
+							sx={{ color: 'secondary.main', p: 0.25, ml: 1, flexShrink: 0 }}
 						>
 							<MoreVertIcon fontSize="small" />
 						</IconButton>
@@ -128,26 +128,25 @@ export default function Cards({ cards, onDeleteCard }) {
 						anchorEl={anchorEl}
 						open={selectedCardId === card.id}
 						onClose={handleMenuClose}
-						slotProps={{ paper: { sx: { bgcolor: '#1C1A2E', border: '1px solid #2A2545' } } }}
 					>
-						<MenuItem onClick={handleDelete} sx={{ color: '#F87171', gap: 1, fontSize: '0.875rem' }}>
+						<MenuItem onClick={handleDelete} sx={{ color: 'error.main', gap: 1, fontSize: '0.875rem' }}>
 							<DeleteIcon fontSize="small" /> Delete
 						</MenuItem>
 					</Menu>
 					<Chip
 						label={card.priority}
 						size="small"
-						sx={{
+						sx={theme => ({
 							mt: 0.75,
 							height: 22,
 							fontSize: '0.7rem',
 							fontWeight: 700,
 							borderRadius: '999px',
 							border: 'none',
-							...(card.priority === 'Low' && { bgcolor: '#0D2420', color: '#34D399' }),
-							...(card.priority === 'Medium' && { bgcolor: '#2D2210', color: '#FBBF24' }),
-							...(card.priority === 'High' && { bgcolor: '#3B1219', color: '#F87171' }),
-						}}
+							...(card.priority === 'Low' && { bgcolor: theme.palette.priority.low.bg, color: theme.palette.priority.low.text }),
+							...(card.priority === 'Medium' && { bgcolor: theme.palette.priority.medium.bg, color: theme.palette.priority.medium.text }),
+							...(card.priority === 'High' && { bgcolor: theme.palette.priority.high.bg, color: theme.palette.priority.high.text }),
+						})}
 					/>
 				</ListItem>
 			))}
