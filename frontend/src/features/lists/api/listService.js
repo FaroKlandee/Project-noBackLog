@@ -46,15 +46,7 @@ import api from '../../../shared/api/api';
  *   or `undefined` if the request fails.
  */
 async function getAllLists(boardId) {
-	try {
-		/*
-		 * Append boardId as a query-string parameter so the server can scope
-		 * the result set to only the lists belonging to this board.
-		 */
-		return await api.get(`/api/lists?boardId=${boardId}`)
-	} catch (error) {
-		throw error;
-	}
+	return await api.get(`/api/lists?boardId=${boardId}`);
 }
 
 /**
@@ -73,14 +65,7 @@ async function getAllLists(boardId) {
  *   or `undefined` if the request fails.
  */
 async function getListById(id) {
-	try {
-		/*
-		 * Use a path parameter (/:id) to target the exact list resource.
-		 */
-		return await api.get(`/api/lists/${id}`);
-	} catch (error) {
-		throw error;
-	}
+	return await api.get(`/api/lists/${id}`);
 }
 
 /**
@@ -101,15 +86,7 @@ async function getListById(id) {
  *   or `undefined` if the request fails.
  */
 async function createList(data) {
-	try {
-		/*
-		 * POST to the collection endpoint; `data` is serialised to JSON by the
-		 * shared api client before being sent in the request body.
-		 */
-		return await api.post('/api/lists/', data);
-	} catch (error) {
-		throw error;
-	}
+	return await api.post('/api/lists/', data);
 }
 
 /**
@@ -135,15 +112,7 @@ async function createList(data) {
  *   or `undefined` if the request fails.
  */
 async function updateList(id, data) {
-	try {
-		/*
-		 * Pass both the path parameter (which list) and the request body
-		 * (what to change) to the api client's PUT method.
-		 */
-		return await api.put(`/api/lists/${id}`, data);
-	} catch (error) {
-		throw error;
-	}
+	return await api.put(`/api/lists/${id}`, data);
 }
 
 /**
@@ -164,23 +133,11 @@ async function updateList(id, data) {
  *   message) on success, or `undefined` if the request fails.
  */
 async function deleteList(id) {
-	try {
-		/*
-		 * DELETE requests carry no body; the resource to remove is identified
-		 * solely by the path parameter.
-		 */
-		return await api.delete(`/api/lists/${id}`);
-	} catch (error) {
-		throw error;
-	}
+	return await api.delete(`/api/lists/${id}`);
 }
 
 async function reorderLists(data) {
-	try {
-		return await api.patch(`/api/lists/reorder`, data);
-	} catch (error) {
-		throw error;
-	}
+	return await api.patch(`/api/lists/reorder`, data);
 }
 
 /*

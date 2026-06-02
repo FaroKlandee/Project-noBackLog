@@ -14,7 +14,8 @@
 
 /*
  * useCards — custom hook that fetches all cards belonging to a given list ID
- * and exposes { cards, loading, error } state.
+ * and exposes { cards, loading, fetchError, mutationError, setMutationError,
+ *               submitCreateCard, submitDeleteCard } state and mutations.
  * Cards    — presentational component that renders the cards array as a MUI List.
  *
  * Both are imported from the cards feature barrel so this file never reaches
@@ -41,7 +42,9 @@ import { useSortable } from "@dnd-kit/react/sortable";
  *   Box              — generic layout wrapper used to give the column a
  *                      visual boundary and consistent padding.
  */
-import { CircularProgress, Alert, Typography, Box, Button, IconButton, Menu, MenuItem, Stack } from '@mui/material';
+import { CircularProgress, Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 
 /**
  * ListColumn component — container for a single Kanban-style list column.
@@ -75,21 +78,13 @@ import { CircularProgress, Alert, Typography, Box, Button, IconButton, Menu, Men
  */
 export default function ListColumn({ list, index, deleteExistingList }) {
 
+	/* List-level MoreVert menu state */
 	const [anchorEl, setAnchorEl] = useState(null);
 	const open = anchorEl !== null;
 
-	const handleClick = (event) => {
-		setAnchorEl(event.currentTarget);
-	};
+	const handleClick = (event) => setAnchorEl(event.currentTarget);
+	const handleClose = () => setAnchorEl(null);
 
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
-	/*
-	 * Fetch all cards that belong to this list column.
-	 * useCards is re-triggered automatically if list.id ever changes, ensuring
-	 * the correct cards are always shown without unmounting the component.
-	 */
 	/*
 	 * useSortable registers this column as a sortable drag-and-drop item.
 	 * `id` identifies which list is being dragged; `index` tells the provider
@@ -98,7 +93,47 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 */
 	const { ref } = useSortable({ id: list.id, index });
 
-	const { cards, loading, error } = useCards(list.id);
+	/*
+	 * Fetch all cards that belong to this list column.
+	 * useCards is re-triggered automatically if list.id ever changes, ensuring
+	 * the correct cards are always shown without unmounting the component.
+	 * mutationError / setMutationError are owned by the hook so this component
+	 * never manages error state for card operations itself.
+	 */
+	const { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard } = useCards(list.id);
+
+	/* Add-card form state */
+	const [isAddingCard, setIsAddingCard] = useState(false);
+	const [newCardTitle, setNewCardTitle] = useState('');
+	const [newCardPriority, setNewCardPriority] = useState('Medium');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	async function handleCreateCard() {
+		if (newCardTitle.trim() === '') return;
+		setIsSubmitting(true);
+		try {
+			await submitCreateCard({ title: newCardTitle, priority: newCardPriority });
+			setNewCardTitle('');
+			setNewCardPriority('Medium');
+			setIsAddingCard(false);
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	function handleCancelCard() {
+		setNewCardTitle('');
+		setNewCardPriority('Medium');
+		setIsAddingCard(false);
+	}
+
+	async function handleDeleteCard(cardId) {
+		await submitDeleteCard(cardId);
+	}
+
+	async function handleDeleteList(listId) {
+		await deleteExistingList(listId);
+	}
 
 	/*
 	 * Traffic light — loading check first.
@@ -114,16 +149,12 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 * If the fetch failed for any reason (network, timeout, non-2xx status),
 	 * surface a descriptive error banner rather than an empty or broken column.
 	 */
-	if (error) {
+	if (fetchError) {
 		return (
 			<Alert variant="filled" severity="error">
 				Failed to load cards for "{list.name}".
 			</Alert>
 		);
-	}
-
-	async function handleDelete(listId) {
-		await deleteExistingList(listId)
 	}
 
 	/*
@@ -139,81 +170,53 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		 * column is a distinct section of the board. Inline sx styles are used
 		 * here to keep the component self-contained without a separate CSS file.
 		 */
-			<Box
-  ref={ref}
-  component="section"
-			sx={{
-    flexGrow: 0,
-    flexShrink: 0,
-    width: 300,
-    minHeight: 220,
-				px: 2,
-    pt: 0.5,
-    borderRadius: 3,
-    background: `
-      linear-gradient(
-        180deg,
-        rgba(26, 11, 46, 0.88),
-        rgba(15, 6, 35, 0.92)
-      )
-    `,
-    border: '1px solid rgba(168, 85, 247, 0.22)',
-    boxShadow: `
-      0 0 0 1px rgba(255,255,255,0.025) inset,
-      0 12px 35px rgba(0,0,0,0.25),
-      0 0 28px rgba(124, 58, 237, 0.12)
-    `,
-    backdropFilter: 'blur(10px)',
-  }}
+		<Box
+			ref={ref}
+			component="section"
+			sx={theme => ({
+				flexGrow: 0,
+				flexShrink: 0,
+				width: 280,
+				bgcolor: theme.palette.background.surface,
+				border: `1px solid ${theme.palette.divider}`,
+				borderRadius: '12px',
+				p: 1.5,
+			})}
 		>
-			<Stack
-				direction='row'
-				sx={{
-					alignItems: 'Center',
-					mb: 2,
-				}}
-			>
-				<Typography
-  variant="h6"
-  sx={{
-    fontWeight: 700,
-    color: '#E9D5FF',
-    fontSize: '1rem',
-    letterSpacing: '0.2px',
-  }}
-				>
+			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
+				<Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}>
 					{list.name}
 				</Typography>
-				<IconButton
-					aria-label="more"
-					aria-controls={open ? 'long menu' : undefined}
-					aria-expanded={open}
-					aria-haspopup="true"
-					onClick={handleClick}
-					sx={{
-						color: '#eceff1',
-						marginLeft: 'auto',
-
-					}}
+				{/* Card count badge */}
+				<Box
+					component="span"
+					sx={theme => ({
+						ml: 1,
+						px: 1,
+						py: 0.25,
+						bgcolor: theme.palette.badge.bg,
+						borderRadius: '999px',
+						fontSize: '0.75rem',
+						color: theme.palette.badge.text,
+					})}
 				>
-					<MoreVertIcon />
+					{cards.length}
+				</Box>
+				{/* Add card button */}
+				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: 'secondary.main', p: 0.5 }}>
+					<AddIcon fontSize="small" />
+				</IconButton>
+				{/* List options menu */}
+				<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
+					<MoreVertIcon fontSize="small" />
 				</IconButton>
 				<Menu
 					open={open}
 					onClose={handleClose}
 					anchorEl={anchorEl}
-					slotProps={{
-						paper: {
-							style: {
-								maxHeight: 20 * 4.5,
-								width: '20ch',
-								},
-						},
-					}}
 				>
-					<MenuItem
-						onClick={() => { handleClose(); handleDelete(list.id); }}>
-						Delete<DeleteIcon/>
+					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: 'error.main', gap: 1 }}>
+						<DeleteIcon fontSize="small" /> Delete list
 					</MenuItem>
 				</Menu>
 			</Stack>
@@ -228,7 +231,94 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			  * array and renders each card as a MUI ListItem with a priority Chip.
 			  * All fetch logic stays here in ListColumn; Cards never calls a hook.
 			  */}
-			<Cards cards={cards} />
+			{mutationError && (
+				<Alert severity="error" onClose={() => setMutationError(null)} sx={{ mb: 1, fontSize: '0.8rem' }}>
+					{mutationError}
+				</Alert>
+			)}
+			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+
+			{/* Inline add-card form — appears below cards when isAddingCard is true */}
+			{isAddingCard && (
+				<Box
+					onBlur={e => {
+						const focusLeftForm = !e.currentTarget.contains(e.relatedTarget);
+						const focusedAMuiPopover = e.relatedTarget?.closest('[role="listbox"]');
+						if (focusLeftForm && !focusedAMuiPopover) handleCancelCard();
+					}}
+					sx={{
+						mt: 1,
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 1,
+						bgcolor: 'background.paper',
+						border: '1px solid',
+						borderColor: 'divider',
+						borderRadius: '8px',
+						p: 1.5,
+					}}
+				>
+					<TextField
+						autoFocus
+						placeholder="Enter card title…"
+						value={newCardTitle}
+						onChange={e => setNewCardTitle(e.target.value)}
+						onKeyDown={e => e.key === 'Enter' && handleCreateCard()}
+						size="small"
+						fullWidth
+						slotProps={{
+							input: {
+								sx: theme => ({
+									color: 'text.primary',
+									bgcolor: theme.palette.background.surface,
+									borderRadius: 1,
+									fontSize: '0.9rem',
+								}),
+							},
+						}}
+					/>
+					<Stack direction="row" spacing={1} alignItems="center">
+						<FormControl size="small" sx={{ minWidth: 110 }}>
+							<Select
+								value={newCardPriority}
+								onChange={e => setNewCardPriority(e.target.value)}
+								sx={theme => ({
+									color: 'text.primary',
+									bgcolor: theme.palette.background.surface,
+									fontSize: '0.9rem',
+									'& .MuiSelect-icon': { color: theme.palette.secondary.main },
+								})}
+							>
+								<MenuItem value="Low">Low</MenuItem>
+								<MenuItem value="Medium">Medium</MenuItem>
+								<MenuItem value="High">High</MenuItem>
+							</Select>
+						</FormControl>
+						<Box
+							component="button"
+							onClick={handleCreateCard}
+							disabled={isSubmitting}
+							sx={{
+								px: 2,
+								py: 0.75,
+								bgcolor: 'primary.main',
+								color: 'text.primary',
+								border: 'none',
+								borderRadius: '6px',
+								cursor: 'pointer',
+								fontWeight: 600,
+								fontSize: '0.875rem',
+								'&:disabled': { opacity: 0.5 },
+							}}
+						>
+							{isSubmitting ? '…' : 'Add'}
+						</Box>
+						<IconButton size="small" onClick={handleCancelCard} sx={{ color: 'secondary.main', p: 0.5 }}>
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					</Stack>
+				</Box>
+			)}
 		</Box>
 	);
 }
