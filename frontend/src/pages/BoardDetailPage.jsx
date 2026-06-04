@@ -120,10 +120,12 @@ export default function BoardDetailPage() {
 			  */}
 			<Box
 				sx={{
-					minHeight: '100vh',
+					height: '100vh',
 					bgcolor: 'background.default',
 					backgroundImage: 'radial-gradient(ellipse at 85% 20%, rgba(109,40,217,0.35) 0%, transparent 55%)',
 					color: 'text.primary',
+					overflowX: 'auto',
+					overflowY: 'hidden',
 				}}
 			>
 				<Box
