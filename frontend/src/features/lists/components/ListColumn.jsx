@@ -194,6 +194,9 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				border: `1px solid ${theme.palette.divider}`,
 				borderRadius: '12px',
 				p: 1.5,
+				height: '100%',
+				overflowY: 'auto',
+				overflowX: 'hidden',
 			})}
 		>
 			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
