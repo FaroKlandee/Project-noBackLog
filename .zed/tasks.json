@@ -1,12 +1,4 @@
 [
-	{
-    "label": "Run: main (backend + frontend)",
-    "command": "(cd backend-dotnet && dotnet run --launch-profile main) & (cd frontend && pnpm run dev)",
-    "cwd": "$ZED_WORKTREE_ROOT",
-    "shell": {
-    "program": "C:\\Program Files\\Git\\bin\\bash.exe"
-    }
-  },
   {
     "label": "Run: dev (backend + frontend)",
     "command": "(cd backend-dotnet && dotnet run --launch-profile dev) & (cd frontend && pnpm run dev:dev)",

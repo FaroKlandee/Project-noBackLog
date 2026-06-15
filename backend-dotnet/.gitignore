@@ -13,10 +13,11 @@ obj/
 .idea/
 *.rsuser
 
-# dotnet secrets
-appsettings.Development.json
+# dotnet secrets & config
+appsettings.json
 appsettings.Staging.json
 secrets.json
+launchSettings.json
 
 # NuGet
 *.nupkg
@@ -28,3 +29,9 @@ artifacts/
 # OS
 .DS_Store
 Thumbs.db
+
+# zed
+.zed/
+
+# env
+.env.dev
