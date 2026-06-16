@@ -1,0 +1,10 @@
+[
+  {
+    "label": "Run: dev (backend + frontend)",
+    "command": "(cd backend-dotnet && dotnet run) & (cd frontend && pnpm run dev)",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+    "program": "C:\\Program Files\\Git\\bin\\bash.exe"
+    }
+  }
+]
