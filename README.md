@@ -435,7 +435,7 @@ The project has two environments — **dev** and **staging** — designed to run
 dotnet run --launch-profile http
 
 # Terminal 2 — frontend (from frontend/)
-npm run dev
+pnpm dev
 ```
 
 ### Staging
@@ -445,7 +445,7 @@ npm run dev
 dotnet run --launch-profile staging
 
 # Terminal 2 — frontend (from frontend/)
-npm run dev:staging
+pnpm dev:staging
 ```
 
 ### Running both simultaneously

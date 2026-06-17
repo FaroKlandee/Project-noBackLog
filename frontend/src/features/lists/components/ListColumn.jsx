@@ -23,7 +23,7 @@
  */
 import { Cards, useCards } from "../../cards";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import DeleteIcon from "@mui/icons-material/Delete"
 /*
  * useSortable from @dnd-kit/react/sortable makes this column both draggable
@@ -107,6 +107,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	const [newCardTitle, setNewCardTitle] = useState('');
 	const [newCardPriority, setNewCardPriority] = useState('Medium');
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const titleRef = useRef(null);
 
 	async function handleCreateCard() {
 		if (newCardTitle.trim() === '') return;
@@ -115,7 +116,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			await submitCreateCard({ title: newCardTitle, priority: newCardPriority });
 			setNewCardTitle('');
 			setNewCardPriority('Medium');
-			setIsAddingCard(false);
+			titleRef.current?.focus();
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -125,6 +126,18 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		setNewCardTitle('');
 		setNewCardPriority('Medium');
 		setIsAddingCard(false);
+	}
+
+	function handleFormKeyDown(e) {
+		if (e.key === 'Enter' && e.shiftKey) {
+			e.preventDefault();
+			handleCreateCard();
+			return;
+		}
+		if (e.target === titleRef.current) return;
+	 	if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setNewCardPriority('Low'); }
+    if (e.key === 'm' || e.key === 'M') { e.preventDefault(); setNewCardPriority('Medium'); }
+    if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setNewCardPriority('High'); }
 	}
 
 	async function handleDeleteCard(cardId) {
@@ -181,6 +194,9 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				border: `1px solid ${theme.palette.divider}`,
 				borderRadius: '12px',
 				p: 1.5,
+				height: '100%',
+				overflowY: 'auto',
+				overflowX: 'hidden',
 			})}
 		>
 			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
@@ -241,6 +257,8 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			{/* Inline add-card form — appears below cards when isAddingCard is true */}
 			{isAddingCard && (
 				<Box
+					data-card-form
+					onKeyDown={handleFormKeyDown}
 					onBlur={e => {
 						const focusLeftForm = !e.currentTarget.contains(e.relatedTarget);
 						const focusedAMuiPopover = e.relatedTarget?.closest('[role="listbox"]');
@@ -263,7 +281,13 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 						placeholder="Enter card title…"
 						value={newCardTitle}
 						onChange={e => setNewCardTitle(e.target.value)}
-						onKeyDown={e => e.key === 'Enter' && handleCreateCard()}
+						inputRef={titleRef}
+						onKeyDown={e => {
+							if (e.key === 'Enter' && !e.shiftKey) {
+								e.preventDefault();
+								e.currentTarget.closest('[data-card-form]')?.querySelector('[role="combobox"]')?.focus();
+							}
+						}}
 						size="small"
 						fullWidth
 						slotProps={{
@@ -311,7 +335,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 								'&:disabled': { opacity: 0.5 },
 							}}
 						>
-							{isSubmitting ? '…' : 'Add'}
+							{isSubmitting ? '…' : 'Add (Shift+↵'}
 						</Box>
 						<IconButton size="small" onClick={handleCancelCard} sx={{ color: 'secondary.main', p: 0.5 }}>
 							<CloseIcon fontSize="small" />
