@@ -1,98 +1,57 @@
 /**
- * @fileoverview Board Service — API layer for all board-related HTTP operations.
+ * @fileoverview Board service — HTTP operations for the /api/boards resource.
  *
- * This module is the single point of contact between the boards feature and the
- * backend REST API. Every function here maps 1-to-1 to a backend endpoint and
- * wraps the shared `api` client so that the rest of the application never has
- * to construct URLs or handle raw fetch logic directly.
+ * Each function is a thin async wrapper around the shared `api` client
+ * (shared/api/api.js). On success the raw parsed JSON response object is
+ * returned to the caller. On failure the error is logged to the console and
+ * re-thrown so the calling hook or component can handle it.
  *
- * All functions are async and follow the same pattern:
- *   - Issue the request through the shared `api` client.
- *   - Return the resolved response on success.
- *   - Log the error to the console on failure, then re-throw so callers
- *     can catch and inspect the error message themselves.
+ * Consumed primarily by the `useBoards` and `useBoardDetails` hooks.
  */
 
-/**
- * Shared API client instance.
- *
- * Wraps the native `fetch` API with a base URL, a request timeout, JSON
- * serialisation/deserialisation, and unified error handling. Exposes four
- * convenience methods: `get`, `post`, `put`, and `delete`.
- *
- * Imported from the shared layer so that every feature uses the same
- * configuration rather than constructing its own fetch calls.
- *
- * @see src/shared/api/api.js
+/*
+ * Import
+ * ───────────────────────────────────────────────────────────────────────────
+ * api — shared HTTP client that prefixes every path with the backend base URL,
+ *       sets Content-Type: application/json, enforces a 5 s timeout, and throws
+ *       on non-2xx responses.
  */
 import api from '../../../shared/api/api';
 
-/* ---------------------------------------------------------------------------
- * READ operations
- * --------------------------------------------------------------------------- */
+/* ── Read ─────────────────────────────────────────────────────────────────── */
 
 /**
- * Fetches every board that exists in the system.
+ * Fetch every board from the backend.
  *
- * Calls `GET /api/boards/` and returns the full list of board objects as
- * parsed JSON. Intended to be used by list views and dashboard components
- * that need to display all available boards at once.
+ * Calls `GET /api/boards/`. Returns all board records without filtering.
+ * Used by the `useBoards` hook to populate the boards listing page.
  *
  * @async
- * @function getAllBoards
- * @returns {Promise<Object[]|undefined>} A promise that resolves to an array
- *   of board objects returned by the API, or `undefined` if the request
- *   fails (error is logged to the console).
- *
- * @example
- * const boards = await getAllBoards();
- * if (boards) {
- *   console.log(`Loaded ${boards.length} boards`);
- * }
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Board[] }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function getAllBoards() {
 	try {
-		/*
-		 * Issue a GET request to the boards collection endpoint and return the
-		 * parsed JSON response directly to the caller.
-		 */
 		return await api.get('/api/boards/');
 	} catch (error) {
-		/*
-		 * Log the error to the console for debugging, then re-throw the original
-		 * error object so callers can catch and inspect the message themselves.
-		 */
 		console.error(`${error}`);
 		throw error;
 	}
 }
 
 /**
- * Fetches a single board by its unique identifier.
+ * Fetch a single board by its unique identifier.
  *
- * Calls `GET /api/boards/:id` and returns the matching board object.
- * Intended to be used by detail/board views that need to render a specific
- * board and its associated data (columns, cards, etc.).
+ * Calls `GET /api/boards/<id>`. Used by the `useBoardDetails` hook to load
+ * board metadata (e.g. name) for the BoardDetailPage header.
  *
  * @async
- * @function getBoardById
- * @param {string|number} id - The unique identifier of the board to retrieve.
- *   Injected directly into the URL path, so it should be a valid board ID
- *   as stored in the backend (typically a numeric primary key or UUID).
- * @returns {Promise<Object|undefined>} A promise that resolves to the board
- *   object, or `undefined` if the request fails.
- *
- * @example
- * const board = await getBoardById(42);
- * if (board) {
- *   console.log(board.name);
- * }
+ * @param {number|string} id - The unique identifier of the board to fetch.
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Board }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function getBoardById(id) {
 	try {
-		/*
-		 * Interpolate the board ID into the path to target the correct resource.
-		 */
 		return await api.get(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
@@ -100,36 +59,22 @@ async function getBoardById(id) {
 	}
 }
 
-/* ---------------------------------------------------------------------------
- * WRITE operations
- * --------------------------------------------------------------------------- */
+/* ── Write ────────────────────────────────────────────────────────────────── */
 
 /**
- * Creates a new board with the supplied payload.
+ * Create a new board on the server.
  *
- * Calls `POST /api/boards/` with `data` serialised as JSON in the request
- * body. The backend is expected to validate the payload, persist the new
- * board, and return the created board object (including its generated `id`).
+ * Calls `POST /api/boards/` with a JSON body. The server assigns a unique ID
+ * and returns the created board so the caller can update local state without
+ * a follow-up GET.
  *
  * @async
- * @function createBoard
- * @param {Object} data - The board creation payload.
- * @param {string} data.name - The display name for the new board.
- * @returns {Promise<Object|undefined>} A promise that resolves to the newly
- *   created board object as returned by the API, or `undefined` on failure.
- *
- * @example
- * const newBoard = await createBoard({ name: 'Sprint 1' });
- * if (newBoard) {
- *   console.log(`Created board with ID: ${newBoard.id}`);
- * }
+ * @param {Object} data - Fields for the new board (e.g. `{ name: 'Sprint 1' }`).
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Board }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function createBoard(data) {
 	try {
-		/*
-		 * POST the new board payload to the collection endpoint.
-		 * The shared api client serialises `data` to JSON automatically.
-		 */
 		return await api.post('/api/boards/', data);
 	} catch (error) {
 		console.error(`${error}`);
@@ -138,33 +83,19 @@ async function createBoard(data) {
 }
 
 /**
- * Replaces (full update) an existing board's data.
+ * Update an existing board by its unique identifier.
  *
- * Calls `PUT /api/boards/:id` with `data` as the request body. A PUT
- * request semantically replaces the entire resource, so `data` should
- * contain all fields the backend expects, not just the changed ones.
- * For partial updates a PATCH endpoint would be more appropriate, but the
- * current backend uses PUT.
+ * Calls `PUT /api/boards/<id>` with a JSON body containing the updated fields.
+ * PUT semantics — include all relevant fields, not just changed ones.
  *
  * @async
- * @function updateBoard
- * @param {string|number} id   - The unique identifier of the board to update.
- * @param {Object}        data - The replacement payload for the board.
- * @param {string}        data.name - The updated display name of the board.
- * @returns {Promise<Object|undefined>} A promise that resolves to the updated
- *   board object as returned by the API, or `undefined` on failure.
- *
- * @example
- * const updated = await updateBoard(42, { name: 'Sprint 2' });
- * if (updated) {
- *   console.log(`Board renamed to: ${updated.name}`);
- * }
+ * @param {number|string} id   - The unique identifier of the board to update.
+ * @param {Object}        data - Updated board fields (e.g. `{ name: 'Q2 Sprint' }`).
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Board }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function updateBoard(id, data) {
 	try {
-		/*
-		 * Target the specific board by ID and send the full updated payload.
-		 */
 		return await api.put(`/api/boards/${id}`, data);
 	} catch (error) {
 		console.error(`${error}`);
@@ -172,34 +103,19 @@ async function updateBoard(id, data) {
 	}
 }
 
-/* ---------------------------------------------------------------------------
- * DELETE operations
- * --------------------------------------------------------------------------- */
-
 /**
- * Permanently deletes a board from the system.
+ * Permanently delete a board by its unique identifier.
  *
- * Calls `DELETE /api/boards/:id`. This action is destructive and
- * irreversible — the backend is expected to cascade-delete any related
- * resources (columns, cards, etc.) that belong to the board. Callers
- * should present a confirmation dialog to the user before invoking this.
+ * Calls `DELETE /api/boards/<id>`. Destructive and irreversible — the server
+ * may cascade-delete all lists and cards belonging to the board.
  *
  * @async
- * @function deleteBoard
- * @param {string|number} id - The unique identifier of the board to delete.
- * @returns {Promise<Object|undefined>} A promise that resolves to the
- *   backend's deletion confirmation response (structure depends on the API),
- *   or `undefined` if the request fails.
- *
- * @example
- * await deleteBoard(42);
- * // Board 42 no longer exists in the backend.
+ * @param {number|string} id - The unique identifier of the board to delete.
+ * @returns {Promise<Object>} Parsed JSON response (typically a confirmation message).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function deleteBoard(id) {
 	try {
-		/*
-		 * Target the specific board by ID and issue the DELETE request.
-		 */
 		return await api.delete(`/api/boards/${id}`);
 	} catch (error) {
 		console.error(`${error}`);
@@ -207,18 +123,4 @@ async function deleteBoard(id) {
 	}
 }
 
-/* ---------------------------------------------------------------------------
- * Exports
- * --------------------------------------------------------------------------- */
-
-/**
- * Named exports for all board service functions.
- *
- * Exported individually (rather than as a default object) so that consumers
- * can import only the functions they need, keeping bundle sizes smaller and
- * making import intent explicit.
- *
- * Re-exported from `features/boards/index.js` as part of the feature's
- * public API surface.
- */
 export { getAllBoards, getBoardById, createBoard, updateBoard, deleteBoard };

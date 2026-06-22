@@ -1,54 +1,30 @@
 /**
- * @file index.js
- * @description Public barrel file for the `lists` feature module.
+ * @fileoverview Public barrel file for the lists feature module.
  *
- * This file acts as the single, stable entry point for everything the `lists`
- * feature exposes to the rest of the application. Consumers should always
- * import from this barrel (e.g. `import { useLists } from 'features/lists'`)
- * rather than reaching into sub-folders directly. This keeps internal file
- * organisation free to change without touching every import site across the
- * codebase.
+ * The single, authoritative entry point for everything lists-related.
+ * Consumers import from `features/lists` rather than reaching into internal
+ * sub-folders:
  *
- * Exported surface area
- * ─────────────────────
- * • listService  – raw async CRUD functions that talk to the REST API
- *                  (getAllLists, getListById, createList, updateList, deleteList, reorderLists)
- * • useLists     – React hook that fetches all lists for a given board and
- *                  tracks loading / error state for the calling component
- * • Lists        – Presentational component that renders a board's list columns
+ *   import { useLists, Lists, ListColumn }         from '../features/lists';
+ *   import { getAllLists, createList, reorderLists } from '../features/lists';
  *
- * @module features/lists
+ * Exported surface:
+ *   getAllLists, getListById, createList,
+ *   updateList, deleteList, reorderLists — raw async HTTP functions (listService.js)
+ *   useLists                            — hook: fetches lists for a board and
+ *                                         exposes create/delete/reorder mutations
+ *   Lists                               — component: horizontally-scrollable row
+ *                                         of list columns + "add new list" form
+ *   ListColumn                          — component: single Kanban column with
+ *                                         cards and an inline add-card form
  */
 
-/*
- * Re-export every named export from the lists API service layer.
- * This surfaces the raw async functions (getAllLists, getListById, createList,
- * updateList, deleteList, reorderLists) so that non-React code (e.g. route loaders, tests,
- * or other services) can call the API without going through a hook.
- */
+/* API service layer — raw async CRUD functions for the /api/lists resource. */
 export * from './api/listService';
 
-/*
- * Re-export every named export from the lists custom-hook layer.
- * Currently this exposes `useLists`, the primary React hook components use to
- * fetch and subscribe to the list data for a specific board.
- */
+/* Hooks — React hooks that wrap the service layer with local state management. */
 export * from './hooks/useLists';
 
-/*
- * Re-export the Lists presentational component as a named export.
- * `Lists` accepts a `lists` prop and is responsible only for rendering —
- * it does not fetch data itself.
- *
- * `export { default as Lists }` is required because Lists is a default export
- * in its source file — default exports cannot be picked up by `export *`,
- * so an explicit named alias is needed to include it in this barrel.
- */
+/* Components — container and presentational components for the lists feature. */
 export { default as Lists } from './components/Lists';
-
-/*
- * Re-export the ListColumn container component as a named export.
- * `ListColumn` accepts a single `list` prop, owns the useCards fetch lifecycle
- * for that column, and composes the list name header with the Cards presenter.
- */
 export { default as ListColumn } from './components/ListColumn';

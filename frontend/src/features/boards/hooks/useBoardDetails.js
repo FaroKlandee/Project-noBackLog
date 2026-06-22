@@ -1,142 +1,75 @@
 /**
  * @file useBoardDetails.js
- * @description Custom React hook for fetching and managing the details of a
- * single board by its ID. Mirrors the structure of `useBoards.js` but is
- * scoped to one board rather than the full collection.
+ * @description Custom React hook for fetching a single board's metadata by ID.
+ *
+ * Abstracts the data-fetching lifecycle for one board record away from UI
+ * components. Used by BoardDetailPage to load the board name displayed in the
+ * page header.
  *
  * Consumed by:
- *   - Any component that needs to display a single board's metadata.
+ *   - BoardDetailPage (src/pages/BoardDetailPage.jsx)
  *
  * Depends on:
- *   - getBoardById  (src/features/boards/api/boardService.js)
- *   - React's built-in `useState` and `useEffect` hooks
+ *   - getBoardById (src/features/boards/api/boardService.js)
  */
-
-import { useEffect, useState } from "react";
 
 /*
- * getBoardById is the service function responsible for sending the HTTP GET
- * request that retrieves a single board by its numeric primary key.
+ * Imports
+ * ───────────────────────────────────────────────────────────────────────────
+ * useEffect, useState — React hooks for side-effects and local state.
+ * getBoardById        — service function that calls GET /api/boards/<id>.
  */
+import { useEffect, useState } from "react";
 import { getBoardById } from "../api/boardService";
 
 /**
- * @hook useBoardDetails
+ * Custom hook that fetches a single board by ID and exposes loading/error state.
  *
- * A custom React hook that fetches a single board's details from the backend
- * API whenever the supplied `id` changes. Exposes the resulting board object,
- * a loading flag, and any fetch error to the calling component.
+ * The fetch is re-triggered whenever `id` changes, ensuring the correct board
+ * is always displayed when navigating between boards without a page reload.
  *
  * @param {number} id - The numeric primary key of the board to fetch.
- *   Originates from the `:boardId` URL segment parsed by react-router's
- *   `useParams()` in the consuming page component.
- *
- * @returns {{ board: Object|null, loading: boolean, error: string|null }}
- *   - `board`   — The board object returned by the API, or null before load.
- *   - `loading` — true while the request is in-flight.
- *   - `error`   — null on success; the error message string on failure.
- *
- * @example
- * const { boardId } = useParams();
- * const { board, loading, error } = useBoardDetails(Number(boardId));
- *
- * if (loading) return <CircularProgress />;
- * if (error)   return <Alert severity="error">{error}</Alert>;
- * return <h1>{board.name}</h1>;
+ * @returns {{
+ *   board:   Object|null,
+ *   loading: boolean,
+ *   error:   string|null
+ * }} An object containing:
+ *   - `board`   — The fetched board object (`{ id, name, ... }`), or `null`
+ *                 before the first successful fetch.
+ *   - `loading` — `true` while the HTTP request is in-flight.
+ *   - `error`   — `null` on success; the error message string if the fetch fails.
  */
 export function useBoardDetails(id) {
-
 	/*
-	 * -------------------------------------------------------------------------
-	 * State declarations
-	 * -------------------------------------------------------------------------
-	 */
-
-	/*
-	 * The board object fetched from the API.
-	 * Initialised to null rather than [] because this hook fetches a single
-	 * resource, not a collection — null clearly signals "not yet loaded".
-	 *
-	 * @type {[Object|null, Function]}
+	 * State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * board   — the fetched board object; null until the first successful fetch.
+	 * loading — true while the request is in-flight.
+	 * error   — null on success; error message string on failure.
 	 */
 	const [board, setBoard] = useState(null);
-
-	/*
-	 * Tracks whether an async fetch is currently in-flight.
-	 * Initialised to true because a fetch begins immediately on mount.
-	 *
-	 * @type {[boolean, Function]}
-	 */
 	const [loading, setLoading] = useState(true);
-
-	/*
-	 * Holds the error message string if the fetch failed, or null if fine.
-	 *
-	 * @type {[string|null, Function]}
-	 */
 	const [error, setError] = useState(null);
 
-	/*
-	 * -------------------------------------------------------------------------
-	 * Side effect: fetch board whenever the id changes
-	 * -------------------------------------------------------------------------
-	 */
-
-	/*
-	 * [id] dependency array — re-runs whenever the board ID changes, ensuring
-	 * the correct board is always loaded without a full page reload.
-	 */
 	useEffect(() => {
-
-		/**
-		 * Inner async function that performs the actual HTTP request.
-		 * Must be defined inside the effect and invoked immediately — useEffect
-		 * callbacks cannot themselves be async.
-		 *
-		 * @async
-		 * @returns {Promise<void>}
+		/*
+		 * fetchBoard is defined as an inner async function because useEffect
+		 * callbacks must not be async themselves (they must return either nothing
+		 * or a cleanup function, not a Promise).
 		 */
 		const fetchBoard = async () => {
-			/* Call the board service with the given ID and await the JSON response. */
 			const response = await getBoardById(id);
-
-			/*
-			 * Store the board object in state, triggering a re-render so that
-			 * consuming components receive the freshly loaded data.
-			 */
 			setBoard(response.data);
 		};
-		/*
-		 * Reset state in resposne to changes of id.
-		 */
-		setLoading(true);
-		/*
-		 * Invoke fetchBoard then attach promise handlers for error and loading.
-		 */
-		fetchBoard()
-			/*
-			 * Capture any rejection reason and store it as a string in error state
-			 * so the consumer can surface a meaningful message to the user.
-			 */
-			.catch(err => setError(err.message))
 
-			/*
-			 * Always clears the loading flag — runs after both resolution and
-			 * rejection, preventing a permanently stuck loading state.
-			 */
+		/* Reset loading to true on each re-run (e.g. when id changes). */
+		setLoading(true);
+
+		fetchBoard()
+			.catch(err => setError(err.message))
 			.finally(() => setLoading(false));
 
-	}, [id]);
+	}, [id]); /* Re-run whenever the board ID changes. */
 
-	/*
-	 * -------------------------------------------------------------------------
-	 * Return value
-	 * -------------------------------------------------------------------------
-	 */
-
-	/*
-	 * Expose state as a plain object so consumers can destructure only what
-	 * they need: const { board, loading, error } = useBoardDetails(id);
-	 */
 	return { board, loading, error };
 }

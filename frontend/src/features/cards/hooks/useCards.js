@@ -1,175 +1,119 @@
 /**
  * @file useCards.js
- * @description Custom React hook for fetching and managing the cards that
- * belong to a specific list (column) on a board. Mirrors the structure of
- * `useLists.js` — abstracts all data-fetching logic away from UI components
- * so they only need to consume the returned state values.
+ * @description Custom React hook for fetching and mutating cards in a single
+ * list column.
+ *
+ * Manages the full card lifecycle for one list:
+ *   - Fetches all cards on mount (and re-fetches if listId changes).
+ *   - Exposes submitCreateCard and submitDeleteCard for optimistic local-state
+ *     updates after successful API calls.
+ *   - Separates fetch errors (fetchError) from mutation errors (mutationError)
+ *     so the UI can surface them independently.
  *
  * Consumed by:
- *   - Any component that renders cards within a list column.
+ *   - ListColumn (src/features/lists/components/ListColumn.jsx)
  *
  * Depends on:
- *   - getAllCards  (src/features/cards/api/cardService.js)
- *   - React's built
--in `useState` and `useEffect` hooks
+ *   - getAllCards, createCard, deleteCard (features/cards/api/cardService.js)
  */
-
-import { useEffect, useState } from "react";
 
 /*
- * getAllCards is the service function responsible for sending the HTTP GET
- * request that retrieves every card belonging to the given list ID.
+ * Imports
+ * ───────────────────────────────────────────────────────────────────────────
+ * useEffect, useState — React hooks for side-effects and local state.
+ * getAllCards         — GET /api/cards?listId=<id>
+ * createCard          — POST /api/cards/
+ * deleteCard          — DELETE /api/cards/<id>
  */
+import { useEffect, useState } from "react";
 import { getAllCards, createCard, deleteCard } from "../api/cardService";
 
 /**
- * Custom hook that fetches all cards associated with a given list and exposes
- * loading / error state so that consuming components can render appropriate UI
- * for each data-fetching phase (loading spinner, error message, populated cards).
- *
- * The fetch is automatically re-triggered whenever `listId` changes, which means
- * switching between list columns will always load the correct set of cards
- * without needing to unmount and remount the component.
+ * Custom hook that fetches all cards for a given list and exposes mutation
+ * helpers for creating and deleting cards.
  *
  * @param {number} listId - The numeric primary key of the list whose cards
- *   should be fetched. Passed as the `listId` query-string parameter to the
- *   API. Originates from the list object rendered in the lists feature.
- *
+ *   should be fetched and managed.
  * @returns {{
- *   cards:   Array<Object>,
- *   loading: boolean,
- *   error:   string|null
+ *   cards:            Array<Object>,
+ *   loading:          boolean,
+ *   fetchError:       string|null,
+ *   mutationError:    string|null,
+ *   setMutationError: Function,
+ *   submitCreateCard: Function,
+ *   submitDeleteCard: Function
  * }} An object containing:
- *   - `cards`   – The array of card objects returned by the API. Each object
- *                 represents a single task card within the list column (e.g.
- *                 title, description, priority). Starts as an empty array
- *                 before the fetch completes.
- *   - `loading` – `true` while the HTTP request is in-flight; flips to `false`
- *                 once the request either resolves or rejects. Useful for
- *                 rendering a spinner or skeleton UI.
- *   - `error`   – `null` on success; set to the caught error's `.message`
- *                 string if the fetch fails. Allows the consumer to display a
- *                 user-facing error message.
- *
- * @example
- * // Inside a component that receives a list object as a prop:
- * const { cards, loading, error } = useCards(list.id);
- *
- * if (loading) return <Spinner />;
- * if (error)   return <ErrorBanner message={error} />;
- * return cards.map(card => <CardItem key={card.id} card={card} />);
+ *   - `cards`            — Array of card objects for this list.
+ *   - `loading`          — `true` while the initial fetch is in-flight.
+ *   - `fetchError`       — Error message if the initial GET failed; otherwise null.
+ *   - `mutationError`    — Error message if the last create/delete failed; otherwise null.
+ *   - `setMutationError` — Setter to clear the mutation error from the UI.
+ *   - `submitCreateCard` — Async function to create a card and update local state.
+ *   - `submitDeleteCard` — Async function to delete a card and update local state.
  */
 export function useCards(listId) {
-
-	/**
-	 * Holds the array of card objects fetched from the API.
-	 * Initialised to an empty array so that consumers can safely call
-	 * `.map()` or `.length` on it before data arrives.
-	 *
-	 * @type {[Array<Object>, Function]}
+	/*
+	 * State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * cards         — the fetched cards array for this list column.
+	 * loading       — true while the initial fetch is in-flight.
+	 * fetchError    — set if the initial GET /api/cards request fails.
+	 * mutationError — set if a create or delete mutation fails; independently
+	 *                 clearable so the UI can dismiss it without affecting the
+	 *                 fetch error.
 	 */
 	const [cards, setCards] = useState([]);
-
-	/**
-	 * Tracks whether an HTTP request is currently in-flight.
-	 * Starts as `true` because a fetch is triggered immediately on mount,
-	 * then flips to `false` in the `finally` block regardless of outcome.
-	 *
-	 * @type {[boolean, Function]}
-	 */
 	const [loading, setLoading] = useState(true);
-
-	/**
-	 * Holds the error message string if the initial card fetch fails, or `null`
-	 * when the fetch succeeds. Triggers the column-level error banner that
-	 * replaces the entire column on load failure.
-	 *
-	 * @type {[string|null, Function]}
-	 */
 	const [fetchError, setFetchError] = useState(null);
-
-	/**
-	 * Holds the error message string if a mutation (create/delete) fails, or
-	 * `null` otherwise. Surfaces as an inline dismissible banner inside the
-	 * column without replacing it.
-	 *
-	 * @type {[string|null, Function]}
-	 */
 	const [mutationError, setMutationError] = useState(null);
 
-
+	/*
+	 * Initial Fetch Effect
+	 * ─────────────────────────────────────────────────────────────────────
+	 * Runs on mount and re-runs if listId changes (e.g. when the column is
+	 * reused for a different list). fetchCards is a nested async function
+	 * because useEffect callbacks must not themselves be async.
+	 */
 	useEffect(() => {
-		/**
-		 * Inner async function that performs the actual API call.
-		 * Defined inside the effect so it can be declared `async` — useEffect
-		 * callbacks themselves must not be async (they must return either nothing
-		 * or a cleanup function, not a Promise).
-		 *
-		 * @async
-		 * @returns {Promise<void>}
-		 */
 		const fetchCards = async () => {
-			/*
-			 * Call the card service, passing the list ID so the API can filter
-			 * results to only the cards that belong to this particular list.
-			 * The underlying api client wraps fetch() and resolves to the parsed
-			 * JSON body, so `response.data` is the actual array of card objects.
-			 */
 			const response = await getAllCards(listId);
-
-			/*
-			 * Commit the retrieved cards to state, which will trigger a re-render
-			 * and give consuming components access to the fresh data.
-			 */
 			setCards(response.data);
 		};
 
 		fetchCards()
-			/*
-			 * If fetchCards() rejects (network failure, non-2xx HTTP status, timeout
-			 * after the 5 000 ms threshold in api.js, etc.) the caught error's message
-			 * string is stored so the consumer can surface a meaningful error to the user.
-			 */
 			.catch(err => setFetchError(err.message))
-			/*
-			 * Always runs after either resolution or rejection. Marks the loading
-			 * phase as complete so consumers can hide spinners / skeletons.
-			 */
 			.finally(() => setLoading(false));
 
-	/*
-	 * Re-run this effect whenever the list ID prop changes. This ensures that
-	 * switching between different list columns always loads the correct cards
-	 * without requiring a full page navigation or component unmount.
-	 */
 	}, [listId]);
 
-	/*
-	 * Controlled setter — appends a newly created card to the local cards array
-	 * so the UI updates immediately without a full refetch.
+	/**
+	 * Append a single card to the local cards array.
+	 * Used internally after a successful createCard API call.
+	 *
+	 * @param {Object} card - The newly created card object returned by the API.
 	 */
 	function addCard(card) {
 		setCards(prev => [...prev, card]);
 	}
 
-	/*
-	 * Controlled setter — removes a card from local state by its ID so the UI
-	 * updates immediately without a full refetch.
+	/**
+	 * Remove a single card from the local cards array by ID.
+	 * Used internally after a successful deleteCard API call.
+	 *
+	 * @param {number} cardId - The ID of the card to remove.
 	 */
 	function removeCard(cardId) {
 		setCards(prev => prev.filter(c => c.id !== cardId));
 	}
 
 	/**
-	 * Calls the createCard service, appends the new card to local state on
-	 * success, and surfaces any error via the shared `error` state so the
-	 * component never needs to reach the service layer directly.
+	 * Create a new card on the server and add it to local state on success.
 	 *
-	 * `listId` is closed over from the hook's parameter — the component only
-	 * supplies the card-specific fields it owns (title, priority).
+	 * Automatically appends the current `listId` to the supplied data before
+	 * sending. Sets `mutationError` if the request fails.
 	 *
-	 * @param {{ title: string, priority: string }} data
-	 * @returns {Promise<void>}
+	 * @async
+	 * @param {Object} data - Card fields (e.g. `{ title: "Fix bug", priority: "High" }`).
 	 */
 	async function submitCreateCard(data) {
 		try {
@@ -181,11 +125,13 @@ export function useCards(listId) {
 	}
 
 	/**
-	 * Calls the deleteCard service and removes the card from local state on
-	 * success. Surfaces any error via the shared `error` state.
+	 * Delete a card on the server and remove it from local state on success.
 	 *
-	 * @param {number} cardId
-	 * @returns {Promise<void>}
+	 * Sets `mutationError` if the request fails so the UI can surface the issue
+	 * without losing the existing cards list.
+	 *
+	 * @async
+	 * @param {number} cardId - The ID of the card to delete.
 	 */
 	async function submitDeleteCard(cardId) {
 		try {
@@ -196,9 +142,5 @@ export function useCards(listId) {
 		}
 	}
 
-	/*
-	 * Expose state as a plain object so consumers can destructure only what they
-	 * need: const { cards } = useCards(listId)  ← valid; unused values are ignored.
-	 */
 	return { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard };
 }
