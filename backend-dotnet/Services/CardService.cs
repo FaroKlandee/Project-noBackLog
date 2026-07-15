@@ -83,4 +83,22 @@ public class CardService : ICardService
 
         return true;
     }
+
+    public async Task<Card?> RepositionCardAsync(int id, CardReorderRequest request)
+    {
+        var card = await _context.Cards.FindAsync(id);
+        if (card is null) return null;
+
+        var listExists = await _context.Lists.AnyAsync(l => l.Id == request.ListId);
+        if (!listExists)
+            throw new KeyNotFoundException($"List with ID {request.ListId} not found.");
+
+        card.ListId = request.ListId;
+        card.Position = request.Position;
+        card.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return card;
+    }
 }

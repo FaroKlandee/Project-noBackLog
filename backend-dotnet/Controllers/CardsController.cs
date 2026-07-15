@@ -78,14 +78,36 @@ public class CardsController : ControllerBase
         }
     }
 
-    // DELETE /api/cards/:id
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var deleted = await _cardService.DeleteCardAsync(id);
-        if (!deleted)
-            return NotFound(new { success = false, message = "Card not found." });
+	// DELETE /api/cards/:id
+	[HttpDelete("{id}")]
+	public async Task<IActionResult> Delete(int id)
+	{
+		var deleted = await _cardService.DeleteCardAsync(id);
+		if (!deleted)
+			return NotFound(new { success = false, message = "Card not found." });
 
-        return Ok(new { success = true, message = "Card successfully deleted." });
+		return Ok(new { success = true, message = "Card successfully deleted." });
+	}
+
+	// PATCH /api/cards/{id}/reorder
+    [HttpPatch("{id}/reorder")]
+    public async Task<IActionResult> Patch( int id,[FromBody] CardReorderRequest request) {
+
+			if (request.ListId == 0)
+				return NotFound(new { success = false, message = "List not found." });
+
+			if (string.IsNullOrWhiteSpace(request.Position))
+				return BadRequest(new { success = false, message = "Position is required." });
+
+			try {
+				var updated = await _cardService.RepositionCardAsync(id, request);
+				if (updated is null)
+				{
+					return NotFound(new { success = false, message = "Reposition error" });
+				}
+				return Ok(new { success = true, message = "Card successfully repositioned.", data = updated });
+			} catch (Exception ex) {
+				return StatusCode(500, new { success = false, message = "Internal Server Error. Something went Wrong!"});
+			}
     }
 }

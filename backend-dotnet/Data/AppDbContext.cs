@@ -54,6 +54,7 @@ public class AppDbContext : DbContext
             entity.HasKey(c => c.Id);
             entity.Property(c => c.Id).HasColumnName("id");
             entity.Property(c => c.ListId).HasColumnName("list_id");
+            entity.Property(c => c.Position).HasColumnName("position").HasDefaultValue(Card.UnsetPosition);
             entity.Property(c => c.Title).HasColumnName("title").IsRequired().HasMaxLength(100);
             entity.Property(c => c.Description).HasColumnName("description").HasMaxLength(2000);
             entity.Property(c => c.Priority).HasColumnName("priority").HasConversion<string>();

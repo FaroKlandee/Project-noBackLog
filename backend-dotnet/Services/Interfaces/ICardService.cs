@@ -9,4 +9,5 @@ public interface ICardService
     Task<Card> CreateCardAsync(Card card);
     Task<Card?> UpdateCardAsync(int id, Card card);
     Task<bool> DeleteCardAsync(int id);
+    Task<Card?> RepositionCardAsync(int id, CardReorderRequest request);
 }
