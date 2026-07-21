@@ -106,8 +106,10 @@ public class CardsController : ControllerBase
 					return NotFound(new { success = false, message = "Reposition error" });
 				}
 				return Ok(new { success = true, message = "Card successfully repositioned.", data = updated });
-			} catch (Exception ex) {
-				return StatusCode(500, new { success = false, message = "Internal Server Error. Something went Wrong!"});
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(new { success = false, message = ex.Message });
 			}
     }
 }
