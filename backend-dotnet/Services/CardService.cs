@@ -22,7 +22,7 @@ public class CardService : ICardService
             query = query.Where(c => c.ListId == listId.Value);
 
         return await query
-            .OrderBy(c => c.CreatedAt)
+            .OrderBy(c => c.Position)
             .ToListAsync();
     }
 
