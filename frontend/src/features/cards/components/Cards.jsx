@@ -40,9 +40,13 @@ import CardItem from './CardItem';
  *   `priority` {string} — one of "Low" | "Medium" | "High".
  * @param {Function}        props.onDeleteCard - Callback invoked with a card's
  *   `id` when the user confirms deletion from a CardItem's context menu.
+ * @param {number}          [props.listId]     - The ID of the list these cards
+ *   belong to. Forwarded to each CardItem as a fallback `listId` for its
+ *   sortable `group`, used only when an individual card object doesn't
+ *   already carry its own `listId` field.
  * @returns {JSX.Element} A list of CardItem components or an empty-state message.
  */
-export default function Cards({ cards, onDeleteCard }) {
+export default function Cards({ cards, onDeleteCard, listId }) {
 	/*
 	 * Empty State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -67,7 +71,7 @@ export default function Cards({ cards, onDeleteCard }) {
 	return (
 		<List sx={{ p: 0, m: 0 }}>
 			{cards.map((card, index) => (
-				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} />
+				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} listId={listId} />
 			))}
 		</List>
 	);

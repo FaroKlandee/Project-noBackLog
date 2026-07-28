@@ -109,8 +109,23 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 * useSortable registers this column as a sortable item. The returned `ref`
 	 * must be attached to the column's root DOM element so dnd-kit can track
 	 * its position and compute drop targets.
+	 *
+	 * `type: 'list'` tags this draggable/droppable with a discriminator so the
+	 * board-level `onDragEnd` handler (BoardDetailPage.jsx) can distinguish a
+	 * list-reorder drag from a card-reorder drag, since both share the same
+	 * DragDropProvider context.
+	 *
+	 * `accept: 'list'` is required, not just descriptive — without it this
+	 * column's Sortable instance defaults to accepting every draggable,
+	 * including cards. Since the column's `ref` spans the whole card list
+	 * (cards render inside it), an unrestricted column would let a dragged
+	 * card collide with the column itself, causing dnd-kit's optimistic
+	 * sorting plugin to reposition the *list* instead of a card underneath
+	 * it. Restricting `accept` to 'list' ensures only other list columns can
+	 * ever be a valid drop target for this column, so a card drag can never
+	 * be misidentified as a list-reorder collision.
 	 */
-	const { ref } = useSortable({ id: list.id, index });
+	const { ref } = useSortable({ id: list.id, index, type: 'list', accept: 'list' });
 
 	/*
 	 * Card Data
@@ -321,8 +336,13 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				</Alert>
 			)}
 
-			{/* Cards presenter — purely presentational; receives the cards array and a delete callback. */}
-			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+			{/*
+			  * Cards presenter — purely presentational; receives the cards array and a
+			  * delete callback. `listId` is passed as a fallback for CardItem's sortable
+			  * `group`, used only if an individual card object doesn't already carry its
+			  * own `listId` field.
+			  */}
+			<Cards cards={cards} onDeleteCard={handleDeleteCard} listId={list.id} />
 
 			{/*
 			  * Inline add-card form — conditionally rendered when isAddingCard is true.

@@ -65,17 +65,43 @@ import { useSortable } from "@dnd-kit/react/sortable";
  *   array; required by useSortable to compute the correct drop target.
  * @param {Function} props.onDeleteCard  - Callback invoked with `card.id` when
  *   the user confirms deletion from the context menu.
+ * @param {number}   [props.listId]      - The ID of the list this card currently
+ *   belongs to, used as a fallback if `card.listId` is not present on the card
+ *   object itself. Determines this card's sortable `group`, so dnd-kit knows
+ *   which list a card can be reordered within or moved between.
  * @returns {JSX.Element} A single rendered card list item.
  */
-export default function CardItem({ card, index, onDeleteCard }) {
+export default function CardItem({ card, index, onDeleteCard, listId }) {
+	/*
+	 * Sortable Group Resolution
+	 * ─────────────────────────────────────────────────────────────────────
+	 * Prefer the card's own `listId` field (present once the API includes it on
+	 * the card entity). Fall back to the `listId` prop passed down from the
+	 * parent column (Cards.jsx -> ListColumn.jsx) if the card object doesn't
+	 * carry it yet.
+	 */
+	const resolvedListId = card.listId ?? listId;
+
 	/*
 	 * Drag-and-Drop Registration
 	 * ─────────────────────────────────────────────────────────────────────
 	 * useSortable registers this card as a sortable item. The returned `ref`
 	 * must be attached to the card's root DOM element so dnd-kit can track
 	 * its position and compute drop targets.
+	 *
+	 * `type: 'card'` tags this draggable/droppable with a discriminator so the
+	 * board-level `onDragEnd` handler (BoardDetailPage.jsx) can distinguish a
+	 * card-reorder drag from a list-reorder drag, since both share the same
+	 * DragDropProvider context.
+	 *
+	 * `accept: 'card'` restricts valid drop targets to other `type: 'card'`
+	 * items, preventing a card from being dropped where a list is expected.
+	 *
+	 * `group: resolvedListId` scopes this card to its containing list. Cards
+	 * sharing the same group can be reordered within that list or moved into a
+	 * different list's group entirely (a different `resolvedListId`).
 	 */
-	const { ref } = useSortable({ id: card.id, index });
+	const { ref } = useSortable({ id: card.id, index, type: 'card', accept: 'card', group: resolvedListId });
 
 	/*
 	 * Context Menu State

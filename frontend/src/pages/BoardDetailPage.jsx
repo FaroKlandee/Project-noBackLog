@@ -77,14 +77,19 @@ export default function BoardDetailPage() {
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
 
 	/**
-	 * Handle the end of a drag-and-drop list reorder operation.
+	 * Handle the end of a drag-and-drop operation on the board.
 	 *
-	 * Called by DragDropProvider's `onDragEnd` event. Computes the new list
-	 * order, updates local state immediately for a responsive UI, then persists
-	 * the new order to the backend as an array of list IDs.
+	 * Called by DragDropProvider's `onDragEnd` event, which fires for both list
+	 * column drags (type: 'list') and card drags (type: 'card') since they share
+	 * this single provider. Branches on the dragged item's type:
+	 *   - 'list' — computes the new list order, updates local state immediately
+	 *              for a responsive UI, then persists the new order to the
+	 *              backend as an array of list IDs.
+	 *   - 'card' — returns early for now; card reordering/moving is not yet
+	 *              implemented at this level.
 	 *
 	 * @param {import('@dnd-kit/react').DragEndEvent} event - The dnd-kit drag
-	 *   end event containing source/target indices and a `canceled` flag.
+	 *   end event containing source/target descriptors and a `canceled` flag.
 	 */
 	function handleDragEnd(event) {
 		/* Guard: drag was cancelled (e.g. user pressed Escape). */
@@ -94,6 +99,22 @@ export default function BoardDetailPage() {
 
 		/* Guard: no valid drop target — dragged outside any droppable zone. */
 		if (event.operation.target === null) {
+			return;
+		}
+
+		/*
+		 * Branch on the dragged item's `type`, read from the source descriptor.
+		 * DragDropProvider is shared by both list columns (type: 'list') and
+		 * individual cards (type: 'card'), so this handler must only run the
+		 * list-reorder logic below for list drags.
+		 */
+		const draggedType = event.operation.source?.type;
+
+		if (draggedType === 'card') {
+			/*
+			 * Card reordering/moving is not yet implemented here — return early so
+			 * a card drag does not fall through into the list-reorder logic below.
+			 */
 			return;
 		}
 
