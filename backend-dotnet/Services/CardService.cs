@@ -14,15 +14,34 @@ public class CardService : ICardService
         _context = context;
     }
 
-    public async Task<IEnumerable<Card>> GetAllCardsAsync(int? listId)
+    /*
+     * Filters by a single list, an entire board, or neither.
+     *
+     * boardId filters through the List navigation property, chosen over
+     * denormalising BoardId onto Card, because a copied column would have to be
+     * rewritten every time a card moves between lists — and the join is cheap at
+     * board-sized row counts.
+     *
+     * Position ordering is tie-broken by CreatedAt, accepted deliberately over
+     * ordering on Position alone, because every row currently holds the "UNSET"
+     * sentinel and ordering on an all-identical column is non-deterministic in
+     * Postgres — rows reshuffle after any UPDATE. The tie-break remains correct
+     * once real fractional-index ranks are populated, so it does not need to be
+     * removed later.
+     */
+    public async Task<IEnumerable<Card>> GetAllCardsAsync(int? listId, int? boardId)
     {
         var query = _context.Cards.AsQueryable();
 
         if (listId.HasValue)
             query = query.Where(c => c.ListId == listId.Value);
 
+        if (boardId.HasValue)
+            query = query.Where(c => c.List!.BoardId == boardId.Value);
+
         return await query
             .OrderBy(c => c.Position)
+            .ThenBy(c => c.CreatedAt)
             .ToListAsync();
     }
 

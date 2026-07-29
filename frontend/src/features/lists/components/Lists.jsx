@@ -4,16 +4,17 @@
  * columns for a single board, plus an inline "add new list" form.
  *
  * Intentionally "dumb" — it accepts pre-fetched data and mutation callbacks
- * via props and delegates per-column rendering and card fetching to ListColumn.
- * All list-fetch lifecycle logic lives in the parent (BoardDetailPage) via useLists.
+ * via props and delegates per-column rendering to ListColumn. All list AND card
+ * fetch lifecycle logic lives in the parent (BoardDetailPage) via useLists and
+ * useBoardCards; this component only slices the board-level cards record down
+ * to each column's own array.
  *
  * Renders:
  *   - A horizontally-scrollable row of ListColumn components (one per list).
  *   - An "Add new list" button at the end of the row.
  *   - An inline form (text field + confirm/cancel) that replaces the button
  *     when the user clicks "Add new list".
- *   - A plain-text empty
- state when no lists exist yet.
+ *   - A plain-text empty state when no lists exist yet.
  *
  * Hierarchy:
  *   BoardDetailPage (src/pages/BoardDetailPage.jsx)
@@ -50,15 +51,35 @@ import { useState } from 'react';
  *   new list's name string when the user confirms the add-list form.
  * @param {Function}      props.deleteExistingList - Callback invoked with a list's
  *   ID when the user deletes a list from its column menu.
+ * @param {Object<number, Array<Object>>} [props.cardsByList={}] - Board-level record
+ *   of list ID to that list's cards, owned by useBoardCards in BoardDetailPage.
+ *   Sliced per column when rendering each ListColumn.
+ * @param {Function}      props.onCreateCard      - Async callback invoked as
+ *   `(listId, data)` when a column's add-card form is submitted.
+ * @param {Function}      props.onDeleteCard      - Async callback invoked as
+ *   `(listId, cardId)` when a card is deleted from a column.
+ * @param {{listId: number, message: string}|null} [props.cardMutationError] - The
+ *   board-level card mutation error. Scoped here to a plain message for the
+ *   matching column, so ListColumn never sees the envelope shape.
+ * @param {Function}      [props.onDismissCardMutationError] - Callback to clear the
+ *   card mutation error.
  * @returns {JSX.Element} A horizontally scrollable row of list columns and an
  *   "Add new list" control.
  */
-export default function Lists({ lists, createNewList, deleteExistingList }) {
+export default function Lists({
+	lists,
+	createNewList,
+	deleteExistingList,
+	cardsByList = {},
+	onCreateCard,
+	onDeleteCard,
+	cardMutationError,
+	onDismissCardMutationError,
+}) {
 	/*
 	 * Local State — Add-list form
 	 * ─────────────────────────────────────────────────────────────────────
-	 * isAd
-ding    — toggles between the "Add new list" button and the inline form.
+	 * isAdding    — toggles between the "Add new list" button and the inline form.
 	 * newListName — controlled value for the list name text field.
 	 */
 	const [isAdding, setIsAdding] = useState(false);
@@ -119,7 +140,17 @@ ding    — toggles between the "Add new list" button and the inline form.
 			{lists.length === 0 ?
 				(<p>No lists for now...</p>) : (
 					lists.map((list, index) => (
-						<ListColumn key={list.id} list={list} index={index} deleteExistingList={deleteExistingList}/>
+						<ListColumn
+							key={list.id}
+							list={list}
+							index={index}
+							cards={cardsByList[list.id] ?? []}
+							deleteExistingList={deleteExistingList}
+							onCreateCard={onCreateCard}
+							onDeleteCard={onDeleteCard}
+							mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}
+							onDismissMutationError={onDismissCardMutationError}
+						/>
 					))
 				)}
 

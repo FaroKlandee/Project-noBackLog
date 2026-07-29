@@ -4,8 +4,9 @@
  * a single Kanban column.
  *
  * Intentionally "dumb" — it accepts pre-fetched card data via props and maps
- * each card to a CardItem, which owns its own context-menu state. All
- * data-fetching and mutation logic lives in ListColumn (via useCards).
+ * each card to a CardItem, which owns its own context-menu state. All card
+ * data-fetching and mutation logic lives in BoardDetailPage (via useBoardCards)
+ * and is threaded down through Lists and ListColumn as props.
  *
  * Renders:
  *   - An empty-state message when no cards exist.
@@ -37,16 +38,13 @@ import CardItem from './CardItem';
  * @param {Object}          props
  * @param {Array<Object>}   props.cards        - Array of card objects to render.
  *   Each card is expected to have: `id` {number}, `title` {string},
- *   `priority` {string} — one of "Low" | "Medium" | "High".
+ *   `priority` {string} — one of "Low" | "Medium" | "High", and `listId` {number}
+ *   which CardItem uses directly as its sortable group.
  * @param {Function}        props.onDeleteCard - Callback invoked with a card's
  *   `id` when the user confirms deletion from a CardItem's context menu.
- * @param {number}          [props.listId]     - The ID of the list these cards
- *   belong to. Forwarded to each CardItem as a fallback `listId` for its
- *   sortable `group`, used only when an individual card object doesn't
- *   already carry its own `listId` field.
  * @returns {JSX.Element} A list of CardItem components or an empty-state message.
  */
-export default function Cards({ cards, onDeleteCard, listId }) {
+export default function Cards({ cards, onDeleteCard }) {
 	/*
 	 * Empty State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -71,7 +69,7 @@ export default function Cards({ cards, onDeleteCard, listId }) {
 	return (
 		<List sx={{ p: 0, m: 0 }}>
 			{cards.map((card, index) => (
-				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} listId={listId} />
+				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} />
 			))}
 		</List>
 	);

@@ -9,10 +9,22 @@
  *   import { getAllCards, createCard }       from '../../cards';
  *
  * Exported surface:
- *   getAllCards, createCard, deleteCard — raw async HTTP functions (cardService.js)
- *   useCards                           — hook: fetches cards for a list and
- *                                        exposes create/delete mutations
- *   Cards                              — component: renders a list of card items
+ *   getAllCards,
+ *   getAllCardsByBoard,
+ *   createCard, deleteCard,
+ *   reorderCard              — raw async HTTP functions (cardService.js)
+ *   useCards                 — hook: fetches cards for a *single* list and
+ *                              exposes create/delete mutations. Currently unused
+ *                              — superseded by useBoardCards when card state was
+ *                              lifted to the board level for cross-list drag.
+ *                              Retained for any future single-list view.
+ *   useBoardCards            — hook: fetches every card on a board in one
+ *                              request into a record keyed by list ID, and
+ *                              exposes create/delete/reorder mutations. Required
+ *                              for cross-list drag-and-drop, which needs a
+ *                              single owner able to see both the source and
+ *                              destination list's cards.
+ *   Cards                    — component: renders a list of card items
  */
 
 /* API service layer — raw async CRUD functions for the /api/cards resource. */
@@ -20,6 +32,7 @@ export * from './api/cardService';
 
 /* Hooks — React hooks that wrap the service layer with local state management. */
 export * from './hooks/useCards';
+export * from './hooks/useBoardCards';
 
 /* Components — presentational components for the cards feature. */
 export { default as Cards } from './components/Cards';

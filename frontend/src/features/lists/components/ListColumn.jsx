@@ -1,19 +1,24 @@
 /**
  * @file ListColumn.jsx
- * @description Container component for a single Kanban-style list column.
+ * @description Presentational component for a single Kanban-style list column.
  *
- * Sits between Lists.jsx (row presenter) and Cards.jsx (card list presenter)
- * in the component hierarchy. Owns:
- *   - The useCards data-fetching lifecycle for this column's cards.
+ * Sits between Lists.jsx (row presenter) and Cards.jsx (card list presenter).
+ * Receives its cards slice and every card mutation handler as props — it does
+ * NOT fetch card data itself. Card state is owned board-wide by useBoardCards
+ * in BoardDetailPage, so that a card can be moved between two columns from a
+ * single drag handler that can see both lists' cards at once.
+ *
+ * Still owns its own local interaction state, consistent with the convention
+ * used by Lists.jsx and CardItem.jsx (data comes from an owner via props; local
+ * interaction state lives with the component that owns the interaction):
  *   - The useSortable drag-and-drop registration for column reordering.
  *   - The MoreVert options menu (currently: Delete list).
  *   - The inline add-card form with title input, priority selector, and
  *     keyboard shortcuts (Shift+Enter to submit; L/M/H to set priority).
  *
- * Renders one of three states:
- *   1. Loading — a CircularProgress spinner while cards are being fetched.
- *   2. Error   — an Alert banner if the card fetch fails.
- *   3. Happy path — the column header, card list, and optional add-card form.
+ * Card loading and fetch-error states are no longer handled here — they are
+ * board-level concerns surfaced once by BoardDetailPage, since useBoardCards
+ * loads every list's cards in one pass.
  *
  * Hierarchy:
  *   Lists           (src/features/lists/components/Lists.jsx)
@@ -24,11 +29,10 @@
 /*
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
- * Cards, useCards — card presenter component and its data hook, imported from
- *                   the cards feature barrel so this file never reaches into
- *                   the cards feature's internal folder structure directly.
+ * Cards — card list presenter, imported from the cards feature barrel so this
+ *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards, useCards } from "../../cards";
+import { Cards } from "../../cards";
 
 /*
  * Icons
@@ -56,8 +60,7 @@ import { useSortable } from "@dnd-kit/react/sortable";
 /*
  * MUI components
  * ───────────────────────────────────────────────────────────────────────────
- * CircularProgress — spinner shown while cards are loading.
- * Alert            — error banner shown when the useCards fetch fails.
+ * Alert            — dismissable banner for a scoped card mutation error.
  * Typography       — column header text.
  * Box              — generic layout wrapper for the column surface.
  * IconButton       — trigger buttons for add-card and the options menu.
@@ -66,29 +69,53 @@ import { useSortable } from "@dnd-kit/react/sortable";
  * TextField        — card title input inside the add-card form.
  * Select, FormControl — priority dropdown inside the add-card form.
  */
-import { CircularProgress, Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
+import { Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
 
 /**
  * ListColumn component.
  *
- * Container for a single Kanban list column. Fetches its own cards via
- * useCards, registers itself as a sortable drag-and-drop item, and renders
- * the column header, card list, and inline add-card form.
+ * Renders one Kanban list column: header, card list, and inline add-card form.
+ * Registers itself as a sortable drag-and-drop item for column reordering, and
+ * delegates all card and list mutations upward via callback props.
  *
  * @component
- * @param {Object}   props
- * @param {Object}   props.list                  - The list object for this column.
- * @param {number}   props.list.id               - Unique identifier; used as the
- *                                                 sortable key and for fetching cards.
- * @param {string}   props.list.name             - Display name in the column header.
- * @param {number}   props.index                 - Zero-based position in the lists array;
- *                                                 required by useSortable to compute
- *                                                 the correct drop target.
- * @param {Function} props.deleteExistingList    - Async callback invoked with this
- *                                                 list's ID when the user confirms deletion.
- * @returns {JSX.Element} A spinner, an error banner, or the rendered column.
+ * @param {Object}        props
+ * @param {Object}        props.list                    - The list object for this column.
+ * @param {number}        props.list.id                 - Unique identifier; used as the
+ *                                                        sortable key and passed to
+ *                                                        mutation handlers.
+ * @param {string}        props.list.name               - Display name in the column header.
+ * @param {number}        props.index                   - Zero-based position in the lists
+ *                                                        array; required by useSortable to
+ *                                                        compute the correct drop target.
+ * @param {Array<Object>} [props.cards=[]]              - This column's cards, sliced from
+ *                                                        the board-level record by the
+ *                                                        parent. Defaults to an empty array
+ *                                                        so a newly created list renders
+ *                                                        before its cards have been fetched.
+ * @param {Function}      props.deleteExistingList      - Async callback invoked with this
+ *                                                        list's ID when the user confirms
+ *                                                        list deletion.
+ * @param {Function}      props.onCreateCard            - Async callback invoked as
+ *                                                        `(listId, data)` to create a card.
+ * @param {Function}      props.onDeleteCard            - Async callback invoked as
+ *                                                        `(listId, cardId)` to delete a card.
+ * @param {string|null}   [props.mutationError]         - Card mutation error message already
+ *                                                        scoped to this column by the parent,
+ *                                                        or null when there is none.
+ * @param {Function}      [props.onDismissMutationError] - Callback to clear the mutation error.
+ * @returns {JSX.Element} The rendered column.
  */
-export default function ListColumn({ list, index, deleteExistingList }) {
+export default function ListColumn({
+	list,
+	index,
+	cards = [],
+	deleteExistingList,
+	onCreateCard,
+	onDeleteCard,
+	mutationError,
+	onDismissMutationError,
+}) {
 
 	/*
 	 * Options Menu State
@@ -128,21 +155,6 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	const { ref } = useSortable({ id: list.id, index, type: 'list', accept: 'list' });
 
 	/*
-	 * Card Data
-	 * ─────────────────────────────────────────────────────────────────────
-	 * useCards fetches all cards for this list and exposes mutation helpers.
-	 * Re-triggered automatically if list.id ever changes.
-	 *   cards          — the fetched cards array.
-	 *   loading        — true while the fetch is in-flight.
-	 *   fetchError     — set if the GET /api/cards request fails.
-	 *   mutationError  — set if a create/delete card mutation fails.
-	 *   setMutationError — lets this component dismiss the mutation error banner.
-	 *   submitCreateCard — async function to create a card via the API.
-	 *   submitDeleteCard — async function to delete a card via the API.
-	 */
-	const { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard } = useCards(list.id);
-
-	/*
 	 * Add-Card Form State
 	 * ─────────────────────────────────────────────────────────────────────
 	 * isAddingCard   — toggles the inline add-card form visibility.
@@ -165,10 +177,10 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 */
 
 	/**
-	 * Submit the new card to the API, reset the title field, and restore
-	 * focus to the title input so the user can immediately add another card.
-	 * Guards against empty titles. Sets isSubmitting to disable the button
-	 * during the in-flight request.
+	 * Submit the new card via the parent's create handler, reset the title
+	 * field, and restore focus to the title input so the user can immediately
+	 * add another card. Guards against empty titles. Sets isSubmitting to
+	 * disable the button during the in-flight request.
 	 *
 	 * @async
 	 */
@@ -176,7 +188,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		if (newCardTitle.trim() === '') return;
 		setIsSubmitting(true);
 		try {
-			await submitCreateCard({ title: newCardTitle, priority: newCardPriority });
+			await onCreateCard(list.id, { title: newCardTitle, priority: newCardPriority });
 			setNewCardTitle('');
 			setNewCardPriority('Medium');
 			titleRef.current?.focus();
@@ -216,13 +228,14 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	}
 
 	/**
-	 * Delegate card deletion to the useCards hook's submitDeleteCard function.
+	 * Delegate card deletion upward, tagging it with this column's list ID so
+	 * the board-level owner knows which bucket to remove the card from.
 	 *
 	 * @async
 	 * @param {number} cardId - ID of the card to delete.
 	 */
 	async function handleDeleteCard(cardId) {
-		await submitDeleteCard(cardId);
+		await onDeleteCard(list.id, cardId);
 	}
 
 	/**
@@ -236,30 +249,12 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	}
 
 	/*
-	 * Traffic Light — Loading
+	 * Render
 	 * ─────────────────────────────────────────────────────────────────────
-	 * Show a spinner while the card fetch is in-flight.
-	 */
-	if (loading) {
-		return <CircularProgress aria-label={`Loading cards for ${list.name}…`} />;
-	}
-
-	/*
-	 * Traffic Light — Error
-	 * ─────────────────────────────────────────────────────────────────────
-	 * Surface an error banner if the card fetch failed.
-	 */
-	if (fetchError) {
-		return (
-			<Alert variant="filled" severity="error">
-				Failed to load cards for "{list.name}".
-			</Alert>
-		);
-	}
-
-	/*
-	 * Render — Happy Path
-	 * ─────────────────────────────────────────────────────────────────────
+	 * No loading or fetch-error branches here — card loading and fetch errors
+	 * are board-level states owned by useBoardCards and surfaced once by
+	 * BoardDetailPage, rather than per column.
+	 *
 	 * Column structure:
 	 *   Box (column surface, ref for dnd-kit)
 	 *     ├─ Stack (column header row)
@@ -268,7 +263,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 	 *     │    ├─ IconButton (add card)
 	 *     │    ├─ IconButton (options menu trigger)
 	 *     │    └─ Menu > MenuItem (Delete list)
-	 *     ├─ Alert (mutation error banner, shown conditionally)
+	 *     ├─ Alert (scoped mutation error banner, shown conditionally)
 	 *     ├─ Cards (card list presenter)
 	 *     └─ Box (add-card form, shown conditionally when isAddingCard is true)
 	 */
@@ -329,20 +324,24 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				</Menu>
 			</Stack>
 
-			{/* Mutation error banner — shown when a card create/delete fails. Dismissable. */}
+			{/*
+			  * Mutation error banner — shown when a card create/delete originating
+			  * from THIS column failed. The parent scopes the board-level mutation
+			  * error down to a plain message for the matching list, so this
+			  * component never needs to know the error envelope's shape.
+			  */}
 			{mutationError && (
-				<Alert severity="error" onClose={() => setMutationError(null)} sx={{ mb: 1, fontSize: '0.8rem' }}>
+				<Alert severity="error" onClose={onDismissMutationError} sx={{ mb: 1, fontSize: '0.8rem' }}>
 					{mutationError}
 				</Alert>
 			)}
 
 			{/*
 			  * Cards presenter — purely presentational; receives the cards array and a
-			  * delete callback. `listId` is passed as a fallback for CardItem's sortable
-			  * `group`, used only if an individual card object doesn't already carry its
-			  * own `listId` field.
+			  * delete callback. No listId is passed: each card already carries its own,
+			  * which CardItem uses as its sortable group.
 			  */}
-			<Cards cards={cards} onDeleteCard={handleDeleteCard} listId={list.id} />
+			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
 
 			{/*
 			  * Inline add-card form — conditionally rendered when isAddingCard is true.

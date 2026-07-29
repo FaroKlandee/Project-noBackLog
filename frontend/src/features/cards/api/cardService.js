@@ -6,7 +6,8 @@
  * returned to the caller. On failure the error is propagated so the calling
  * hook can handle it.
  *
- * Consumed primarily by the `useCards` hook (features/cards/hooks/useCards.js).
+ * Consumed primarily by the `useBoardCards` hook
+ * (features/cards/hooks/useBoardCards.js).
  */
 
 /*
@@ -32,6 +33,28 @@ import api from '../../../shared/api/api';
  */
 async function getAllCards(listId) {
 	return await api.get(`/api/cards?listId=${listId}`);
+}
+
+/**
+ * Fetch every card on a board, across all of its lists, in one request.
+ *
+ * Calls `GET /api/cards?boardId=<boardId>`. The server filters through each
+ * card's parent list, so a single round-trip covers the whole board.
+ *
+ * One request per board, chosen over calling `getAllCards` once per list,
+ * because N lists otherwise meant N round-trips per board load and forced the
+ * card fetch to wait until the list fetch had resolved before it knew which
+ * list IDs to request.
+ *
+ * @async
+ * @param {number|string} boardId - The unique identifier of the board whose
+ *   cards should be retrieved. Passed as a query-string parameter.
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Card[] }`),
+ *   with every card carrying its own `listId` for client-side grouping.
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
+ */
+async function getAllCardsByBoard(boardId) {
+	return await api.get(`/api/cards?boardId=${boardId}`);
 }
 
 /**
@@ -66,5 +89,28 @@ async function deleteCard(id) {
 	return await api.delete(`/api/cards/${id}`);
 }
 
+/**
+ * Reposition a card within its list, or move it into a different list.
+ *
+ * Calls `PATCH /api/cards/<id>/reorder` with the card's target list and its new
+ * position rank. PATCH semantics — only the placement fields are sent, so the
+ * card's title, priority, and description are left untouched by the server.
+ *
+ * Typically called after a drag-and-drop drop event to persist the placement
+ * that was already applied optimistically to local state.
+ *
+ * @async
+ * @param {number|string} id            - The unique identifier of the card to move.
+ * @param {Object}        data          - The card's new placement.
+ * @param {number}        data.listId   - ID of the list the card should belong to
+ *   after the move (unchanged for a same-list reorder).
+ * @param {string}        data.position - The card's new position rank within that list.
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Card }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
+ */
+async function reorderCard(id, data) {
+	return await api.patch(`/api/cards/${id}/reorder`, data);
+}
+
 /* Exports */
-export { getAllCards, createCard, deleteCard };
+export { getAllCards, getAllCardsByBoard, createCard, deleteCard, reorderCard };

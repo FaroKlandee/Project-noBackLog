@@ -37,6 +37,7 @@ import { useLists, Lists } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
+import { useBoardCards } from "../features/cards";
 import { Box, Typography } from "@mui/material";
 import { DragDropProvider } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
@@ -75,6 +76,30 @@ export default function BoardDetailPage() {
 	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList, deleteExistingList } = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
+
+	/*
+	 * Card Data — Board Level
+	 * ──────────────────────────────────────────────────────────────────
+	 * useBoardCards owns the cards for EVERY list on this board in one record
+	 * keyed by list ID, chosen over each ListColumn calling useCards for itself,
+	 * because per-column hooks left each column's cards in a private closure that
+	 * this drag handler could not read — and a cross-list card move needs both the
+	 * source and destination arrays in one place.
+	 *
+	 * Keyed on boardId rather than the lists array, because the board-scoped
+	 * endpoint means the fetch no longer needs to know which list IDs exist. Cards
+	 * therefore load in parallel with lists instead of after them, and reordering
+	 * lists never triggers a card refetch.
+	 */
+	const {
+		cardsByList,
+		loading: loadingCards,
+		fetchError: errorCards,
+		mutationError: cardMutationError,
+		setMutationError: setCardMutationError,
+		submitCreateCard,
+		submitDeleteCard,
+	} = useBoardCards(Number(boardId));
 
 	/**
 	 * Handle the end of a drag-and-drop operation on the board.
@@ -137,7 +162,7 @@ export default function BoardDetailPage() {
 	 * Show a spinner while either the board metadata or the lists are still
 	 * in-flight. Both must be ready before the page can render meaningfully.
 	 */
-	if (loadingList === true || loadingBoard === true) {
+	if (loadingList === true || loadingBoard === true || loadingCards === true) {
 		return <CircularProgress aria-label="Loading…" />;
 	}
 
@@ -147,7 +172,7 @@ export default function BoardDetailPage() {
 	 * Surface a single error banner if either fetch failed. Individual error
 	 * messages from each hook are not surfaced here to keep the UI simple.
 	 */
-	if (errorList !== null || errorBoard !== null) {
+	if (errorList !== null || errorBoard !== null || errorCards !== null) {
 		return <Alert variant="filled" severity="error">An error has occurred.</Alert>;
 	}
 
@@ -216,7 +241,16 @@ export default function BoardDetailPage() {
 						overflowX: 'auto',
 					}}
 				>
-					<Lists lists={lists} createNewList={createNewList} deleteExistingList={deleteExistingList} />
+					<Lists
+						lists={lists}
+						createNewList={createNewList}
+						deleteExistingList={deleteExistingList}
+						cardsByList={cardsByList}
+						onCreateCard={submitCreateCard}
+						onDeleteCard={submitDeleteCard}
+						cardMutationError={cardMutationError}
+						onDismissCardMutationError={() => setCardMutationError(null)}
+					/>
 				</Box>
 			</Box>
 		</DragDropProvider>

@@ -61,27 +61,17 @@ import { useSortable } from "@dnd-kit/react/sortable";
  * @param {number}   props.card.id       - Unique identifier for the card.
  * @param {string}   props.card.title    - Display title of the card.
  * @param {string}   props.card.priority - One of "Low" | "Medium" | "High".
+ * @param {number}   props.card.listId   - ID of the list this card belongs to.
+ *   Used directly as the sortable `group`. Always present: useBoardCards groups
+ *   the board's cards by this field, so a card missing it could never have been
+ *   bucketed into a column in the first place.
  * @param {number}   props.index         - Zero-based position in the cards
  *   array; required by useSortable to compute the correct drop target.
  * @param {Function} props.onDeleteCard  - Callback invoked with `card.id` when
  *   the user confirms deletion from the context menu.
- * @param {number}   [props.listId]      - The ID of the list this card currently
- *   belongs to, used as a fallback if `card.listId` is not present on the card
- *   object itself. Determines this card's sortable `group`, so dnd-kit knows
- *   which list a card can be reordered within or moved between.
  * @returns {JSX.Element} A single rendered card list item.
  */
-export default function CardItem({ card, index, onDeleteCard, listId }) {
-	/*
-	 * Sortable Group Resolution
-	 * ─────────────────────────────────────────────────────────────────────
-	 * Prefer the card's own `listId` field (present once the API includes it on
-	 * the card entity). Fall back to the `listId` prop passed down from the
-	 * parent column (Cards.jsx -> ListColumn.jsx) if the card object doesn't
-	 * carry it yet.
-	 */
-	const resolvedListId = card.listId ?? listId;
-
+export default function CardItem({ card, index, onDeleteCard }) {
 	/*
 	 * Drag-and-Drop Registration
 	 * ─────────────────────────────────────────────────────────────────────
@@ -97,11 +87,17 @@ export default function CardItem({ card, index, onDeleteCard, listId }) {
 	 * `accept: 'card'` restricts valid drop targets to other `type: 'card'`
 	 * items, preventing a card from being dropped where a list is expected.
 	 *
-	 * `group: resolvedListId` scopes this card to its containing list. Cards
-	 * sharing the same group can be reordered within that list or moved into a
-	 * different list's group entirely (a different `resolvedListId`).
+	 * `group: card.listId` scopes this card to its containing list. Cards sharing
+	 * the same group can be reordered within that list or moved into a different
+	 * list's group entirely.
+	 *
+	 * Read straight off the card, chosen over accepting a `listId` prop from the
+	 * parent column as a fallback, because useBoardCards already groups the
+	 * board's cards by `card.listId` — a card lacking that field would have been
+	 * bucketed under `undefined` and never reached this component, so a fallback
+	 * could not fire.
 	 */
-	const { ref } = useSortable({ id: card.id, index, type: 'card', accept: 'card', group: resolvedListId });
+	const { ref } = useSortable({ id: card.id, index, type: 'card', accept: 'card', group: card.listId });
 
 	/*
 	 * Context Menu State
