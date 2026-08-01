@@ -52,6 +52,7 @@
  */
 import { useEffect, useState } from "react";
 import { getAllCardsByBoard, createCard, deleteCard, reorderCard } from "../api/cardService";
+import { generateRank } from "../utils/rank";
 
 /**
  * Group a flat array of cards into a record keyed by their list ID.
@@ -228,13 +229,29 @@ export function useBoardCards(boardId) {
 	 * `listId` is an explicit argument rather than closed over, because this hook
 	 * serves every list on the board rather than a single column.
 	 *
+	 * The rank is generated here on the frontend rather than assigned by the
+	 * backend on insert, chosen over letting the service compute it, because the
+	 * user is the one determining card position — drag-and-drop already hands the
+	 * client that contract for reordering, and creation should honor the same
+	 * contract rather than splitting positioning logic across two owners. The
+	 * service's role stays to persist whatever rank the client sends, not to
+	 * decide it.
+	 *
+	 * The new card is always ranked after the current last card in the list —
+	 * `generateRank(lastCard?.position, undefined)` with no upper bound — since a
+	 * freshly created card has no drag context to place it anywhere else.
+	 *
 	 * @async
 	 * @param {number} listId - ID of the list to create the card in.
 	 * @param {Object} data   - Card fields (e.g. `{ title: "Fix bug", priority: "High" }`).
 	 */
 	async function submitCreateCard(listId, data) {
 		try {
-			const response = await createCard({ ...data, listId });
+			const existingCards = cardsByList[listId] ?? [];
+			const lastCard = existingCards[existingCards.length - 1];
+			const position = generateRank(lastCard?.position, undefined);
+
+			const response = await createCard({ ...data, listId, position });
 			addCard(listId, response.data);
 		} catch (err) {
 			setMutationError({ listId, message: err.message });

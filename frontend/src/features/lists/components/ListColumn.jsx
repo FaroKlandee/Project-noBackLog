@@ -58,6 +58,18 @@ import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/react/sortable";
 
 /*
+ * @dnd-kit/react / @dnd-kit/abstract
+ * ───────────────────────────────────────────────────────────────────────────
+ * useDroppable      — registers a plain (non-sortable) drop target. Used here
+ *                      so the card area itself accepts a card drop even when
+ *                      it contains no CardItems for the drag to collide with.
+ * CollisionPriority — see the `cardDropRef` useDroppable call below for why
+ *                      this needs to be explicitly set to `Low`.
+ */
+import { useDroppable } from "@dnd-kit/react";
+import { CollisionPriority } from "@dnd-kit/abstract";
+
+/*
  * MUI components
  * ───────────────────────────────────────────────────────────────────────────
  * Alert            — dismissable banner for a scoped card mutation error.
@@ -153,6 +165,36 @@ export default function ListColumn({
 	 * be misidentified as a list-reorder collision.
 	 */
 	const { ref } = useSortable({ id: list.id, index, type: 'list', accept: 'list' });
+
+	/*
+	 * Card Drop Zone Registration
+	 * ─────────────────────────────────────────────────────────────────────
+	 * useDroppable registers the card area as its own drop target, separate
+	 * from the column's `ref` above (which only accepts type: 'list'). Without
+	 * this, an empty column has no CardItem for a dragged card to collide
+	 * with — useSortable's collision area is only as large as its rendered
+	 * items — so a card dragged over an empty list would have nowhere to
+	 * land. Giving the card area itself a droppable makes it a valid target
+	 * regardless of how many cards it currently holds.
+	 *
+	 * `collisionPriority: CollisionPriority.Low` — dnd-kit resolves overlapping
+	 * collisions by priority first (highest wins), and an explicit
+	 * collisionPriority on a droppable overrides its naturally-computed one.
+	 * CardItems never set collisionPriority, so they keep their natural
+	 * (higher) priority. Setting Low here — rather than leaving it unset, or
+	 * raising it — means this zone only wins the collision in the gaps a
+	 * CardItem doesn't cover: the empty space in a populated column, or the
+	 * whole area in an empty one. A card hovered directly over another card
+	 * still collides with that CardItem first. This is dnd-kit's documented
+	 * pattern for nested sortable lists with droppable empty-state containers.
+	 */
+	const { ref: cardDropRef } = useDroppable({
+		id: `list-${list.id}-cards`,
+		type: 'card',
+		accept: 'card',
+		collisionPriority: CollisionPriority.Low,
+		data: { listId: list.id },
+	});
 
 	/*
 	 * Add-Card Form State
@@ -337,11 +379,16 @@ export default function ListColumn({
 			)}
 
 			{/*
-			  * Cards presenter — purely presentational; receives the cards array and a
+			  * Card drop zone — wraps the Cards presenter so the droppable area spans
+			  * both the populated and empty-state renders (see cardDropRef above).
+			  *
+			  * Cards presenter is purely presentational; receives the cards array and a
 			  * delete callback. No listId is passed: each card already carries its own,
 			  * which CardItem uses as its sortable group.
 			  */}
-			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+			<Box ref={cardDropRef}>
+				<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+			</Box>
 
 			{/*
 			  * Inline add-card form — conditionally rendered when isAddingCard is true.

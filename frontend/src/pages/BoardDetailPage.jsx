@@ -37,7 +37,7 @@ import { useLists, Lists } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
-import { useBoardCards } from "../features/cards";
+import { useBoardCards, generateRank } from "../features/cards";
 import { Box, Typography } from "@mui/material";
 import { DragDropProvider } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
@@ -99,6 +99,8 @@ export default function BoardDetailPage() {
 		setMutationError: setCardMutationError,
 		submitCreateCard,
 		submitDeleteCard,
+		updateCardOrder,
+		persistCardPosition,
 	} = useBoardCards(Number(boardId));
 
 	/**
@@ -110,8 +112,10 @@ export default function BoardDetailPage() {
 	 *   - 'list' — computes the new list order, updates local state immediately
 	 *              for a responsive UI, then persists the new order to the
 	 *              backend as an array of list IDs.
-	 *   - 'card' — returns early for now; card reordering/moving is not yet
-	 *              implemented at this level.
+	 *   - 'card' — computes the new cardsByList record (same-list reorder or
+	 *              cross-list move), re-ranks the dragged card against its new
+	 *              neighbors, updates local state immediately for a responsive
+	 *              UI, then persists the card's new list + rank to the backend.
 	 *
 	 * @param {import('@dnd-kit/react').DragEndEvent} event - The dnd-kit drag
 	 *   end event containing source/target descriptors and a `canceled` flag.
@@ -137,9 +141,86 @@ export default function BoardDetailPage() {
 
 		if (draggedType === 'card') {
 			/*
-			 * Card reordering/moving is not yet implemented here — return early so
-			 * a card drag does not fall through into the list-reorder logic below.
+			 * move() understands cardsByList's keyed-by-list-ID shape natively (see
+			 * useBoardCards.js's state-shape note), so it alone resolves both a
+			 * same-list reorder and a cross-list move to a new record.
+			 *
+			 * It does NOT, however, update the moved card's own `.listId` field
+			 * when it crosses lists — the object is relocated into the destination
+			 * array as-is. CardItem reads `card.listId` as its sortable `group`, so
+			 * leaving it stale would desync the next drag on that card from the
+			 * list it now visually sits in. The map below patches it back in, along
+			 * with the freshly generated rank, in the same pass.
 			 */
+			let moved = move(cardsByList, event);
+
+			const cardId = event.operation.source.id;
+
+			/*
+			 * move() only resolves a target it can locate by id among the cards
+			 * already rendered in `items`. ListColumn also registers a plain
+			 * useDroppable (`list-<id>-cards`, see ListColumn.jsx's cardDropRef) that
+			 * covers the empty space below the last card — and the whole area of an
+			 * empty column — so a card can still be dropped there even though no
+			 * CardItem exists to collide with. move() doesn't know that id maps to a
+			 * list, so it can't resolve it and returns `items` back unchanged. When
+			 * that happens, fall back to reading the destination list straight off
+			 * the droppable's own `data.listId` (set in ListColumn.jsx) and append
+			 * the card to that list's end.
+			 */
+			if (moved === cardsByList) {
+				const targetListId = event.operation.target?.data?.listId;
+				const sourceEntry = Object.entries(cardsByList).find(
+					([, cards]) => cards.some(card => card.id === cardId)
+				);
+
+				if (targetListId == null || !sourceEntry) return;
+
+				const [sourceListIdKey, sourceCards] = sourceEntry;
+				const sourceListId = Number(sourceListIdKey);
+				const card = sourceCards.find(c => c.id === cardId);
+				const remainingSourceCards = sourceCards.filter(c => c.id !== cardId);
+				const destinationCards = sourceListId === targetListId
+					? remainingSourceCards
+					: (cardsByList[targetListId] ?? []);
+
+				moved = {
+					...cardsByList,
+					[sourceListId]: remainingSourceCards,
+					[targetListId]: [...destinationCards, card],
+				};
+			}
+
+			const destination = Object.entries(moved).find(
+				([, cards]) => cards.some(card => card.id === cardId)
+			);
+
+			/* No bucket contains the dragged card — nothing valid to persist. */
+			if (!destination) return;
+
+			const [listIdKey, cardsInList] = destination;
+			const listId = Number(listIdKey);
+			const index = cardsInList.findIndex(card => card.id === cardId);
+
+			/*
+			 * Rank the card between its new neighbors (undefined at either end of
+			 * the list, which generateRank treats as "no bound on that side").
+			 */
+			const position = generateRank(cardsInList[index - 1]?.position, cardsInList[index + 1]?.position);
+
+			const nextCardsByList = {
+				...moved,
+				[listId]: cardsInList.map((card, i) =>
+					i === index ? { ...card, listId, position } : card
+				),
+			};
+
+			/* Update local state immediately for a responsive UI. */
+			updateCardOrder(nextCardsByList);
+
+			/* Persist the card's new list + rank to the backend. */
+			persistCardPosition(cardId, listId, position);
+
 			return;
 		}
 
