@@ -25,6 +25,8 @@
  *                              single owner able to see both the source and
  *                              destination list's cards.
  *   Cards                    — component: renders a list of card items
+ *   CardPreview              — component: non-interactive visual clone of a
+ *                              card, rendered inside the board's DragOverlay
  *   generateRank             — util: computes a card's position rank so it
  *                              sorts between two given neighbors (or past one
  *                              end, when a neighbor is omitted)
@@ -42,3 +44,4 @@ export * from './utils/rank';
 
 /* Components — presentational components for the cards feature. */
 export { default as Cards } from './components/Cards';
+export { default as CardPreview } from './components/CardPreview';

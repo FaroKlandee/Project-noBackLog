@@ -1,0 +1,104 @@
+diff --git a/node_modules/@dnd-kit/dom/sortable.cjs b/node_modules/@dnd-kit/dom/sortable.cjs
+index d931a15..0e84fc3 100644
+--- a/node_modules/@dnd-kit/dom/sortable.cjs
++++ b/node_modules/@dnd-kit/dom/sortable.cjs
+@@ -411,6 +411,9 @@ var defaultGroup = "__default__";
+ var OptimisticSortingPlugin = class extends abstract.Plugin {
+   constructor(manager) {
+     super(manager);
++    let originalSourceElement;
++    let originalParent = null;
++    let originalNextSibling = null;
+     const getSortableInstances = () => {
+       const sortableInstances = /* @__PURE__ */ new Map();
+       for (const droppable of manager.registry.droppables) {
+@@ -431,6 +434,20 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
+       return sortableInstances;
+     };
+     const unsubscribe = [
++      manager.monitor.addEventListener("dragstart", (event, manager2) => {
++        if (this.disabled) {
++          return;
++        }
++        const { dragOperation } = manager2;
++        const { source } = dragOperation;
++        if (isSortable(source)) {
++          originalSourceElement = source.sortable.element;
++          if (originalSourceElement) {
++            originalParent = originalSourceElement.parentNode;
++            originalNextSibling = originalSourceElement.nextSibling;
++          }
++        }
++      }),
+       manager.monitor.addEventListener("dragover", (event, manager2) => {
+         if (this.disabled) {
+           return;
+@@ -499,6 +516,16 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
+         });
+       }),
+       manager.monitor.addEventListener("dragend", (event, manager2) => {
++        if (originalSourceElement && originalParent) {
++          if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
++            originalParent.insertBefore(originalSourceElement, originalNextSibling);
++          } else {
++            originalParent.appendChild(originalSourceElement);
++          }
++        }
++        originalSourceElement = void 0;
++        originalParent = null;
++        originalNextSibling = null;
+         if (!event.canceled) {
+           return;
+         }
+diff --git a/node_modules/@dnd-kit/dom/sortable.js b/node_modules/@dnd-kit/dom/sortable.js
+index bfa62cc..0388323 100644
+--- a/node_modules/@dnd-kit/dom/sortable.js
++++ b/node_modules/@dnd-kit/dom/sortable.js
+@@ -409,6 +409,9 @@ var defaultGroup = "__default__";
+ var OptimisticSortingPlugin = class extends Plugin {
+   constructor(manager) {
+     super(manager);
++    let originalSourceElement;
++    let originalParent = null;
++    let originalNextSibling = null;
+     const getSortableInstances = () => {
+       const sortableInstances = /* @__PURE__ */ new Map();
+       for (const droppable of manager.registry.droppables) {
+@@ -429,6 +432,20 @@ var OptimisticSortingPlugin = class extends Plugin {
+       return sortableInstances;
+     };
+     const unsubscribe = [
++      manager.monitor.addEventListener("dragstart", (event, manager2) => {
++        if (this.disabled) {
++          return;
++        }
++        const { dragOperation } = manager2;
++        const { source } = dragOperation;
++        if (isSortable(source)) {
++          originalSourceElement = source.sortable.element;
++          if (originalSourceElement) {
++            originalParent = originalSourceElement.parentNode;
++            originalNextSibling = originalSourceElement.nextSibling;
++          }
++        }
++      }),
+       manager.monitor.addEventListener("dragover", (event, manager2) => {
+         if (this.disabled) {
+           return;
+@@ -497,6 +514,16 @@ var OptimisticSortingPlugin = class extends Plugin {
+         });
+       }),
+       manager.monitor.addEventListener("dragend", (event, manager2) => {
++        if (originalSourceElement && originalParent) {
++          if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
++            originalParent.insertBefore(originalSourceElement, originalNextSibling);
++          } else {
++            originalParent.appendChild(originalSourceElement);
++          }
++        }
++        originalSourceElement = void 0;
++        originalParent = null;
++        originalNextSibling = null;
+         if (!event.canceled) {
+           return;
+         }

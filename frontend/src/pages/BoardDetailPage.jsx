@@ -33,13 +33,13 @@
  * reorderLists    – Service function; PATCHes the new list order to the backend.
  */
 import { useParams } from "react-router";
-import { useLists, Lists } from "../features/lists/";
+import { useLists, Lists, ListColumnPreview } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
-import { useBoardCards, generateRank } from "../features/cards";
+import { useBoardCards, generateRank, CardPreview } from "../features/cards";
 import { Box, Typography } from "@mui/material";
-import { DragDropProvider } from "@dnd-kit/react";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { reorderLists } from "../features/lists/";
 
@@ -237,6 +237,40 @@ export default function BoardDetailPage() {
 		reorderLists(newOrderedLists.map(list => list.id));
 	}
 
+	/**
+	 * Render the floating drag preview for whatever is currently being dragged.
+	 *
+	 * DragOverlay renders this into a dedicated, React-owned node that dnd-kit
+	 * targets as its drag feedback instead of the real CardItem/ListColumn
+	 * element (see CardPreview.jsx for why that matters: without an overlay,
+	 * dnd-kit relocates the real dragged DOM node via the Popover API, which
+	 * raced with React's own reconciliation on a cross-list card move and threw
+	 * `NotFoundError: Failed to execute 'removeChild'`). `source` is dnd-kit's
+	 * Draggable instance for the in-progress drag, not our own card/list object,
+	 * so it's looked up by id here.
+	 *
+	 * @param {import('@dnd-kit/dom').Draggable|null} source - The draggable
+	 *   currently being dragged, or null when no drag is in progress.
+	 * @returns {JSX.Element|null}
+	 */
+	function renderDragOverlay(source) {
+		if (!source) return null;
+
+		if (source.type === 'card') {
+			const card = Object.values(cardsByList).flat().find(c => c.id === source.id);
+			if (!card) return null;
+			return <CardPreview card={card} />;
+		}
+
+		if (source.type === 'list') {
+			const list = lists.find(l => l.id === source.id);
+			if (!list) return null;
+			return <ListColumnPreview list={list} cardCount={(cardsByList[list.id] ?? []).length} />;
+		}
+
+		return null;
+	}
+
 	/*
 	 * Loading State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -334,6 +368,7 @@ export default function BoardDetailPage() {
 					/>
 				</Box>
 			</Box>
+			<DragOverlay>{renderDragOverlay}</DragOverlay>
 		</DragDropProvider>
 	);
 }

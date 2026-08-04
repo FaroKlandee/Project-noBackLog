@@ -87,9 +87,17 @@ export default function CardItem({ card, index, onDeleteCard }) {
 	 * `accept: 'card'` restricts valid drop targets to other `type: 'card'`
 	 * items, preventing a card from being dropped where a list is expected.
 	 *
-	 * `group: card.listId` scopes this card to its containing list. Cards sharing
-	 * the same group can be reordered within that list or moved into a different
-	 * list's group entirely.
+	 * `group: String(card.listId)` scopes this card to its containing list. Cards
+	 * sharing the same group can be reordered within that list or moved into a
+	 * different list's group entirely.
+	 *
+	 * Coerced to a string because `@dnd-kit/helpers`'s `move()` compares `group`
+	 * against `cardsByList`'s Object.keys with `!==` — and object keys are always
+	 * strings, even numeric-looking ones. Passing the raw number `card.listId`
+	 * made every same-list reorder register as `2 !== "2"` → true → a false
+	 * "group changed", which sent `move()` down its cross-group branch. There,
+	 * JS's own key coercion (`items[2]` and `items["2"]` are the same slot) made
+	 * it write the dragged card into that slot twice, producing a duplicate.
 	 *
 	 * Read straight off the card, chosen over accepting a `listId` prop from the
 	 * parent column as a fallback, because useBoardCards already groups the
@@ -97,7 +105,7 @@ export default function CardItem({ card, index, onDeleteCard }) {
 	 * bucketed under `undefined` and never reached this component, so a fallback
 	 * could not fire.
 	 */
-	const { ref } = useSortable({ id: card.id, index, type: 'card', accept: 'card', group: card.listId });
+	const { ref } = useSortable({ id: card.id, index, type: 'card', accept: 'card', group: String(card.listId) });
 
 	/*
 	 * Context Menu State

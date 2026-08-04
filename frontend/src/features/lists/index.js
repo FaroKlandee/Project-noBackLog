@@ -28,3 +28,4 @@ export * from './hooks/useLists';
 /* Components — container and presentational components for the lists feature. */
 export { default as Lists } from './components/Lists';
 export { default as ListColumn } from './components/ListColumn';
+export { default as ListColumnPreview } from './components/ListColumnPreview';
