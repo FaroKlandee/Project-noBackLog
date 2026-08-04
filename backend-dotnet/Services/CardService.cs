@@ -23,11 +23,11 @@ public class CardService : ICardService
      * board-sized row counts.
      *
      * Position ordering is tie-broken by CreatedAt, accepted deliberately over
-     * ordering on Position alone, because every row currently holds the "UNSET"
-     * sentinel and ordering on an all-identical column is non-deterministic in
-     * Postgres — rows reshuffle after any UPDATE. The tie-break remains correct
-     * once real fractional-index ranks are populated, so it does not need to be
-     * removed later.
+     * ordering on Position alone, because two cards can still legitimately share
+     * a rank — rank.js's generateRank() falls back to a colliding value once a
+     * gap between neighbors is exhausted rather than rebalancing the list — and
+     * ordering on an all-identical column is non-deterministic in Postgres, so
+     * rows with a shared rank would reshuffle after any unrelated UPDATE.
      */
     public async Task<IEnumerable<Card>> GetAllCardsAsync(int? listId, int? boardId)
     {

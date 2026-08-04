@@ -55,6 +55,9 @@ public class CardsController : ControllerBase
         if (card.ListId == 0)
             return BadRequest(new { success = false, message = "List ID is required." });
 
+        if (string.IsNullOrWhiteSpace(card.Position))
+            return BadRequest(new { success = false, message = "Position is required." });
+
         try
         {
             var created = await _cardService.CreateCardAsync(card);

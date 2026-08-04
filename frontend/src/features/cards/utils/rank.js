@@ -37,9 +37,9 @@ const RANK_GAP = 1000;
  * Parse a stored position string back into its integer value.
  *
  * Falls back to 0 for anything that isn't a plain non-negative integer
- * string, which covers `Card.UnsetPosition`'s "UNSET" sentinel (see
- * backend-dotnet/Models/Card.cs) on any row a new rank gets compared against
- * before it has ever been given a real one.
+ * string. The backend requires every card to carry a real rank from creation
+ * onward (see CardsController.Create's Position check), so this only matters
+ * for stale rows predating that guarantee.
  *
  * @param {string|null|undefined} position
  * @returns {number}

@@ -18,14 +18,8 @@ public class Card
     [Required]
     public int ListId { get; set; }
 
-    /// <summary>
-    /// Sentinel value indicating a Position has not yet been assigned.
-    /// Must be replaced with a real lexicographic rank before persisting.
-    /// </summary>
-    public const string UnsetPosition = "UNSET";
-
     [Required]
-    public string Position { get; set; } = UnsetPosition;
+    public string Position { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(100)]
