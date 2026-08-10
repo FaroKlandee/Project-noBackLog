@@ -14,15 +14,34 @@ public class CardService : ICardService
         _context = context;
     }
 
-    public async Task<IEnumerable<Card>> GetAllCardsAsync(int? listId)
+    /*
+     * Filters by a single list, an entire board, or neither.
+     *
+     * boardId filters through the List navigation property, chosen over
+     * denormalising BoardId onto Card, because a copied column would have to be
+     * rewritten every time a card moves between lists — and the join is cheap at
+     * board-sized row counts.
+     *
+     * Position ordering is tie-broken by CreatedAt, accepted deliberately over
+     * ordering on Position alone, because two cards can still legitimately share
+     * a rank — rank.js's generateRank() falls back to a colliding value once a
+     * gap between neighbors is exhausted rather than rebalancing the list — and
+     * ordering on an all-identical column is non-deterministic in Postgres, so
+     * rows with a shared rank would reshuffle after any unrelated UPDATE.
+     */
+    public async Task<IEnumerable<Card>> GetAllCardsAsync(int? listId, int? boardId)
     {
         var query = _context.Cards.AsQueryable();
 
         if (listId.HasValue)
             query = query.Where(c => c.ListId == listId.Value);
 
+        if (boardId.HasValue)
+            query = query.Where(c => c.List!.BoardId == boardId.Value);
+
         return await query
-            .OrderBy(c => c.CreatedAt)
+            .OrderBy(c => c.Position)
+            .ThenBy(c => c.CreatedAt)
             .ToListAsync();
     }
 
@@ -82,5 +101,23 @@ public class CardService : ICardService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<Card?> RepositionCardAsync(int id, CardReorderRequest request)
+    {
+        var card = await _context.Cards.FindAsync(id);
+        if (card is null) return null;
+
+        var listExists = await _context.Lists.AnyAsync(l => l.Id == request.ListId);
+        if (!listExists)
+            throw new KeyNotFoundException($"List with ID {request.ListId} not found.");
+
+        card.ListId = request.ListId;
+        card.Position = request.Position;
+        card.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return card;
     }
 }

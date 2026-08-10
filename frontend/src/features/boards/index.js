@@ -1,46 +1,27 @@
 /**
- * @file index.js
- * @description Public API barrel file for the "boards" feature module.
+ * @fileoverview Public barrel file for the boards feature module.
  *
- * This file acts as the single, canonical entry point through which the rest
- * of the application consumes anything related to boards. By importing from
- * this file (rather than from individual sub-paths), consumers are decoupled
- * from the internal folder structure of the feature. If a file is moved or
- * refactored internally, only this barrel needs updating — not every import
- * site across the codebase.
+ * The single, authoritative entry point for everything boards-related.
+ * Consumers import from `features/boards` and never reach into internal
+ * sub-folders directly:
  *
- * Typical usage from outside the feature:
- *   import { Boards, useBoards, getAllBoards } from 'features/boards';
+ *   import { useBoards, useBoardDetails, Boards } from '../features/boards';
+ *   import { getAllBoards, createBoard }           from '../features/boards';
+ *
+ * Exported surface:
+ *   getAllBoards, getBoardById, createBoard, updateBoard, deleteBoard
+ *                             — raw async HTTP functions (boardService.js)
+ *   useBoards                 — hook: fetches all boards with loading/error state
+ *   useBoardDetails           — hook: fetches a single board by ID
+ *   Boards                    — component: responsive board grid with traffic-light guards
  */
 
-/*
- * Service layer — async functions that communicate with the boards REST API.
- * Re-exports: getAllBoards, getBoardById, createBoard, updateBoard, deleteBoard
- */
+/* API service layer — raw async CRUD functions for the /api/boards resource. */
 export * from './api/boardService';
 
-/*
- * Custom hooks — React hooks that encapsulate boards-related state and side
- * effects, built on top of the service layer.
- * Re-exports: useBoards, useBoardDetails
- */
+/* Hooks — React hooks that wrap the service layer with local state management. */
 export * from './hooks/useBoards';
-
-/*
- * useBoardDetails — fetches a single board by its numeric ID and exposes
- * { board, loading, error } state. Used by components that need to display
- * one board's metadata (e.g. a board header or detail page title).
- * Re-exports: useBoardDetails
- */
 export * from './hooks/useBoardDetails';
 
-/*
- * UI Components — React components that render boards-related views.
- *
- * `Boards` is exported under its own name via a named alias because it is a
- * default export in its source file. Using `export { default as Boards }`
- * converts it into a named export so that it can be cleanly destructured
- * alongside the other named exports above.
- * Re-exports: Boards
- */
+/* Components — presentational and container components for the boards feature. */
 export { default as Boards } from './components/Boards';

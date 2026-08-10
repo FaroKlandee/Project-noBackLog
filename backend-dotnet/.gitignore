@@ -15,7 +15,7 @@ obj/
 
 # dotnet secrets & config
 appsettings.json
-appsettings.Staging.json
+appsettings.Development.json
 secrets.json
 launchSettings.json
 

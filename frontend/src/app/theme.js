@@ -2,45 +2,58 @@
  * @file theme.js
  * @description Global MUI theme for the nobacklog frontend.
  *
- * All colours used across the application are defined here as named tokens.
- * Components should reference these tokens via the `sx` prop's theme-aware
- * shorthands (e.g. `bgcolor: 'background.default'`) rather than hardcoding
- * hex values inline. This means a single change here propagates everywhere.
+ * All colours are defined here as named palette tokens. Components reference
+ * these tokens via the `sx` prop (e.g. `bgcolor: 'background.default'`) rather
+ * than hardcoding hex values inline — a single change here propagates everywhere.
  *
  * Colour roles:
  *
- *   background.default  — page canvas (deepest layer)
- *   background.paper    — elevated surfaces: cards, columns, menus, inputs
- *   background.surface  — mid-level surfaces: card count badge, form boxes
- *   background.overlay  — subtle hover overlays on transparent buttons
+ *   background.default   — page canvas (deepest layer)
+ *   background.paper     — elevated surfaces: columns, menus, card items
+ *   background.surface   — deepest inset surfaces: column bg, text inputs
  *
- *   primary.main        — brand violet; primary action buttons, focus rings
- *   primary.dark        — darker violet; button hover state
+ *   primary.main         — brand violet; primary action buttons, focus rings
+ *   primary.dark         — darker violet; button hover state
  *
- *   secondary.main      — muted lavender; icons, secondary text, borders
+ *   secondary.main       — muted lavender; icons, secondary text, borders
  *
- *   text.primary        — primary readable text (#fff in dark mode)
- *   text.secondary      — dimmed/muted text (empty states, labels)
+ *   text.primary         — primary readable text (#fff in dark mode)
+ *   text.secondary       — dimmed/muted text (empty states, labels)
  *
- *   divider             — border colour used on columns, cards, menus
- *   border.focus        — border colour on focused/hovered inputs
- *   border.hover        — border colour on hovered interactive elements
+ *   divider              — border colour used on columns, cards, menus
+ *   border.focus         — input fieldset default border
+ *   border.hover         — input/card hover border
+ *   border.active        — input hover fieldset (matches primary.main)
  *
- *   error.main          — destructive actions (delete), high-priority text
+ *   error.main           — destructive actions (delete), high-priority text
  *
- *   priority.low.bg     — Low priority chip background
- *   priority.low.text   — Low priority chip text
- *   priority.medium.bg  — Medium priority chip background
- *   priority.medium.text— Medium priority chip text
- *   priority.high.bg    — High priority chip background
- *   priority.high.text  — High priority chip text (same as error.main)
+ *   priority.low.bg/text    — Low priority chip colours
+ *   priority.medium.bg/text — Medium priority chip colours
+ *   priority.high.bg/text   — High priority chip colours
  *
- *   action.selected     — selected MenuItem background
- *   action.selectedHover— selected MenuItem hover background
+ *   action.selected      — selected MenuItem background
+ *   action.selectedHover — selected MenuItem hover background
+ *   action.hover         — transparent button hover overlay
+ *
+ *   badge.bg             — card count pill background
+ *   badge.text           — card count pill text
  */
 
+/*
+ * Import
+ * ───────────────────────────────────────────────────────────────────────────
+ * createTheme — MUI factory function that merges a partial config object with
+ *               MUI's default theme, producing a complete theme object.
+ */
 import { createTheme } from '@mui/material';
 
+/**
+ * @constant {import('@mui/material').Theme} theme
+ *
+ * The application's single MUI theme instance. Passed to `<ThemeProvider>` in
+ * main.jsx so every MUI component in the tree can read it via `useTheme()` or
+ * the `sx` prop's theme-aware shorthand strings.
+ */
 const theme = createTheme({
 	palette: {
 		mode: 'dark',
@@ -71,14 +84,21 @@ const theme = createTheme({
 			main: '#F87171',       // destructive actions, high-priority text
 		},
 
-		// Custom tokens — accessed via theme.palette.* or sx string paths
-		// where MUI supports nested palette keys.
+		/*
+		 * Custom border tokens — used for input fieldsets and card hover states.
+		 * Accessed via theme.palette.border.* or sx string paths where MUI
+		 * supports nested palette keys.
+		 */
 		border: {
-			focus: '#3D3560',      // input fieldset default
-			hover: '#4B3F8A',      // input/card hover border
-			active: '#7C3AED',     // input hover fieldset (matches primary)
+			focus:  '#3D3560',     // input fieldset default
+			hover:  '#4B3F8A',     // input/card hover border
+			active: '#7C3AED',     // input hover fieldset (matches primary.main)
 		},
 
+		/*
+		 * Priority chip colours — each priority level gets a distinct
+		 * background and text colour pair used by the Chip component in Cards.jsx.
+		 */
 		priority: {
 			low:    { bg: '#0D2420', text: '#34D399' },
 			medium: { bg: '#2D2210', text: '#FBBF24' },
@@ -86,12 +106,15 @@ const theme = createTheme({
 		},
 
 		action: {
-			selected:      '#3D2F6B',   // selected MenuItem
-			selectedHover: '#4A3880',   // selected MenuItem on hover
+			selected:      '#3D2F6B',              // selected MenuItem
+			selectedHover: '#4A3880',              // selected MenuItem on hover
 			hover:         'rgba(124,107,174,0.08)', // transparent button hover
 		},
 
-		// Badge background (card count pill)
+		/*
+		 * Badge tokens — used by the card-count pill rendered in ListColumn's
+		 * column header.
+		 */
 		badge: {
 			bg:   '#1E1B3A',
 			text: '#7C6BAE',
@@ -100,9 +123,11 @@ const theme = createTheme({
 
 	components: {
 		/*
-		 * Make every MUI Menu popover (used by Select dropdowns and icon menus)
-		 * default to the paper surface colour so no component needs to set it
-		 * manually via slotProps or MenuProps.
+		 * MuiMenu override
+		 * ────────────────
+		 * Makes every MUI Menu popover (Select dropdowns, icon menus) default to
+		 * the `background.paper` surface so no component needs to set it manually
+		 * via slotProps or MenuProps.
 		 */
 		MuiMenu: {
 			styleOverrides: {
@@ -118,8 +143,11 @@ const theme = createTheme({
 		},
 
 		/*
-		 * Style every MenuItem to use white text and theme-consistent
-		 * hover/selected states by default.
+		 * MuiMenuItem override
+		 * ─────────────────────
+		 * Ensures every MenuItem uses white text and theme-consistent
+		 * hover / selected states by default, so individual usage sites do not
+		 * need to re-declare these styles.
 		 */
 		MuiMenuItem: {
 			styleOverrides: {

@@ -1,10 +1,24 @@
 /**
  * @file ListColumn.jsx
- * @description Container component for a single list column on a board.
- * Sits between Lists.jsx (pure presenter) and Cards.jsx (pure presenter) in
- * the component hierarchy — it owns the data-fetching lifecycle for one
- * column's cards via useCards, applies traffic-light early returns for
- * loading and error states, then composes the column header and Cards presenter.
+ * @description Presentational component for a single Kanban-style list column.
+ *
+ * Sits between Lists.jsx (row presenter) and Cards.jsx (card list presenter).
+ * Receives its cards slice and every card mutation handler as props — it does
+ * NOT fetch card data itself. Card state is owned board-wide by useBoardCards
+ * in BoardDetailPage, so that a card can be moved between two columns from a
+ * single drag handler that can see both lists' cards at once.
+ *
+ * Still owns its own local interaction state, consistent with the convention
+ * used by Lists.jsx and CardItem.jsx (data comes from an owner via props; local
+ * interaction state lives with the component that owns the interaction):
+ *   - The useSortable drag-and-drop registration for column reordering.
+ *   - The MoreVert options menu (currently: Delete list).
+ *   - The inline add-card form with title input, priority selector, and
+ *     keyboard shortcuts (Shift+Enter to submit; L/M/H to set priority).
+ *
+ * Card loading and fetch-error states are no longer handled here — they are
+ * board-level concerns surfaced once by BoardDetailPage, since useBoardCards
+ * loads every list's cards in one pass.
  *
  * Hierarchy:
  *   Lists           (src/features/lists/components/Lists.jsx)
@@ -13,107 +27,210 @@
  */
 
 /*
- * useCards — custom hook that fetches all cards belonging to a given list ID
- * and exposes { cards, loading, fetchError, mutationError, setMutationError,
- *               submitCreateCard, submitDeleteCard } state and mutations.
- * Cards    — presentational component that renders the cards array as a MUI List.
- *
- * Both are imported from the cards feature barrel so this file never reaches
- * into the cards feature's internal folder structure directly.
+ * Imports
+ * ───────────────────────────────────────────────────────────────────────────
+ * Cards — card list presenter, imported from the cards feature barrel so this
+ *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards, useCards } from "../../cards";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { useState, useRef } from "react";
-import DeleteIcon from "@mui/icons-material/Delete"
+import { Cards } from "../../cards";
+
 /*
- * useSortable from @dnd-kit/react/sortable makes this column both draggable
- * and droppable. It requires the item's unique `id` and its current `index`
- * in the list array. The hook returns a `ref` that must be attached to the
- * column's root DOM element so the library can track its position.
+ * Icons
+ */
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DeleteIcon from "@mui/icons-material/Delete"
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+
+/*
+ * React
+ */
+import { useState, useRef } from "react";
+
+/*
+ * @dnd-kit/react/sortable
+ * ───────────────────────────────────────────────────────────────────────────
+ * useSortable — makes this column both draggable and a drop target.
+ *               Requires the item's unique `id` and its current `index` in
+ *               the lists array. Returns a `ref` that must be attached to
+ *               the column's root DOM element.
  */
 import { useSortable } from "@dnd-kit/react/sortable";
 
 /*
- * MUI components used:
- *   CircularProgress — indeterminate spinner shown while cards are loading.
- *   Alert            — error banner shown when the useCards fetch fails.
- *   Typography       — renders the list name as a column header with MUI's
- *                      typographic scale.
- *   Box              — generic layout wrapper used to give the column a
- *                      visual boundary and consistent padding.
+ * @dnd-kit/react / @dnd-kit/abstract
+ * ───────────────────────────────────────────────────────────────────────────
+ * useDroppable      — registers a plain (non-sortable) drop target. Used here
+ *                      so the card area itself accepts a card drop even when
+ *                      it contains no CardItems for the drag to collide with.
+ * CollisionPriority — see the `cardDropRef` useDroppable call below for why
+ *                      this needs to be explicitly set to `Low`.
  */
-import { CircularProgress, Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
+import { useDroppable } from "@dnd-kit/react";
+import { CollisionPriority } from "@dnd-kit/abstract";
+
+/*
+ * MUI components
+ * ───────────────────────────────────────────────────────────────────────────
+ * Alert            — dismissable banner for a scoped card mutation error.
+ * Typography       — column header text.
+ * Box              — generic layout wrapper for the column surface.
+ * IconButton       — trigger buttons for add-card and the options menu.
+ * Menu, MenuItem   — floating options menu (Delete list).
+ * Stack            — horizontal row layout for the column header.
+ * TextField        — card title input inside the add-card form.
+ * Select, FormControl — priority dropdown inside the add-card form.
+ */
+import { Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
 
 /**
- * ListColumn component — container for a single Kanban-style list column.
+ * ListColumn component.
  *
- * Responsibilities:
- *   1. Accept a single `list` prop containing the list's `id` and `name`.
- *   2. Call useCards(list.id) to fetch the cards that belong to this column.
- *   3. Apply traffic-light early returns:
- *        - loading → spinner
- *        - error   → error banner
- *   4. On success, render the list name as a column header followed by the
- *      Cards presenter, passing the fetched cards array as a prop.
+ * Renders one Kanban list column: header, card list, and inline add-card form.
+ * Registers itself as a sortable drag-and-drop item for column reordering, and
+ * delegates all card and list mutations upward via callback props.
  *
  * @component
- * @param {Object} props
- * @param {Object} props.list         - The list object for this column.
- * @param {number} props.list.id      - Unique identifier used to fetch cards
- *                                      and passed to useSortable as `id`.
- * @param {string} props.list.name    - Display name rendered as the column header.
- * @param {number} props.index        - The column's current zero-based position
- *                                      in the lists array. Passed to useSortable
- *                                      so the DragDropProvider can calculate
- *                                      the correct drop target index.
- *
- * @returns {JSX.Element} The rendered column: a spinner, an error banner, or
- *   the column header + card list depending on the fetch state.
- *
- * @example
- * // Rendered by Lists.jsx for each list in the board:
- * <ListColumn list={{ id: 3, name: "In Progress" }} index={2} />
+ * @param {Object}        props
+ * @param {Object}        props.list                    - The list object for this column.
+ * @param {number}        props.list.id                 - Unique identifier; used as the
+ *                                                        sortable key and passed to
+ *                                                        mutation handlers.
+ * @param {string}        props.list.name               - Display name in the column header.
+ * @param {number}        props.index                   - Zero-based position in the lists
+ *                                                        array; required by useSortable to
+ *                                                        compute the correct drop target.
+ * @param {Array<Object>} [props.cards=[]]              - This column's cards, sliced from
+ *                                                        the board-level record by the
+ *                                                        parent. Defaults to an empty array
+ *                                                        so a newly created list renders
+ *                                                        before its cards have been fetched.
+ * @param {Function}      props.deleteExistingList      - Async callback invoked with this
+ *                                                        list's ID when the user confirms
+ *                                                        list deletion.
+ * @param {Function}      props.onCreateCard            - Async callback invoked as
+ *                                                        `(listId, data)` to create a card.
+ * @param {Function}      props.onDeleteCard            - Async callback invoked as
+ *                                                        `(listId, cardId)` to delete a card.
+ * @param {string|null}   [props.mutationError]         - Card mutation error message already
+ *                                                        scoped to this column by the parent,
+ *                                                        or null when there is none.
+ * @param {Function}      [props.onDismissMutationError] - Callback to clear the mutation error.
+ * @returns {JSX.Element} The rendered column.
  */
-export default function ListColumn({ list, index, deleteExistingList }) {
+export default function ListColumn({
+	list,
+	index,
+	cards = [],
+	deleteExistingList,
+	onCreateCard,
+	onDeleteCard,
+	mutationError,
+	onDismissMutationError,
+}) {
 
-	/* List-level MoreVert menu state */
+	/*
+	 * Options Menu State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * anchorEl — the DOM element the MUI Menu anchors to (the MoreVert button).
+	 *            null means the menu is closed; a DOM node means it is open.
+	 * open     — derived boolean for the Menu's `open` prop.
+	 */
 	const [anchorEl, setAnchorEl] = useState(null);
 	const open = anchorEl !== null;
 
-	const handleClick = (event) => setAnchorEl(event.currentTarget);
-	const handleClose = () => setAnchorEl(null);
+	const handleClick = (event) => setAnchorEl(event.currentTarget); // open the menu
+	const handleClose = () => setAnchorEl(null);                      // close the menu
 
 	/*
-	 * useSortable registers this column as a sortable drag-and-drop item.
-	 * `id` identifies which list is being dragged; `index` tells the provider
-	 * where it currently sits so it can compute the new order on drop.
-	 * The returned `ref` must be attached to the root element.
+	 * Drag-and-Drop Registration
+	 * ─────────────────────────────────────────────────────────────────────
+	 * useSortable registers this column as a sortable item. The returned `ref`
+	 * must be attached to the column's root DOM element so dnd-kit can track
+	 * its position and compute drop targets.
+	 *
+	 * `type: 'list'` tags this draggable/droppable with a discriminator so the
+	 * board-level `onDragEnd` handler (BoardDetailPage.jsx) can distinguish a
+	 * list-reorder drag from a card-reorder drag, since both share the same
+	 * DragDropProvider context.
+	 *
+	 * `accept: 'list'` is required, not just descriptive — without it this
+	 * column's Sortable instance defaults to accepting every draggable,
+	 * including cards. Since the column's `ref` spans the whole card list
+	 * (cards render inside it), an unrestricted column would let a dragged
+	 * card collide with the column itself, causing dnd-kit's optimistic
+	 * sorting plugin to reposition the *list* instead of a card underneath
+	 * it. Restricting `accept` to 'list' ensures only other list columns can
+	 * ever be a valid drop target for this column, so a card drag can never
+	 * be misidentified as a list-reorder collision.
 	 */
-	const { ref } = useSortable({ id: list.id, index });
+	const { ref } = useSortable({ id: list.id, index, type: 'list', accept: 'list' });
 
 	/*
-	 * Fetch all cards that belong to this list column.
-	 * useCards is re-triggered automatically if list.id ever changes, ensuring
-	 * the correct cards are always shown without unmounting the component.
-	 * mutationError / setMutationError are owned by the hook so this component
-	 * never manages error state for card operations itself.
+	 * Card Drop Zone Registration
+	 * ─────────────────────────────────────────────────────────────────────
+	 * useDroppable registers the card area as its own drop target, separate
+	 * from the column's `ref` above (which only accepts type: 'list'). Without
+	 * this, an empty column has no CardItem for a dragged card to collide
+	 * with — useSortable's collision area is only as large as its rendered
+	 * items — so a card dragged over an empty list would have nowhere to
+	 * land. Giving the card area itself a droppable makes it a valid target
+	 * regardless of how many cards it currently holds.
+	 *
+	 * `collisionPriority: CollisionPriority.Low` — dnd-kit resolves overlapping
+	 * collisions by priority first (highest wins), and an explicit
+	 * collisionPriority on a droppable overrides its naturally-computed one.
+	 * CardItems never set collisionPriority, so they keep their natural
+	 * (higher) priority. Setting Low here — rather than leaving it unset, or
+	 * raising it — means this zone only wins the collision in the gaps a
+	 * CardItem doesn't cover: the empty space in a populated column, or the
+	 * whole area in an empty one. A card hovered directly over another card
+	 * still collides with that CardItem first. This is dnd-kit's documented
+	 * pattern for nested sortable lists with droppable empty-state containers.
 	 */
-	const { cards, loading, fetchError, mutationError, setMutationError, submitCreateCard, submitDeleteCard } = useCards(list.id);
+	const { ref: cardDropRef } = useDroppable({
+		id: `list-${list.id}-cards`,
+		type: 'card',
+		accept: 'card',
+		collisionPriority: CollisionPriority.Low,
+		data: { listId: list.id },
+	});
 
-	/* Add-card form state */
+	/*
+	 * Add-Card Form State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * isAddingCard   — toggles the inline add-card form visibility.
+	 * newCardTitle   — controlled value for the card title text field.
+	 * newCardPriority — controlled value for the priority dropdown.
+	 * isSubmitting   — true while the createCard API call is in-flight;
+	 *                  disables the submit button to prevent double-submission.
+	 * titleRef       — ref to the title TextField so focus can be restored
+	 *                  after a successful card creation.
+	 */
 	const [isAddingCard, setIsAddingCard] = useState(false);
 	const [newCardTitle, setNewCardTitle] = useState('');
 	const [newCardPriority, setNewCardPriority] = useState('Medium');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const titleRef = useRef(null);
 
+	/*
+	 * Add-Card Form Handlers
+	 * ─────────────────────────────────────────────────────────────────────
+	 */
+
+	/**
+	 * Submit the new card via the parent's create handler, reset the title
+	 * field, and restore focus to the title input so the user can immediately
+	 * add another card. Guards against empty titles. Sets isSubmitting to
+	 * disable the button during the in-flight request.
+	 *
+	 * @async
+	 */
 	async function handleCreateCard() {
 		if (newCardTitle.trim() === '') return;
 		setIsSubmitting(true);
 		try {
-			await submitCreateCard({ title: newCardTitle, priority: newCardPriority });
+			await onCreateCard(list.id, { title: newCardTitle, priority: newCardPriority });
 			setNewCardTitle('');
 			setNewCardPriority('Medium');
 			titleRef.current?.focus();
@@ -122,12 +239,24 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 		}
 	}
 
+	/**
+	 * Cancel the add-card form and reset all form state.
+	 */
 	function handleCancelCard() {
 		setNewCardTitle('');
 		setNewCardPriority('Medium');
 		setIsAddingCard(false);
 	}
 
+	/**
+	 * Handle keyboard shortcuts within the add-card form container.
+	 *
+	 * - Shift+Enter  — submit the form (works from anywhere in the form).
+	 * - L / M / H    — set priority to Low / Medium / High when the title
+	 *                  field is NOT focused (prevents interfering with typing).
+	 *
+	 * @param {React.KeyboardEvent} e - The keydown event bubbled from the form.
+	 */
 	function handleFormKeyDown(e) {
 		if (e.key === 'Enter' && e.shiftKey) {
 			e.preventDefault();
@@ -135,54 +264,52 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 			return;
 		}
 		if (e.target === titleRef.current) return;
-	 	if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setNewCardPriority('Low'); }
-    if (e.key === 'm' || e.key === 'M') { e.preventDefault(); setNewCardPriority('Medium'); }
-    if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setNewCardPriority('High'); }
+		if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setNewCardPriority('Low'); }
+		if (e.key === 'm' || e.key === 'M') { e.preventDefault(); setNewCardPriority('Medium'); }
+		if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setNewCardPriority('High'); }
 	}
 
+	/**
+	 * Delegate card deletion upward, tagging it with this column's list ID so
+	 * the board-level owner knows which bucket to remove the card from.
+	 *
+	 * @async
+	 * @param {number} cardId - ID of the card to delete.
+	 */
 	async function handleDeleteCard(cardId) {
-		await submitDeleteCard(cardId);
+		await onDeleteCard(list.id, cardId);
 	}
 
+	/**
+	 * Delegate list deletion to the parent-supplied deleteExistingList callback.
+	 *
+	 * @async
+	 * @param {number} listId - ID of the list to delete.
+	 */
 	async function handleDeleteList(listId) {
 		await deleteExistingList(listId);
 	}
 
 	/*
-	 * Traffic light — loading check first.
-	 * Show a spinner while the network request is in-flight so the user has
-	 * immediate visual feedback that content is on its way.
-	 */
-	if (loading) {
-		return <CircularProgress aria-label={`Loading cards for ${list.name}…`} />;
-	}
-
-	/*
-	 * Traffic light — error check second.
-	 * If the fetch failed for any reason (network, timeout, non-2xx status),
-	 * surface a descriptive error banner rather than an empty or broken column.
-	 */
-	if (fetchError) {
-		return (
-			<Alert variant="filled" severity="error">
-				Failed to load cards for "{list.name}".
-			</Alert>
-		);
-	}
-
-	/*
-	 * Happy path — cards loaded successfully.
-	 * Render the column header using the list name, then pass the fetched cards
-	 * array down to the Cards presenter. Cards is intentionally kept ignorant of
-	 * the fetch lifecycle; it only knows how to render an array it receives.
+	 * Render
+	 * ─────────────────────────────────────────────────────────────────────
+	 * No loading or fetch-error branches here — card loading and fetch errors
+	 * are board-level states owned by useBoardCards and surfaced once by
+	 * BoardDetailPage, rather than per column.
+	 *
+	 * Column structure:
+	 *   Box (column surface, ref for dnd-kit)
+	 *     ├─ Stack (column header row)
+	 *     │    ├─ Typography (list name)
+	 *     │    ├─ Badge span (card count)
+	 *     │    ├─ IconButton (add card)
+	 *     │    ├─ IconButton (options menu trigger)
+	 *     │    └─ Menu > MenuItem (Delete list)
+	 *     ├─ Alert (scoped mutation error banner, shown conditionally)
+	 *     ├─ Cards (card list presenter)
+	 *     └─ Box (add-card form, shown conditionally when isAddingCard is true)
 	 */
 	return (
-		/*
-		 * Box: lightweight layout wrapper that gives the column a visible
-		 * boundary. `component="section"` adds semantic HTML meaning — each
-		 * column is a distinct section of the board. Inline sx styles are used
-		 * here to keep the component self-contained without a separate CSS file.
-		 */
 		<Box
 			ref={ref}
 			component="section"
@@ -199,11 +326,13 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				overflowX: 'hidden',
 			})}
 		>
+			{/* Column header row — list name, card count badge, add and options buttons. */}
 			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
 				<Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}>
 					{list.name}
 				</Typography>
-				{/* Card count badge */}
+
+				{/* Card count badge — pill showing total cards in this column. */}
 				<Box
 					component="span"
 					sx={theme => ({
@@ -218,43 +347,60 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 				>
 					{cards.length}
 				</Box>
-				{/* Add card button */}
+
+				{/* Add card button — opens the inline add-card form. */}
 				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: 'secondary.main', p: 0.5 }}>
 					<AddIcon fontSize="small" />
 				</IconButton>
-				{/* List options menu */}
+
+				{/* Options menu trigger — opens the MoreVert dropdown. */}
 				<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
 					<MoreVertIcon fontSize="small" />
 				</IconButton>
-				<Menu
-					open={open}
-					onClose={handleClose}
-					anchorEl={anchorEl}
-				>
+
+				{/* Options menu — currently contains only the Delete list action. */}
+				<Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
 					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: 'error.main', gap: 1 }}>
 						<DeleteIcon fontSize="small" /> Delete list
 					</MenuItem>
 				</Menu>
 			</Stack>
-			{/*
-			  * Typography variant="h6": renders the list name as a column heading
-			  * using MUI's typographic scale. `gutterBottom` adds spacing between
-			  * the header and the card list beneath it.
-			  */}
 
 			{/*
-			  * Cards: purely presentational — receives the already-fetched cards
-			  * array and renders each card as a MUI ListItem with a priority Chip.
-			  * All fetch logic stays here in ListColumn; Cards never calls a hook.
+			  * Mutation error banner — shown when a card create/delete originating
+			  * from THIS column failed. The parent scopes the board-level mutation
+			  * error down to a plain message for the matching list, so this
+			  * component never needs to know the error envelope's shape.
 			  */}
 			{mutationError && (
-				<Alert severity="error" onClose={() => setMutationError(null)} sx={{ mb: 1, fontSize: '0.8rem' }}>
+				<Alert severity="error" onClose={onDismissMutationError} sx={{ mb: 1, fontSize: '0.8rem' }}>
 					{mutationError}
 				</Alert>
 			)}
-			<Cards cards={cards} onDeleteCard={handleDeleteCard} />
 
-			{/* Inline add-card form — appears below cards when isAddingCard is true */}
+			{/*
+			  * Card drop zone — wraps the Cards presenter so the droppable area spans
+			  * both the populated and empty-state renders (see cardDropRef above).
+			  *
+			  * Cards presenter is purely presentational; receives the cards array and a
+			  * delete callback. No listId is passed: each card already carries its own,
+			  * which CardItem uses as its sortable group.
+			  */}
+			<Box ref={cardDropRef}>
+				<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+			</Box>
+
+			{/*
+			  * Inline add-card form — conditionally rendered when isAddingCard is true.
+			  *
+			  * The `data-card-form` attribute is used as a CSS selector anchor so the
+			  * title field's Enter key handler can focus the priority dropdown via
+			  * querySelector('[role="combobox"]') without a ref.
+			  *
+			  * The onBlur guard closes the form when focus leaves the entire form
+			  * container, but ignores blur events caused by clicking into a MUI
+			  * Select listbox popover (which is rendered outside the form in the DOM).
+			  */}
 			{isAddingCard && (
 				<Box
 					data-card-form
@@ -276,6 +422,7 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 						p: 1.5,
 					}}
 				>
+					{/* Card title input — auto-focuses when the form opens. */}
 					<TextField
 						autoFocus
 						placeholder="Enter card title…"
@@ -301,6 +448,8 @@ export default function ListColumn({ list, index, deleteExistingList }) {
 							},
 						}}
 					/>
+
+					{/* Action row — priority dropdown, submit button, and cancel button. */}
 					<Stack direction="row" spacing={1} alignItems="center">
 						<FormControl size="small" sx={{ minWidth: 110 }}>
 							<Select

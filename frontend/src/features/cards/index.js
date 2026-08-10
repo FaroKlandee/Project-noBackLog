@@ -1,47 +1,47 @@
 /**
- * @fileoverview Public API barrel file for the cards feature.
+ * @fileoverview Public barrel file for the cards feature module.
  *
- * This is the single entry point for everything the cards feature exposes
- * to the rest of the application. Consumers should always import from this
- * file rather than reaching into sub-directories directly. Doing so keeps
- * internal implementation details (file layout, refactors, renames) hidden
- * behind a stable public interface.
+ * The single, authoritative entry point for everything cards-related.
+ * Consumers import from `features/cards` rather than reaching into internal
+ * sub-folders:
  *
- * Typical usage from outside this feature:
+ *   import { useCards, Cards }              from '../../cards';
+ *   import { getAllCards, createCard }       from '../../cards';
  *
- *   import { createCard, deleteCard } from '../features/cards';
- *
- * Current exports
- * ───────────────
- *   cardService  – async CRUD helpers that talk to the /api/cards REST
- *                  endpoints via the shared `api` client.
- *
- * As the feature grows, additional exports (hooks, components, constants,
- * types …) should be added here so callers never need to change their
- * import paths.
+ * Exported surface:
+ *   getAllCards,
+ *   getAllCardsByBoard,
+ *   createCard, deleteCard,
+ *   reorderCard              — raw async HTTP functions (cardService.js)
+ *   useCards                 — hook: fetches cards for a *single* list and
+ *                              exposes create/delete mutations. Currently unused
+ *                              — superseded by useBoardCards when card state was
+ *                              lifted to the board level for cross-list drag.
+ *                              Retained for any future single-list view.
+ *   useBoardCards            — hook: fetches every card on a board in one
+ *                              request into a record keyed by list ID, and
+ *                              exposes create/delete/reorder mutations. Required
+ *                              for cross-list drag-and-drop, which needs a
+ *                              single owner able to see both the source and
+ *                              destination list's cards.
+ *   Cards                    — component: renders a list of card items
+ *   CardPreview              — component: non-interactive visual clone of a
+ *                              card, rendered inside the board's DragOverlay
+ *   generateRank             — util: computes a card's position rank so it
+ *                              sorts between two given neighbors (or past one
+ *                              end, when a neighbor is omitted)
  */
 
-/*
- * Re-export every named export from the cards API service layer.
- * This includes functions such as getAllCards, getCardById, createCard,
- * updateCard, and deleteCard once they are implemented in cardService.js.
- */
+/* API service layer — raw async CRUD functions for the /api/cards resource. */
 export * from './api/cardService';
 
-/*
- * Re-export every named export from the cards custom-hook layer.
- * Exposes `useCards`, the React hook components use to fetch and subscribe
- * to the card data for a specific list.
- */
+/* Hooks — React hooks that wrap the service layer with local state management. */
 export * from './hooks/useCards';
+export * from './hooks/useBoardCards';
 
-/*
- * Re-export the Cards presentational component as a named export.
- * `Cards` accepts a `cards` prop and is responsible only for rendering —
- * it does not fetch data itself.
- *
- * `export { default as Cards }` is required because Cards is a default export
- * in its source file — default exports cannot be picked up by `export *`,
- * so an explicit named alias is needed to include it in this barrel.
- */
+/* Utils — pure helpers shared by the hooks above and by page-level drag handlers. */
+export * from './utils/rank';
+
+/* Components — presentational components for the cards feature. */
 export { default as Cards } from './components/Cards';
+export { default as CardPreview } from './components/CardPreview';

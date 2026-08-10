@@ -15,12 +15,22 @@ public class CardsController : ControllerBase
         _cardService = cardService;
     }
 
-    // GET /api/cards
-    // Optional query param: ?listId=1
+    /*
+     * GET /api/cards
+     *
+     * Optional query params:
+     *   ?listId=1  — cards in one list
+     *   ?boardId=1 — every card on a board, across all its lists
+     *
+     * boardId exists so a client can load a whole board's cards in one request,
+     * chosen over the client issuing one request per list, because N lists
+     * otherwise meant N round-trips per board load and forced the card fetch to
+     * wait until the list fetch had resolved.
+     */
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int? listId)
+    public async Task<IActionResult> GetAll([FromQuery] int? listId, [FromQuery] int? boardId)
     {
-        var cards = await _cardService.GetAllCardsAsync(listId);
+        var cards = await _cardService.GetAllCardsAsync(listId, boardId);
         return Ok(new { success = true, data = cards });
     }
 
@@ -44,6 +54,9 @@ public class CardsController : ControllerBase
 
         if (card.ListId == 0)
             return BadRequest(new { success = false, message = "List ID is required." });
+
+        if (string.IsNullOrWhiteSpace(card.Position))
+            return BadRequest(new { success = false, message = "Position is required." });
 
         try
         {
@@ -78,14 +91,45 @@ public class CardsController : ControllerBase
         }
     }
 
-    // DELETE /api/cards/:id
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var deleted = await _cardService.DeleteCardAsync(id);
-        if (!deleted)
-            return NotFound(new { success = false, message = "Card not found." });
+	// DELETE /api/cards/:id
+	[HttpDelete("{id}")]
+	public async Task<IActionResult> Delete(int id)
+	{
+		var deleted = await _cardService.DeleteCardAsync(id);
+		if (!deleted)
+			return NotFound(new { success = false, message = "Card not found." });
 
-        return Ok(new { success = true, message = "Card successfully deleted." });
+		return Ok(new { success = true, message = "Card successfully deleted." });
+	}
+
+	// PATCH /api/cards/{id}/reorder
+    [HttpPatch("{id}/reorder")]
+    public async Task<IActionResult> Patch( int id,[FromBody] CardReorderRequest request) {
+
+			/*
+			 * A ListId of 0 is the deserialised default for a missing or malformed
+			 * field, not a list that failed to be found — so this is 400, matching the
+			 * identical check in Create above. A list ID that is well-formed but does
+			 * not exist still yields 404, raised as KeyNotFoundException by
+			 * RepositionCardAsync and caught below.
+			 */
+			if (request.ListId == 0)
+				return BadRequest(new { success = false, message = "List ID is required." });
+
+			if (string.IsNullOrWhiteSpace(request.Position))
+				return BadRequest(new { success = false, message = "Position is required." });
+
+			try {
+				var updated = await _cardService.RepositionCardAsync(id, request);
+				if (updated is null)
+				{
+					return NotFound(new { success = false, message = "Reposition error" });
+				}
+				return Ok(new { success = true, message = "Card successfully repositioned.", data = updated });
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(new { success = false, message = ex.Message });
+			}
     }
 }

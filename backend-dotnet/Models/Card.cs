@@ -19,6 +19,9 @@ public class Card
     public int ListId { get; set; }
 
     [Required]
+    public string Position { get; set; } = string.Empty;
+
+    [Required]
     [MaxLength(100)]
     public string Title { get; set; } = string.Empty;
 
