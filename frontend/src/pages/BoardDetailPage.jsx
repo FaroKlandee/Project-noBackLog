@@ -42,6 +42,142 @@ import { Box, Typography } from "@mui/material";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { reorderLists } from "../features/lists/";
+import { useRef } from "react";
+
+/**
+ * Translate between dnd-kit's registry ids and the underlying numeric
+ * database id.
+ *
+ * ListColumn and CardItem register with dnd-kit using `list-<id>` /
+ * `card-<id>` rather than the bare numeric id, because dnd-kit keeps a
+ * single flat, id-keyed registry per DragDropProvider shared by every
+ * draggable/droppable regardless of `type` — and List.Id/Card.Id come from
+ * independent Postgres identity sequences (separate tables), so an
+ * unrelated list and card can easily share the same numeric id. An
+ * unprefixed collision silently overwrote one item's registry entry with
+ * the other's, detaching its drag-tracking/shift-animation effects (see the
+ * comment on ListColumn.jsx's useSortable call for the full story).
+ *
+ * `move()` (from @dnd-kit/helpers) matches a drag event's source/target
+ * against the `.id` field of the plain objects in the array/record it's
+ * given, so every call below wraps `lists`/`cardsByList` with the same
+ * prefixed id just for the duration of the `move()` call, then unwraps the
+ * result back to the raw numeric id before it re-enters React state.
+ */
+function toListDndId(listId) { return `list-${listId}`; }
+function toCardDndId(cardId) { return `card-${cardId}`; }
+function fromDndId(dndId) { return Number(dndId.slice(dndId.indexOf('-') + 1)); }
+
+/**
+ * Resolve a card drag event against a cardsByList record, returning a new
+ * record with the dragged card relocated and its `.listId` field kept in
+ * sync with whichever list's array it now sits in.
+ *
+ * Called from two places:
+ *   - `onDragOver`, live on every hover frame, but only commits the result
+ *     when the card stays within the same list. @dnd-kit/dom's Sortable
+ *     animates a card whenever its `index` PROP changes — which only
+ *     happens when React itself re-renders with a new array order — so this
+ *     live, same-list commit is what actually drives the shift animation
+ *     (relying only on the library's own fully-internal collision tracking,
+ *     without ever touching React state, turned out NOT to animate
+ *     reliably on its own). It deliberately discards cross-list results:
+ *     relocating a card into a different list's <Cards> subtree forces an
+ *     unmount/remount, which is unsafe to do repeatedly mid-drag — see the
+ *     comment in onDragOver below.
+ *   - `handleDragEnd`, once, after the drag has ended, which is what
+ *     actually finalizes a cross-list move.
+ *
+ * Always strips the dragged card out of every bucket before reinserting it —
+ * rather than assuming it currently lives in exactly one place — so calling
+ * this repeatedly across successive hover frames is safe and never produces
+ * a duplicate entry on its own.
+ *
+ * @param {Object<number, Array<Object>>} cardsByList - Current cards keyed by list ID.
+ * @param {import('@dnd-kit/react').DragOverEvent|import('@dnd-kit/react').DragEndEvent} event
+ * @returns {Object<number, Array<Object>>} The updated record.
+ */
+function moveCardsByList(cardsByList, event) {
+	const cardId = fromDndId(event.operation.source.id);
+
+	/*
+	 * move() understands cardsByList's keyed-by-list-ID shape natively (see
+	 * useBoardCards.js's state-shape note), so it alone resolves both a
+	 * same-list reorder and a cross-list move to a new record. It matches
+	 * the event's source/target against each card's `.id` field, so the
+	 * cards are temporarily given their dnd-kit registry id (see
+	 * toCardDndId's doc comment above) for this call, then translated back
+	 * to their real numeric id immediately after.
+	 */
+	const dndCardsByList = Object.fromEntries(
+		Object.entries(cardsByList).map(([listId, cards]) => [
+			listId,
+			cards.map(card => ({ ...card, id: toCardDndId(card.id) })),
+		])
+	);
+	const movedDnd = move(dndCardsByList, event);
+	let moved = movedDnd === dndCardsByList
+		? cardsByList
+		: Object.fromEntries(
+			Object.entries(movedDnd).map(([listId, cards]) => [
+				listId,
+				cards.map(card => ({ ...card, id: fromDndId(card.id) })),
+			])
+		);
+
+	/*
+	 * move() only resolves a target it can locate by id among the cards
+	 * already rendered in `cardsByList`. ListColumn also registers a plain
+	 * useDroppable (`list-<id>-cards`, see ListColumn.jsx's cardDropRef) that
+	 * covers the empty space below the last card — and the whole area of an
+	 * empty column — so a card can still be dropped there even though no
+	 * CardItem exists to collide with. move() doesn't know that id maps to a
+	 * list, so it can't resolve it and returns `cardsByList` back unchanged.
+	 * When that happens, fall back to reading the destination list straight
+	 * off the droppable's own `data.listId` (set in ListColumn.jsx).
+	 *
+	 * Strips the card out of every bucket first, then appends it to the
+	 * resolved destination, instead of assuming it currently lives in
+	 * exactly one place — that's what makes this fallback idempotent.
+	 */
+	if (moved === cardsByList) {
+		const targetListId = event.operation.target?.data?.listId;
+		const card = Object.values(cardsByList).flat().find(c => c.id === cardId);
+
+		if (targetListId == null || !card) return cardsByList;
+
+		const withoutCard = Object.fromEntries(
+			Object.entries(cardsByList).map(([listId, cards]) => [listId, cards.filter(c => c.id !== cardId)])
+		);
+
+		moved = {
+			...withoutCard,
+			[targetListId]: [...(withoutCard[targetListId] ?? []), card],
+		};
+	}
+
+	/*
+	 * move() does NOT update the moved card's own `.listId` field when it
+	 * crosses lists — the object is relocated into the destination array
+	 * as-is. CardItem reads `card.listId` as its sortable `group`, so leaving
+	 * it stale would desync the card's group from the list it now visually
+	 * sits in for the rest of the drag, not just after drop.
+	 */
+	const destination = Object.entries(moved).find(
+		([, cards]) => cards.some(card => card.id === cardId)
+	);
+	if (!destination) return moved;
+
+	const [listIdKey, cardsInList] = destination;
+	const listId = Number(listIdKey);
+
+	return {
+		...moved,
+		[listId]: cardsInList.map(card =>
+			card.id === cardId ? { ...card, listId } : card
+		),
+	};
+}
 
 /**
  * BoardDetailPage component.
@@ -103,6 +239,15 @@ export default function BoardDetailPage() {
 		persistCardPosition,
 	} = useBoardCards(Number(boardId));
 
+	/*
+	 * Snapshots of cardsByList/lists taken at the start of each drag, used to
+	 * revert onDragOver's live updates if the drag is cancelled (e.g. Escape)
+	 * — see handleDragEnd's cancel guard and onDragStart below. Refs rather
+	 * than state because writing them must never itself trigger a re-render.
+	 */
+	const previousCardsByList = useRef(cardsByList);
+	const previousLists = useRef(lists);
+
 	/**
 	 * Handle the end of a drag-and-drop operation on the board.
 	 *
@@ -123,6 +268,8 @@ export default function BoardDetailPage() {
 	function handleDragEnd(event) {
 		/* Guard: drag was cancelled (e.g. user pressed Escape). */
 		if (event.canceled) {
+			updateCardOrder(previousCardsByList.current);
+			updateListOrder(previousLists.current);
 			return;
 		}
 
@@ -140,56 +287,8 @@ export default function BoardDetailPage() {
 		const draggedType = event.operation.source?.type;
 
 		if (draggedType === 'card') {
-			/*
-			 * move() understands cardsByList's keyed-by-list-ID shape natively (see
-			 * useBoardCards.js's state-shape note), so it alone resolves both a
-			 * same-list reorder and a cross-list move to a new record.
-			 *
-			 * It does NOT, however, update the moved card's own `.listId` field
-			 * when it crosses lists — the object is relocated into the destination
-			 * array as-is. CardItem reads `card.listId` as its sortable `group`, so
-			 * leaving it stale would desync the next drag on that card from the
-			 * list it now visually sits in. The map below patches it back in, along
-			 * with the freshly generated rank, in the same pass.
-			 */
-			let moved = move(cardsByList, event);
-
-			const cardId = event.operation.source.id;
-
-			/*
-			 * move() only resolves a target it can locate by id among the cards
-			 * already rendered in `items`. ListColumn also registers a plain
-			 * useDroppable (`list-<id>-cards`, see ListColumn.jsx's cardDropRef) that
-			 * covers the empty space below the last card — and the whole area of an
-			 * empty column — so a card can still be dropped there even though no
-			 * CardItem exists to collide with. move() doesn't know that id maps to a
-			 * list, so it can't resolve it and returns `items` back unchanged. When
-			 * that happens, fall back to reading the destination list straight off
-			 * the droppable's own `data.listId` (set in ListColumn.jsx) and append
-			 * the card to that list's end.
-			 */
-			if (moved === cardsByList) {
-				const targetListId = event.operation.target?.data?.listId;
-				const sourceEntry = Object.entries(cardsByList).find(
-					([, cards]) => cards.some(card => card.id === cardId)
-				);
-
-				if (targetListId == null || !sourceEntry) return;
-
-				const [sourceListIdKey, sourceCards] = sourceEntry;
-				const sourceListId = Number(sourceListIdKey);
-				const card = sourceCards.find(c => c.id === cardId);
-				const remainingSourceCards = sourceCards.filter(c => c.id !== cardId);
-				const destinationCards = sourceListId === targetListId
-					? remainingSourceCards
-					: (cardsByList[targetListId] ?? []);
-
-				moved = {
-					...cardsByList,
-					[sourceListId]: remainingSourceCards,
-					[targetListId]: [...destinationCards, card],
-				};
-			}
+			const cardId = fromDndId(event.operation.source.id);
+			const moved = moveCardsByList(cardsByList, event);
 
 			const destination = Object.entries(moved).find(
 				([, cards]) => cards.some(card => card.id === cardId)
@@ -225,16 +324,21 @@ export default function BoardDetailPage() {
 		}
 
 		/*
-		 * move() uses the drag event's source and target indices to return a
-		 * new array of list objects in the updated order.
+		 * Unlike cards, lists is kept live-in-sync unconditionally by
+		 * onDragOver on every hover frame (see its comment — there's no
+		 * cross-group complication to gate on for lists), so by the time the
+		 * drop completes, lists is already in its final order here.
+		 *
+		 * Deliberately NOT calling move(lists, event) again: move() re-derives
+		 * the shift from the drag event's tracked source.index versus the
+		 * array's current position, and re-running it against an
+		 * already-settled array (rather than the pre-drag array it expects)
+		 * could compute a redundant shift that partially undoes the live
+		 * reorder instead of confirming it.
 		 */
-		const newOrderedLists = move(lists, event);
 
-		/* Update local state immediately for a responsive UI. */
-		updateListOrder(newOrderedLists);
-
-		/* Persist the new order to the backend as an array of IDs. */
-		reorderLists(newOrderedLists.map(list => list.id));
+		/* Persist the current (already up to date) order to the backend as an array of IDs. */
+		reorderLists(lists.map(list => list.id));
 	}
 
 	/**
@@ -257,13 +361,15 @@ export default function BoardDetailPage() {
 		if (!source) return null;
 
 		if (source.type === 'card') {
-			const card = Object.values(cardsByList).flat().find(c => c.id === source.id);
+			const cardId = fromDndId(source.id);
+			const card = Object.values(cardsByList).flat().find(c => c.id === cardId);
 			if (!card) return null;
 			return <CardPreview card={card} />;
 		}
 
 		if (source.type === 'list') {
-			const list = lists.find(l => l.id === source.id);
+			const listId = fromDndId(source.id);
+			const list = lists.find(l => l.id === listId);
 			if (!list) return null;
 			return <ListColumnPreview list={list} cardCount={(cardsByList[list.id] ?? []).length} />;
 		}
@@ -304,7 +410,69 @@ export default function BoardDetailPage() {
 	 *               └─ Lists          (columns + "add new list" form)
 	 */
 	return (
-		<DragDropProvider onDragEnd={handleDragEnd}>
+		<DragDropProvider
+			onDragEnd={handleDragEnd}
+			onDragStart={() => {
+				previousCardsByList.current = cardsByList;
+				previousLists.current = lists;
+			}}
+			onDragOver={(event) => {
+				const { source } = event.operation;
+
+				/*
+				 * List drags have no cross-group complication the way cards do —
+				 * every ListColumn is rendered by this same single Lists.jsx
+				 * component, mapping over the one `lists` array, so reordering it
+				 * live is just a same-array reindex (no unmount/remount risk).
+				 * Safe to commit on every hover frame unconditionally.
+				 */
+				if (source?.type === 'list') {
+					updateListOrder(prev => {
+						/*
+						 * Same id-collision concern as moveCardsByList above: move()
+						 * matches against each list's `.id` field, so lists are
+						 * temporarily given their dnd-kit registry id for this call.
+						 */
+						const dndLists = prev.map(list => ({ ...list, id: toListDndId(list.id) }));
+						const movedDnd = move(dndLists, event);
+						if (movedDnd === dndLists) return prev;
+						return movedDnd.map(list => ({ ...list, id: fromDndId(list.id) }));
+					});
+					return;
+				}
+
+				updateCardOrder(prev => {
+					const cardId = source.id;
+					const currentListId = Object.entries(prev).find(
+						([, cards]) => cards.some(card => card.id === cardId)
+					)?.[0];
+
+					const moved = moveCardsByList(prev, event);
+					const movedListId = Object.entries(moved).find(
+						([, cards]) => cards.some(card => card.id === cardId)
+					)?.[0];
+
+					/*
+					 * Only commit this live update when the card is still in the list
+					 * it started in. A cross-list move relocates the card out of one
+					 * ListColumn's <Cards> subtree and into another's — React can't
+					 * reconcile that by key the way it can a same-list reindex; it has
+					 * to unmount the CardItem and mount a new one. Doing that on every
+					 * hover frame, while dnd-kit's own drag registration for that exact
+					 * DOM node is still active, left a stale "ghost" card behind. Same-
+					 * list reorders stay within the same <Cards> instance, so those are
+					 * safe to apply live — and it's specifically this state update,
+					 * causing React to reindex the card, that drives the shift
+					 * animation (see moveCardsByList's doc comment). Cross-list moves
+					 * are instead finalized once, in handleDragEnd, after the drag has
+					 * already ended.
+					 */
+					if (movedListId !== currentListId) return prev;
+
+					return moved;
+				});
+			}}
+		>
 			{/*
 			  * Page canvas — full-viewport dark background with a subtle violet
 			  * radial gradient in the top-right corner.
