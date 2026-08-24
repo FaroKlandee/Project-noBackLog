@@ -4,4 +4,9 @@
 // see the documentation: https://zed.dev/docs/configuring-zed#settings-files
 {
   "javascript.suggestionActions.enabled": false,
+  "terminal": {
+    "shell": {
+      "program": "C:\\Program Files\\Git\\bin\\bash.exe"
+    }
+  },
 }
