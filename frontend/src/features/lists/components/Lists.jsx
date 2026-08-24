@@ -117,6 +117,14 @@ export default function Lists({
 	 * A horizontally-scrollable, no-wrap flex row. Each list is mapped to a
 	 * ListColumn. An "Add new list" control is appended at the end — it renders
 	 * either a dashed outline button (idle state) or an inline form (isAdding).
+	 *
+	 * Inter-column spacing is NOT a `gap` on this row — it's `pr` padding on
+	 * each ListColumn's own outer (ref'd) box instead (see ListColumn.jsx).
+	 * A flex `gap` sits outside every child's own getBoundingClientRect(), so
+	 * dnd-kit's collision detection can never resolve a hover in that space to
+	 * an actual ListColumn — exactly the dead-zone bug already fixed for
+	 * CardItem's `mb` margin. The "Add new list" box gets its matching `ml`
+	 * directly since it's neither draggable nor droppable.
 	 */
 	return (
 		<Box
@@ -127,45 +135,45 @@ export default function Lists({
 				overflowX: 'auto',
 				overflowY: 'hidden',
 				flexGrow: 1,
-				height: "100%",
-				gap: 2,
+				height: '100%',
 				alignItems: 'flex-start',
 				pb: 2,
 			}}
 		>
 			{/*
-			  * List columns — empty state shows a plain text placeholder;
-			  * otherwise each list object is rendered as a ListColumn.
-			  */}
-			{lists.length === 0 ?
-				(<p>No lists for now...</p>) : (
-					lists.map((list, index) => (
-						<ListColumn
-							key={list.id}
-							list={list}
-							index={index}
-							cards={cardsByList[list.id] ?? []}
-							deleteExistingList={deleteExistingList}
-							onCreateCard={onCreateCard}
-							onDeleteCard={onDeleteCard}
-							mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}
-							onDismissMutationError={onDismissCardMutationError}
-						/>
-					))
-				)}
+			 * List columns — empty state shows a plain text placeholder;
+			 * otherwise each list object is rendered as a ListColumn.
+			 */}
+			{lists.length === 0 ? (
+				<p>No lists for now...</p>
+			) : (
+				lists.map((list, index) => (
+					<ListColumn
+						key={list.id}
+						list={list}
+						index={index}
+						cards={cardsByList[list.id] ?? []}
+						deleteExistingList={deleteExistingList}
+						onCreateCard={onCreateCard}
+						onDeleteCard={onDeleteCard}
+						mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}
+						onDismissMutationError={onDismissCardMutationError}
+					/>
+				))
+			)}
 
 			{/*
-			  * Add new list control — fixed-width box at the end of the row.
-			  * Toggles between a dashed outline button and an inline input form.
-			  */}
-			<Box sx={{ width: 280, flexShrink: 0 }}>
+			 * Add new list control — fixed-width box at the end of the row.
+			 * Toggles between a dashed outline button and an inline input form.
+			 */}
+			<Box sx={{ width: 280, flexShrink: 0, ml: 2 }}>
 				{isAdding ? (
 					/*
 					 * Inline add-list form — shown when isAdding is true.
 					 * Contains a text field (Enter key confirms) and Confirm/Cancel actions.
 					 */
 					<Box
-						sx={theme => ({
+						sx={(theme) => ({
 							display: 'flex',
 							flexDirection: 'column',
 							gap: 1,
@@ -179,12 +187,12 @@ export default function Lists({
 							autoFocus
 							focused
 							value={newListName}
-							onChange={e => setNewListName(e.target.value)}
-							onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+							onChange={(e) => setNewListName(e.target.value)}
+							onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
 							placeholder="Enter list name…"
 							color="secondary"
 							size="small"
-							sx={theme => ({
+							sx={(theme) => ({
 								'& .MuiOutlinedInput-root': {
 									bgcolor: 'background.paper',
 									borderRadius: 1,
@@ -222,7 +230,7 @@ export default function Lists({
 						fullWidth
 						startIcon={<AddIcon fontSize="inherit" />}
 						onClick={() => setIsAdding(true)}
-						sx={theme => ({
+						sx={(theme) => ({
 							width: '100%',
 							justifyContent: 'flex-start',
 							color: 'secondary.main',

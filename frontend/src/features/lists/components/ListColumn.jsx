@@ -32,20 +32,20 @@
  * Cards — card list presenter, imported from the cards feature barrel so this
  *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards } from "../../cards";
+import { Cards } from '../../cards';
 
 /*
  * Icons
  */
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import DeleteIcon from "@mui/icons-material/Delete"
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 
 /*
  * React
  */
-import { useState, useRef } from "react";
+import { useState, useRef } from 'react';
 
 /*
  * @dnd-kit/react/sortable
@@ -54,8 +54,12 @@ import { useState, useRef } from "react";
  *               Requires the item's unique `id` and its current `index` in
  *               the lists array. Returns a `ref` that must be attached to
  *               the column's root DOM element.
+ * SortableKeyboardPlugin — see the `plugins` option on the useSortable call
+ *               below for why this is passed explicitly instead of using
+ *               dnd-kit's default plugin set.
  */
-import { useSortable } from "@dnd-kit/react/sortable";
+import { useSortable } from '@dnd-kit/react/sortable';
+import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
 
 /*
  * @dnd-kit/react / @dnd-kit/abstract
@@ -66,8 +70,8 @@ import { useSortable } from "@dnd-kit/react/sortable";
  * CollisionPriority — see the `cardDropRef` useDroppable call below for why
  *                      this needs to be explicitly set to `Low`.
  */
-import { useDroppable } from "@dnd-kit/react";
-import { CollisionPriority } from "@dnd-kit/abstract";
+import { useDroppable } from '@dnd-kit/react';
+import { CollisionPriority } from '@dnd-kit/abstract';
 
 /*
  * MUI components
@@ -81,7 +85,18 @@ import { CollisionPriority } from "@dnd-kit/abstract";
  * TextField        — card title input inside the add-card form.
  * Select, FormControl — priority dropdown inside the add-card form.
  */
-import { Alert, Typography, Box, IconButton, Menu, MenuItem, Stack, TextField, Select, FormControl } from '@mui/material';
+import {
+	Alert,
+	Typography,
+	Box,
+	IconButton,
+	Menu,
+	MenuItem,
+	Stack,
+	TextField,
+	Select,
+	FormControl,
+} from '@mui/material';
 
 /**
  * ListColumn component.
@@ -128,7 +143,6 @@ export default function ListColumn({
 	mutationError,
 	onDismissMutationError,
 }) {
-
 	/*
 	 * Options Menu State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -140,7 +154,7 @@ export default function ListColumn({
 	const open = anchorEl !== null;
 
 	const handleClick = (event) => setAnchorEl(event.currentTarget); // open the menu
-	const handleClose = () => setAnchorEl(null);                      // close the menu
+	const handleClose = () => setAnchorEl(null); // close the menu
 
 	/*
 	 * Drag-and-Drop Registration
@@ -163,8 +177,45 @@ export default function ListColumn({
 	 * it. Restricting `accept` to 'list' ensures only other list columns can
 	 * ever be a valid drop target for this column, so a card drag can never
 	 * be misidentified as a list-reorder collision.
+	 *
+	 * `plugins: [SortableKeyboardPlugin]` — omits dnd-kit's default
+	 * `OptimisticSortingPlugin`, which normally reorders siblings live by
+	 * directly mutating the DOM (element.insertAdjacentElement) the moment it
+	 * detects a collision, entirely independent of React. BoardDetailPage's
+	 * onDragOver already reorders `lists` in React state on every hover frame
+	 * (unconditionally, unlike cards — see its comment), and that state
+	 * change is what drives the shift animation, via useSortable's own
+	 * index-prop-sync effect — so OptimisticSortingPlugin's direct DOM
+	 * manipulation isn't needed here and was fighting with React over the
+	 * same DOM nodes: the two disagreeing about the column's actual DOM
+	 * position was what left a drop's real reorder rendered-but-unpainted
+	 * until a second drag forced things back in sync. Cards don't hit this
+	 * because their onDragOver only commits for same-list moves, so the two
+	 * mechanisms rarely both fire for the same drag.
+	 *
+	 * `id: `list-${list.id}`` — prefixed rather than the bare numeric
+	 * `list.id`. dnd-kit keeps ONE flat registry Map per DragDropProvider,
+	 * shared by every draggable/droppable regardless of `type`, keyed purely
+	 * by this id. `List.Id` and `Card.Id` come from independent Postgres
+	 * identity sequences (separate tables — see backend-dotnet/Migrations),
+	 * so an unrelated card can easily share a list's numeric id (both `2`,
+	 * say). Whichever registers second silently overwrites the other's
+	 * registry entry (and runs its cleanup), detaching that list's
+	 * drag-tracking/shift-animation effects while its React state stays
+	 * otherwise fine — so the reorder still computed and persisted to the
+	 * backend, but the column never visibly moved. Only ever surfaced once a
+	 * board had cards, since an id collision is only possible once cards are
+	 * registered too. See CardItem.jsx's matching `card-${card.id}` prefix
+	 * and BoardDetailPage.jsx's `toListDndId`/`fromDndId` helpers, which
+	 * translate back to the raw numeric id around every `move()` call.
 	 */
-	const { ref } = useSortable({ id: list.id, index, type: 'list', accept: 'list' });
+	const { ref, isDragSource } = useSortable({
+		id: `list-${list.id}`,
+		index,
+		type: 'list',
+		accept: 'list',
+		plugins: [SortableKeyboardPlugin],
+	});
 
 	/*
 	 * Card Drop Zone Registration
@@ -264,9 +315,18 @@ export default function ListColumn({
 			return;
 		}
 		if (e.target === titleRef.current) return;
-		if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setNewCardPriority('Low'); }
-		if (e.key === 'm' || e.key === 'M') { e.preventDefault(); setNewCardPriority('Medium'); }
-		if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setNewCardPriority('High'); }
+		if (e.key === 'l' || e.key === 'L') {
+			e.preventDefault();
+			setNewCardPriority('Low');
+		}
+		if (e.key === 'm' || e.key === 'M') {
+			e.preventDefault();
+			setNewCardPriority('Medium');
+		}
+		if (e.key === 'h' || e.key === 'H') {
+			e.preventDefault();
+			setNewCardPriority('High');
+		}
 	}
 
 	/**
@@ -298,200 +358,250 @@ export default function ListColumn({
 	 * BoardDetailPage, rather than per column.
 	 *
 	 * Column structure:
-	 *   Box (column surface, ref for dnd-kit)
-	 *     ├─ Stack (column header row)
-	 *     │    ├─ Typography (list name)
-	 *     │    ├─ Badge span (card count)
-	 *     │    ├─ IconButton (add card)
-	 *     │    ├─ IconButton (options menu trigger)
-	 *     │    └─ Menu > MenuItem (Delete list)
-	 *     ├─ Alert (scoped mutation error banner, shown conditionally)
-	 *     ├─ Cards (card list presenter)
-	 *     └─ Box (add-card form, shown conditionally when isAddingCard is true)
+	 *   Box (outer — ref/hit-area for dnd-kit, inter-column gap as padding)
+	 *     └─ Box (inner — visual column surface: bg, border, radius)
+	 *          └─ Box (content wrapper — hidden via visibility while isDragSource,
+	 *                   same placeholder treatment as CardItem.jsx)
+	 *               ├─ Stack (column header row)
+	 *               │    ├─ Typography (list name)
+	 *               │    ├─ Badge span (card count)
+	 *               │    ├─ IconButton (add card)
+	 *               │    ├─ IconButton (options menu trigger)
+	 *               │    └─ Menu > MenuItem (Delete list)
+	 *               ├─ Alert (scoped mutation error banner, shown conditionally)
+	 *               ├─ Cards (card list presenter)
+	 *               └─ Box (add-card form, shown conditionally when isAddingCard is true)
+	 *
+	 * The outer/inner split mirrors CardItem.jsx's fix for the same class of
+	 * bug: dnd-kit's collision detection only ever considers an element's own
+	 * getBoundingClientRect(), which excludes margin AND a flex `gap` on the
+	 * parent, but includes padding. Lists.jsx used to space columns apart with
+	 * `gap: 2` on the row — space that belonged to no ListColumn's hit area —
+	 * so a drag hovering exactly in that gap had nothing valid to collide
+	 * with. `pr` on this outer box keeps that same visual spacing but inside
+	 * the ref'd element's own rect, so collision (and the shift animation
+	 * that depends on it) resolves consistently to a column.
+	 *
+	 * While this column `isDragSource` (it's the one currently being dragged),
+	 * the inner surface switches to a hollow, dashed-border "drop indicator" —
+	 * mirroring CardItem.jsx's treatment — instead of its normal appearance.
+	 * The floating clone the user is actually dragging is rendered separately
+	 * by DragOverlay/ListColumnPreview (BoardDetailPage.jsx); this real DOM
+	 * node just needs to mark where it'll land, and keeps tracking that live
+	 * position via the same shift-animation mechanism as every other column.
+	 * The content wrapper hides everything as a unit via `visibility` (not
+	 * `display: none`) so it keeps occupying the same width/height instead of
+	 * collapsing, which is what keeps the placeholder the same size as the
+	 * real column.
 	 */
 	return (
-		<Box
-			ref={ref}
-			component="section"
-			sx={theme => ({
-				flexGrow: 0,
-				flexShrink: 0,
-				width: 280,
-				bgcolor: theme.palette.background.surface,
-				border: `1px solid ${theme.palette.divider}`,
-				borderRadius: '12px',
-				p: 1.5,
-				height: '100%',
-				overflowY: 'auto',
-				overflowX: 'hidden',
-			})}
-		>
-			{/* Column header row — list name, card count badge, add and options buttons. */}
-			<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
-				<Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}>
-					{list.name}
-				</Typography>
+		<Box ref={ref} component="section" sx={{ flexGrow: 0, flexShrink: 0, height: '100%', pr: 2 }}>
+			<Box
+				sx={(theme) => ({
+					width: 280,
+					bgcolor: isDragSource ? 'transparent' : theme.palette.background.surface,
+					border: isDragSource
+						? `1px dashed ${theme.palette.divider}`
+						: `1px solid ${theme.palette.divider}`,
+					borderRadius: '12px',
+					p: 1.5,
+					height: '100%',
+					overflowY: isDragSource ? 'hidden' : 'auto',
+					overflowX: 'hidden',
+				})}
+			>
+				<Box sx={{ visibility: isDragSource ? 'hidden' : 'visible' }}>
+					{/* Column header row — list name, card count badge, add and options buttons. */}
+					<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
+						<Typography
+							sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}
+						>
+							{list.name}
+						</Typography>
 
-				{/* Card count badge — pill showing total cards in this column. */}
-				<Box
-					component="span"
-					sx={theme => ({
-						ml: 1,
-						px: 1,
-						py: 0.25,
-						bgcolor: theme.palette.badge.bg,
-						borderRadius: '999px',
-						fontSize: '0.75rem',
-						color: theme.palette.badge.text,
-					})}
-				>
-					{cards.length}
-				</Box>
-
-				{/* Add card button — opens the inline add-card form. */}
-				<IconButton size="small" onClick={() => setIsAddingCard(true)} sx={{ color: 'secondary.main', p: 0.5 }}>
-					<AddIcon fontSize="small" />
-				</IconButton>
-
-				{/* Options menu trigger — opens the MoreVert dropdown. */}
-				<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
-					<MoreVertIcon fontSize="small" />
-				</IconButton>
-
-				{/* Options menu — currently contains only the Delete list action. */}
-				<Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
-					<MenuItem onClick={() => { handleClose(); handleDeleteList(list.id); }} sx={{ color: 'error.main', gap: 1 }}>
-						<DeleteIcon fontSize="small" /> Delete list
-					</MenuItem>
-				</Menu>
-			</Stack>
-
-			{/*
-			  * Mutation error banner — shown when a card create/delete originating
-			  * from THIS column failed. The parent scopes the board-level mutation
-			  * error down to a plain message for the matching list, so this
-			  * component never needs to know the error envelope's shape.
-			  */}
-			{mutationError && (
-				<Alert severity="error" onClose={onDismissMutationError} sx={{ mb: 1, fontSize: '0.8rem' }}>
-					{mutationError}
-				</Alert>
-			)}
-
-			{/*
-			  * Card drop zone — wraps the Cards presenter so the droppable area spans
-			  * both the populated and empty-state renders (see cardDropRef above).
-			  *
-			  * Cards presenter is purely presentational; receives the cards array and a
-			  * delete callback. No listId is passed: each card already carries its own,
-			  * which CardItem uses as its sortable group.
-			  */}
-			<Box ref={cardDropRef}>
-				<Cards cards={cards} onDeleteCard={handleDeleteCard} />
-			</Box>
-
-			{/*
-			  * Inline add-card form — conditionally rendered when isAddingCard is true.
-			  *
-			  * The `data-card-form` attribute is used as a CSS selector anchor so the
-			  * title field's Enter key handler can focus the priority dropdown via
-			  * querySelector('[role="combobox"]') without a ref.
-			  *
-			  * The onBlur guard closes the form when focus leaves the entire form
-			  * container, but ignores blur events caused by clicking into a MUI
-			  * Select listbox popover (which is rendered outside the form in the DOM).
-			  */}
-			{isAddingCard && (
-				<Box
-					data-card-form
-					onKeyDown={handleFormKeyDown}
-					onBlur={e => {
-						const focusLeftForm = !e.currentTarget.contains(e.relatedTarget);
-						const focusedAMuiPopover = e.relatedTarget?.closest('[role="listbox"]');
-						if (focusLeftForm && !focusedAMuiPopover) handleCancelCard();
-					}}
-					sx={{
-						mt: 1,
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 1,
-						bgcolor: 'background.paper',
-						border: '1px solid',
-						borderColor: 'divider',
-						borderRadius: '8px',
-						p: 1.5,
-					}}
-				>
-					{/* Card title input — auto-focuses when the form opens. */}
-					<TextField
-						autoFocus
-						placeholder="Enter card title…"
-						value={newCardTitle}
-						onChange={e => setNewCardTitle(e.target.value)}
-						inputRef={titleRef}
-						onKeyDown={e => {
-							if (e.key === 'Enter' && !e.shiftKey) {
-								e.preventDefault();
-								e.currentTarget.closest('[data-card-form]')?.querySelector('[role="combobox"]')?.focus();
-							}
-						}}
-						size="small"
-						fullWidth
-						slotProps={{
-							input: {
-								sx: theme => ({
-									color: 'text.primary',
-									bgcolor: theme.palette.background.surface,
-									borderRadius: 1,
-									fontSize: '0.9rem',
-								}),
-							},
-						}}
-					/>
-
-					{/* Action row — priority dropdown, submit button, and cancel button. */}
-					<Stack direction="row" spacing={1} alignItems="center">
-						<FormControl size="small" sx={{ minWidth: 110 }}>
-							<Select
-								value={newCardPriority}
-								onChange={e => setNewCardPriority(e.target.value)}
-								sx={theme => ({
-									color: 'text.primary',
-									bgcolor: theme.palette.background.surface,
-									fontSize: '0.9rem',
-									'& .MuiSelect-icon': { color: theme.palette.secondary.main },
-								})}
-							>
-								<MenuItem value="Low">Low</MenuItem>
-								<MenuItem value="Medium">Medium</MenuItem>
-								<MenuItem value="High">High</MenuItem>
-							</Select>
-						</FormControl>
+						{/* Card count badge — pill showing total cards in this column. */}
 						<Box
-							component="button"
-							onClick={handleCreateCard}
-							disabled={isSubmitting}
+							component="span"
+							sx={(theme) => ({
+								ml: 1,
+								px: 1,
+								py: 0.25,
+								bgcolor: theme.palette.badge.bg,
+								borderRadius: '999px',
+								fontSize: '0.75rem',
+								color: theme.palette.badge.text,
+							})}
+						>
+							{cards.length}
+						</Box>
+
+						{/* Add card button — opens the inline add-card form. */}
+						<IconButton
+							size="small"
+							onClick={() => setIsAddingCard(true)}
+							sx={{ color: 'secondary.main', p: 0.5 }}
+						>
+							<AddIcon fontSize="small" />
+						</IconButton>
+
+						{/* Options menu trigger — opens the MoreVert dropdown. */}
+						<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
+							<MoreVertIcon fontSize="small" />
+						</IconButton>
+
+						{/* Options menu — currently contains only the Delete list action. */}
+						<Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
+							<MenuItem
+								onClick={() => {
+									handleClose();
+									handleDeleteList(list.id);
+								}}
+								sx={{ color: 'error.main', gap: 1 }}
+							>
+								<DeleteIcon fontSize="small" /> Delete list
+							</MenuItem>
+						</Menu>
+					</Stack>
+
+					{/*
+					 * Mutation error banner — shown when a card create/delete originating
+					 * from THIS column failed. The parent scopes the board-level mutation
+					 * error down to a plain message for the matching list, so this
+					 * component never needs to know the error envelope's shape.
+					 */}
+					{mutationError && (
+						<Alert
+							severity="error"
+							onClose={onDismissMutationError}
+							sx={{ mb: 1, fontSize: '0.8rem' }}
+						>
+							{mutationError}
+						</Alert>
+					)}
+
+					{/*
+					 * Card drop zone — wraps the Cards presenter so the droppable area spans
+					 * both the populated and empty-state renders (see cardDropRef above).
+					 *
+					 * Cards presenter is purely presentational; receives the cards array and a
+					 * delete callback. No listId is passed: each card already carries its own,
+					 * which CardItem uses as its sortable group.
+					 */}
+					<Box ref={cardDropRef}>
+						<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+					</Box>
+
+					{/*
+					 * Inline add-card form — conditionally rendered when isAddingCard is true.
+					 *
+					 * The `data-card-form` attribute is used as a CSS selector anchor so the
+					 * title field's Enter key handler can focus the priority dropdown via
+					 * querySelector('[role="combobox"]') without a ref.
+					 *
+					 * The onBlur guard closes the form when focus leaves the entire form
+					 * container, but ignores blur events caused by clicking into a MUI
+					 * Select listbox popover (which is rendered outside the form in the DOM).
+					 */}
+					{isAddingCard && (
+						<Box
+							data-card-form
+							onKeyDown={handleFormKeyDown}
+							onBlur={(e) => {
+								const focusLeftForm = !e.currentTarget.contains(e.relatedTarget);
+								const focusedAMuiPopover = e.relatedTarget?.closest('[role="listbox"]');
+								if (focusLeftForm && !focusedAMuiPopover) handleCancelCard();
+							}}
 							sx={{
-								px: 2,
-								py: 0.75,
-								bgcolor: 'primary.main',
-								color: 'text.primary',
-								border: 'none',
-								borderRadius: '6px',
-								cursor: 'pointer',
-								fontWeight: 600,
-								fontSize: '0.875rem',
-								'&:disabled': { opacity: 0.5 },
+								mt: 1,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 1,
+								bgcolor: 'background.paper',
+								border: '1px solid',
+								borderColor: 'divider',
+								borderRadius: '8px',
+								p: 1.5,
 							}}
 						>
-							{isSubmitting ? '…' : 'Add (Shift+↵'}
+							{/* Card title input — auto-focuses when the form opens. */}
+							<TextField
+								autoFocus
+								placeholder="Enter card title…"
+								value={newCardTitle}
+								onChange={(e) => setNewCardTitle(e.target.value)}
+								inputRef={titleRef}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && !e.shiftKey) {
+										e.preventDefault();
+										e.currentTarget
+											.closest('[data-card-form]')
+											?.querySelector('[role="combobox"]')
+											?.focus();
+									}
+								}}
+								size="small"
+								fullWidth
+								slotProps={{
+									input: {
+										sx: (theme) => ({
+											color: 'text.primary',
+											bgcolor: theme.palette.background.surface,
+											borderRadius: 1,
+											fontSize: '0.9rem',
+										}),
+									},
+								}}
+							/>
+
+							{/* Action row — priority dropdown, submit button, and cancel button. */}
+							<Stack direction="row" spacing={1} alignItems="center">
+								<FormControl size="small" sx={{ minWidth: 110 }}>
+									<Select
+										value={newCardPriority}
+										onChange={(e) => setNewCardPriority(e.target.value)}
+										sx={(theme) => ({
+											color: 'text.primary',
+											bgcolor: theme.palette.background.surface,
+											fontSize: '0.9rem',
+											'& .MuiSelect-icon': { color: theme.palette.secondary.main },
+										})}
+									>
+										<MenuItem value="Low">Low</MenuItem>
+										<MenuItem value="Medium">Medium</MenuItem>
+										<MenuItem value="High">High</MenuItem>
+									</Select>
+								</FormControl>
+								<Box
+									component="button"
+									onClick={handleCreateCard}
+									disabled={isSubmitting}
+									sx={{
+										px: 2,
+										py: 0.75,
+										bgcolor: 'primary.main',
+										color: 'text.primary',
+										border: 'none',
+										borderRadius: '6px',
+										cursor: 'pointer',
+										fontWeight: 600,
+										fontSize: '0.875rem',
+										'&:disabled': { opacity: 0.5 },
+									}}
+								>
+									{isSubmitting ? '…' : 'Add (Shift+↵'}
+								</Box>
+								<IconButton
+									size="small"
+									onClick={handleCancelCard}
+									sx={{ color: 'secondary.main', p: 0.5 }}
+								>
+									<CloseIcon fontSize="small" />
+								</IconButton>
+							</Stack>
 						</Box>
-						<IconButton size="small" onClick={handleCancelCard} sx={{ color: 'secondary.main', p: 0.5 }}>
-							<CloseIcon fontSize="small" />
-						</IconButton>
-					</Stack>
+					)}
 				</Box>
-			)}
+			</Box>
 		</Box>
 	);
 }
