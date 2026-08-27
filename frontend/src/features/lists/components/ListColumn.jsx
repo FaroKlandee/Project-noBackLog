@@ -44,8 +44,17 @@ import CloseIcon from '@mui/icons-material/Close';
 
 /*
  * React
+ * ───────────────────────────────────────────────────────────────────────────
+ * useOptimistic — seeds a locally-displayed title from `list.name` and shows
+ *                 the in-progress rename immediately, reverting on its own to
+ *                 whatever `list.name` actually is once the rename transition
+ *                 settles (the new name on success, since renameList updates
+ *                 it before the transition resolves; the old name on failure,
+ *                 since a failed renameList never touches `list.name`).
+ * useTransition — setOptimisticName must be called inside a transition; this
+ *                 is the manual (non-form-action) way to open one.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useOptimistic, useTransition } from 'react';
 
 /*
  * @dnd-kit/react/sortable
@@ -123,6 +132,9 @@ import {
  * @param {Function}      props.deleteExistingList      - Async callback invoked with this
  *                                                        list's ID when the user confirms
  *                                                        list deletion.
+ * @param {Function}      props.renameList              - Async callback invoked as
+ *                                                        `(listId, name)` when the user
+ *                                                        commits an edit to the list title.
  * @param {Function}      props.onCreateCard            - Async callback invoked as
  *                                                        `(listId, data)` to create a card.
  * @param {Function}      props.onDeleteCard            - Async callback invoked as
@@ -138,6 +150,7 @@ export default function ListColumn({
 	index,
 	cards = [],
 	deleteExistingList,
+	renameList,
 	onCreateCard,
 	onDeleteCard,
 	mutationError,
@@ -246,6 +259,74 @@ export default function ListColumn({
 		collisionPriority: CollisionPriority.Low,
 		data: { listId: list.id },
 	});
+
+	/*
+	 * Title Rename State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * isEditingTitle — toggles the header between the static Typography and
+	 *                  an inline TextField, Trello-style.
+	 * titleDraft     — controlled value for the title TextField while editing.
+	 *                  Seeded from list.name on entering edit mode rather than
+	 *                  bound directly to it, so typing doesn't get clobbered by
+	 *                  the optimistic re-render triggered by a previous commit.
+	 * optimisticName — the name to actually render. Mirrors list.name until a
+	 *                  rename is submitted, at which point it shows the
+	 *                  in-flight new name immediately; see the useOptimistic
+	 *                  import comment above for how/why it reverts on its own.
+	 */
+	const [isEditingTitle, setIsEditingTitle] = useState(false);
+	const [titleDraft, setTitleDraft] = useState(list.name);
+	const [optimisticName, setOptimisticName] = useOptimistic(list.name);
+	const [, startRenameTransition] = useTransition();
+
+	/**
+	 * Enter title edit mode, seeding the draft from the current (optimistic)
+	 * name so a rename that's still settling doesn't get overwritten.
+	 */
+	function handleTitleClick() {
+		setTitleDraft(optimisticName);
+		setIsEditingTitle(true);
+	}
+
+	/**
+	 * Commit the title edit: leaves edit mode, then — if the trimmed draft is
+	 * non-empty and actually different — kicks off the optimistic rename.
+	 * A blank or unchanged draft is silently discarded rather than sent to
+	 * the server.
+	 */
+	function commitTitleEdit() {
+		setIsEditingTitle(false);
+		const trimmed = titleDraft.trim();
+		if (trimmed === '' || trimmed === optimisticName) return;
+		startRenameTransition(async () => {
+			setOptimisticName(trimmed);
+			await renameList(list.id, trimmed);
+		});
+	}
+
+	/**
+	 * Handle keyboard shortcuts inside the title TextField.
+	 *
+	 * - Enter  — commit the edit (blur also commits, so this just short-circuits).
+	 * - Escape — discard the draft and leave edit mode without renaming. Resets
+	 *            titleDraft back to optimisticName first so that if the browser
+	 *            also fires a blur while the field unmounts, commitTitleEdit's
+	 *            unchanged-value check silently no-ops instead of re-committing
+	 *            the discarded draft.
+	 *
+	 * @param {React.KeyboardEvent} e - The keydown event from the title field.
+	 */
+	function handleTitleKeyDown(e) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.currentTarget.blur();
+		}
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			setTitleDraft(optimisticName);
+			setIsEditingTitle(false);
+		}
+	}
 
 	/*
 	 * Add-Card Form State
@@ -413,11 +494,52 @@ export default function ListColumn({
 				<Box sx={{ visibility: isDragSource ? 'hidden' : 'visible' }}>
 					{/* Column header row — list name, card count badge, add and options buttons. */}
 					<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
-						<Typography
-							sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}
-						>
-							{list.name}
-						</Typography>
+						{/*
+						 * List title — Typography by default; clicking it swaps in a
+						 * TextField for a Trello-style inline rename. Enter/blur commits,
+						 * Escape discards (see handleTitleKeyDown/commitTitleEdit above).
+						 */}
+						{isEditingTitle ? (
+							<TextField
+								autoFocus
+								value={titleDraft}
+								onChange={(e) => setTitleDraft(e.target.value)}
+								onKeyDown={handleTitleKeyDown}
+								onBlur={commitTitleEdit}
+								onFocus={(e) => e.currentTarget.select()}
+								size="small"
+								fullWidth
+								sx={{ flexGrow: 1 }}
+								slotProps={{
+									input: {
+										sx: (theme) => ({
+											color: 'text.primary',
+											bgcolor: theme.palette.background.surface,
+											borderRadius: 1,
+											fontSize: '0.95rem',
+											fontWeight: 700,
+										}),
+									},
+								}}
+							/>
+						) : (
+							<Typography
+								onClick={handleTitleClick}
+								sx={{
+									fontWeight: 700,
+									color: 'text.primary',
+									fontSize: '0.95rem',
+									flexGrow: 1,
+									cursor: 'pointer',
+									borderRadius: 1,
+									px: 0.5,
+									mx: -0.5,
+									'&:hover': { bgcolor: 'action.hover' },
+								}}
+							>
+								{optimisticName}
+							</Typography>
+						)}
 
 						{/* Card count badge — pill showing total cards in this column. */}
 						<Box

@@ -13,7 +13,7 @@
  *   - BoardDetailPage (src/pages/BoardDetailPage.jsx)
  *
  * Depends on:
- *   - getAllLists, createList, deleteList (features/lists/api/listService.js)
+ *   - getAllLists, createList, deleteList, updateList (features/lists/api/listService.js)
  */
 
 /*
@@ -23,9 +23,10 @@
  * createList          — POST /api/lists/
  * getAllLists          — GET  /api/lists?boardId=<id>
  * deleteList          — DELETE /api/lists/<id>
+ * updateList          — PUT  /api/lists/<id>
  */
 import { useEffect, useState } from "react";
-import { createList, getAllLists, deleteList } from "../api/listService";
+import { createList, getAllLists, deleteList, updateList } from "../api/listService";
 
 /**
  * Custom hook that fetches all lists for a given board and exposes list
@@ -40,7 +41,8 @@ import { createList, getAllLists, deleteList } from "../api/listService";
  *   error:               string|null,
  *   updateListOrder:     Function,
  *   createNewList:       Function,
- *   deleteExistingList:  Function
+ *   deleteExistingList:  Function,
+ *   renameList:          Function
  * }} An object containing:
  *   - `lists`              — Array of list objects for this board, ordered by position.
  *   - `loading`            — `true` while any request (fetch or mutation) is in-flight.
@@ -50,6 +52,8 @@ import { createList, getAllLists, deleteList } from "../api/listService";
  *                            triggering a full re-fetch.
  *   - `createNewList`      — Async function to create a list and append it to local state.
  *   - `deleteExistingList` — Async function to delete a list and remove it from local state.
+ *   - `renameList`         — Async function to rename a list and reflect the new name
+ *                            in local state.
  */
 export function useLists(id) {
 	/*
@@ -122,6 +126,33 @@ export function useLists(id) {
 		}
 	}
 
+	/**
+	 * Rename an existing list on the server and reflect the new name in local
+	 * state on success.
+	 *
+	 * Sends only `{ name }` — updateList's PUT endpoint treats a falsy BoardId
+	 * or zero Position in the payload as "unchanged" rather than as a literal
+	 * value to write, so a name-only payload can't accidentally move the list
+	 * to another board or bump it to the front of the column order.
+	 *
+	 * Sets loading while the request is in-flight and sets error on failure.
+	 *
+	 * @async
+	 * @param {number} listId - The ID of the list to rename.
+	 * @param {string} name   - The new display name for the list.
+	 */
+	async function renameList(listId, name) {
+		setLoading(true);
+		try {
+			await updateList(listId, { name });
+			setLists(lists.map((list) => (list.id === listId ? { ...list, name } : list)));
+		} catch (error) {
+			setError(error.message);
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	/*
 	 * Initial Fetch Effect
 	 * ─────────────────────────────────────────────────────────────────────
@@ -141,5 +172,5 @@ export function useLists(id) {
 
 	}, [id]); /* Re-run whenever the board ID changes. */
 
-	return { lists, loading, error, updateListOrder, createNewList, deleteExistingList };
+	return { lists, loading, error, updateListOrder, createNewList, deleteExistingList, renameList };
 }

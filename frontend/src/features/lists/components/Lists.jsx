@@ -51,6 +51,8 @@ import { useState } from 'react';
  *   new list's name string when the user confirms the add-list form.
  * @param {Function}      props.deleteExistingList - Callback invoked with a list's
  *   ID when the user deletes a list from its column menu.
+ * @param {Function}      props.renameList        - Async callback invoked as
+ *   `(listId, name)` when a column's title is edited and committed.
  * @param {Object<number, Array<Object>>} [props.cardsByList={}] - Board-level record
  *   of list ID to that list's cards, owned by useBoardCards in BoardDetailPage.
  *   Sliced per column when rendering each ListColumn.
@@ -70,6 +72,7 @@ export default function Lists({
 	lists,
 	createNewList,
 	deleteExistingList,
+	renameList,
 	cardsByList = {},
 	onCreateCard,
 	onDeleteCard,
@@ -154,6 +157,7 @@ export default function Lists({
 						index={index}
 						cards={cardsByList[list.id] ?? []}
 						deleteExistingList={deleteExistingList}
+						renameList={renameList}
 						onCreateCard={onCreateCard}
 						onDeleteCard={onDeleteCard}
 						mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}

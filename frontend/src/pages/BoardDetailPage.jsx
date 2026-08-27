@@ -204,12 +204,13 @@ export default function BoardDetailPage() {
 	 * Data Fetching
 	 * ─────────────────────────────────────────────────────────────────────
 	 * useLists   — fetches all lists for this board; also exposes mutation
-	 *              helpers (createNewList, deleteExistingList, updateListOrder).
+	 *              helpers (createNewList, deleteExistingList, updateListOrder,
+	 *              renameList).
 	 * useBoardDetails — fetches the board record (name, metadata).
 	 * Both hooks are keyed on the numeric boardId; they re-fetch automatically
 	 * if the ID changes (e.g. navigating between boards).
 	 */
-	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList, deleteExistingList } = useLists(Number(boardId));
+	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList, deleteExistingList, renameList } = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
 
@@ -528,6 +529,7 @@ export default function BoardDetailPage() {
 						lists={lists}
 						createNewList={createNewList}
 						deleteExistingList={deleteExistingList}
+						renameList={renameList}
 						cardsByList={cardsByList}
 						onCreateCard={submitCreateCard}
 						onDeleteCard={submitDeleteCard}
