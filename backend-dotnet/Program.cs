@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using NoBacklog.Api.Data;
+using NoBacklog.Api.Json;
 using NoBacklog.Api.Services;
 using NoBacklog.Api.Services.Interfaces;
 
@@ -11,6 +12,8 @@ builder.Services.AddControllers()
 .AddJsonOptions(options =>
 	{
 		options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+		// Trims whitespace off every inbound string before model validation runs.
+		options.JsonSerializerOptions.Converters.Add(new TrimmingStringConverter());
 	});
 
 // PostgreSQL + EF Core

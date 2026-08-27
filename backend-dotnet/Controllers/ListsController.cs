@@ -40,6 +40,7 @@ public class ListsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] List list)
     {
+        // Name arrives already trimmed — see TrimmingStringConverter (Program.cs).
         if (string.IsNullOrWhiteSpace(list.Name))
             return BadRequest(new { success = false, message = "List name is required." });
 
@@ -62,6 +63,7 @@ public class ListsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] List list)
     {
+        // Name arrives already trimmed — see TrimmingStringConverter (Program.cs).
         if (string.IsNullOrWhiteSpace(list.Name))
             return BadRequest(new { success = false, message = "List name is required." });
 

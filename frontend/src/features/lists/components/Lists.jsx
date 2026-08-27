@@ -100,8 +100,9 @@ export default function Lists({
 	 * @async
 	 */
 	async function handleConfirm() {
-		if (newListName.trim() === '') return;
-		await createNewList(newListName);
+		const trimmedName = newListName.trim();
+		if (trimmedName === '') return;
+		await createNewList(trimmedName);
 		setNewListName('');
 		setIsAdding(false);
 	}

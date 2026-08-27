@@ -359,10 +359,11 @@ export default function ListColumn({
 	 * @async
 	 */
 	async function handleCreateCard() {
-		if (newCardTitle.trim() === '') return;
+		const trimmedTitle = newCardTitle.trim();
+		if (trimmedTitle === '') return;
 		setIsSubmitting(true);
 		try {
-			await onCreateCard(list.id, { title: newCardTitle, priority: newCardPriority });
+			await onCreateCard(list.id, { title: trimmedTitle, priority: newCardPriority });
 			setNewCardTitle('');
 			setNewCardPriority('Medium');
 			titleRef.current?.focus();
