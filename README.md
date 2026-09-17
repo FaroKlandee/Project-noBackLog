@@ -57,7 +57,6 @@ NoBacklog is a modern task management system that combines:
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` to avoid DOM-relocation conflicts with React's reconciliation
 
 **Not yet built:**
-- Card detail view / editing (title, description, priority updates)
 - List renaming
 - Time tracking UI (backend API exists, frontend `timeLogs` feature folder is still a stub)
 - Loading/error states beyond a single board-level spinner and error banner
@@ -445,10 +444,15 @@ Open four terminals — one per process — and run all four commands above at t
 - [x] Card CRUD (create, delete) + drag-and-drop reordering, including cross-list moves
 
 ### Current Sprint: Core UI Completeness
-- [ ] Card detail view / editing (title, description, priority)
+- [x] Card detail view / editing (title, description, priority)
 - [ ] List renaming
 - [ ] Time tracking UI (start/stop/edit, backed by the existing TimeLog API)
 - [ ] Automated backend test project (xUnit against the service layer)
+
+### Follow-ups from card editing
+- [ ] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
+- [ ] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview`
+- [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
 
 ### Next Sprint: Hardening
 - [ ] Rank rebalancing when a position gap is exhausted
