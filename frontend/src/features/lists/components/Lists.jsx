@@ -60,6 +60,8 @@ import { useState } from 'react';
  *   `(listId, data)` when a column's add-card form is submitted.
  * @param {Function}      props.onDeleteCard      - Async callback invoked as
  *   `(listId, cardId)` when a card is deleted from a column.
+ * @param {Function}      props.onEditCard        - Callback invoked as
+ *   `(listId, card)` when a card in a column is opened for editing.
  * @param {{listId: number, message: string}|null} [props.cardMutationError] - The
  *   board-level card mutation error. Scoped here to a plain message for the
  *   matching column, so ListColumn never sees the envelope shape.
@@ -76,6 +78,7 @@ export default function Lists({
 	cardsByList = {},
 	onCreateCard,
 	onDeleteCard,
+	onEditCard,
 	cardMutationError,
 	onDismissCardMutationError,
 }) {
@@ -161,6 +164,7 @@ export default function Lists({
 						renameList={renameList}
 						onCreateCard={onCreateCard}
 						onDeleteCard={onDeleteCard}
+						onEditCard={onEditCard}
 						mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}
 						onDismissMutationError={onDismissCardMutationError}
 					/>

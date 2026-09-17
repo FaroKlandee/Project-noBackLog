@@ -90,6 +90,24 @@ async function deleteCard(id) {
 }
 
 /**
+ * Update a card's title, description, and/or priority.
+ *
+ * Calls `PUT /api/cards/<id>` with a JSON body. The service layer treats an
+ * omitted or null field as "leave unchanged" (see CardService.UpdateCardAsync),
+ * so only the fields the caller actually wants to change need to be sent —
+ * though CardEditDialog always sends all three.
+ *
+ * @async
+ * @param {number|string} id   - The unique identifier of the card to update.
+ * @param {Object}        data - Fields to update, e.g. `{ title, description, priority }`.
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: Card }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
+ */
+async function updateCard(id, data) {
+	return await api.put(`/api/cards/${id}`, data);
+}
+
+/**
  * Reposition a card within its list, or move it into a different list.
  *
  * Calls `PATCH /api/cards/<id>/reorder` with the card's target list and its new
@@ -113,4 +131,4 @@ async function reorderCard(id, data) {
 }
 
 /* Exports */
-export { getAllCards, getAllCardsByBoard, createCard, deleteCard, reorderCard };
+export { getAllCards, getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard };

@@ -37,12 +37,12 @@ import { useLists, Lists, ListColumnPreview } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
-import { useBoardCards, generateRank, CardPreview } from "../features/cards";
+import { useBoardCards, generateRank, CardPreview, CardEditDialog } from "../features/cards";
 import { Box, Typography } from "@mui/material";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { reorderLists } from "../features/lists/";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Translate between dnd-kit's registry ids and the underlying numeric
@@ -235,10 +235,61 @@ export default function BoardDetailPage() {
 		mutationError: cardMutationError,
 		setMutationError: setCardMutationError,
 		submitCreateCard,
+		submitUpdateCard,
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,
 	} = useBoardCards(Number(boardId));
+
+	/*
+	 * Card Edit Dialog State
+	 * ──────────────────────────────────────────────────────────────────
+	 * editingCardId — id of the card currently open in CardEditDialog, or
+	 *                 null when the dialog is closed. Only the id is held in
+	 *                 state; the live card object is derived below on every
+	 *                 render so a background drag or cardsByList update that
+	 *                 moves or changes it is always reflected while open.
+	 */
+	const [editingCardId, setEditingCardId] = useState(null);
+	const editingCard = editingCardId == null
+		? null
+		: Object.values(cardsByList).flat().find(c => c.id === editingCardId) ?? null;
+
+	/*
+	 * Auto-close the dialog if its card disappears out from under it (e.g.
+	 * deleted here or in another tab) while open.
+	 */
+	useEffect(() => {
+		if (editingCardId != null && editingCard == null) {
+			setEditingCardId(null);
+		}
+	}, [editingCardId, editingCard]);
+
+	/**
+	 * Open the edit dialog for a card. `listId` isn't needed here — the dialog
+	 * derives the live card (and its current listId) from cardsByList above.
+	 *
+	 * @param {number} _listId - Unused; kept to match onDeleteCard's `(listId, ...)` shape.
+	 * @param {Object} card    - The card to edit.
+	 */
+	function handleEditCard(_listId, card) {
+		setEditingCardId(card.id);
+	}
+
+	/**
+	 * Save the in-progress card edit, then close the dialog.
+	 *
+	 * Reads `editingCard.listId` fresh rather than closing over a stale value,
+	 * so a drag that moved the card to another list mid-edit still saves it to
+	 * the right bucket.
+	 *
+	 * @async
+	 * @param {Object} data - `{ title, description, priority }`.
+	 */
+	async function handleSaveCardEdit(data) {
+		await submitUpdateCard(editingCard.listId, editingCard.id, data);
+		setEditingCardId(null);
+	}
 
 	/*
 	 * Snapshots of cardsByList/lists taken at the start of each drag, used to
@@ -533,12 +584,19 @@ export default function BoardDetailPage() {
 						cardsByList={cardsByList}
 						onCreateCard={submitCreateCard}
 						onDeleteCard={submitDeleteCard}
+						onEditCard={handleEditCard}
 						cardMutationError={cardMutationError}
 						onDismissCardMutationError={() => setCardMutationError(null)}
 					/>
 				</Box>
 			</Box>
 			<DragOverlay>{renderDragOverlay}</DragOverlay>
+			<CardEditDialog
+				open={editingCard != null}
+				card={editingCard}
+				onClose={() => setEditingCardId(null)}
+				onSave={handleSaveCardEdit}
+			/>
 		</DragDropProvider>
 	);
 }

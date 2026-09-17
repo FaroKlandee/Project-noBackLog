@@ -18,7 +18,7 @@
  * ───────────────────────────────────────────────────────────────────────────
  * React
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 /*
  * MUI primitives used to build the card item:
@@ -36,6 +36,7 @@ import { ListItemText, Chip, IconButton, Menu, MenuItem, Box } from '@mui/materi
  */
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 
 /*
  * @dnd-kit/react/sortable
@@ -73,9 +74,12 @@ import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
  *   array; required by useSortable to compute the correct drop target.
  * @param {Function} props.onDeleteCard  - Callback invoked with `card.id` when
  *   the user confirms deletion from the context menu.
+ * @param {Function} props.onEditCard    - Callback invoked with the full `card`
+ *   object when the user chooses "Edit" from the context menu, or clicks the
+ *   card body (outside the options button and outside a drag).
  * @returns {JSX.Element} A single rendered card list item.
  */
-export default function CardItem({ card, index, onDeleteCard }) {
+export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 	/*
 	 * Drag-and-Drop Registration
 	 * ─────────────────────────────────────────────────────────────────────
@@ -190,6 +194,47 @@ export default function CardItem({ card, index, onDeleteCard }) {
 		handleMenuClose();
 	}
 
+	/**
+	 * Invoke the parent's edit callback for this card, then close the menu.
+	 */
+	function handleEdit() {
+		if (onEditCard) onEditCard(card);
+		handleMenuClose();
+	}
+
+	/*
+	 * Card-Body Click (open the edit dialog) vs. Drag
+	 * ─────────────────────────────────────────────────────────────────────
+	 * pointerDownPos — coordinates recorded on pointerdown, used in the click
+	 *                  handler to tell a genuine click apart from the tail end
+	 *                  of a drag. useSortable here only exposes `{ ref,
+	 *                  isDragSource }` — there's no "a drag just ended" flag —
+	 *                  so this is a manual pointer-travel check instead.
+	 */
+	const pointerDownPos = useRef(null);
+
+	function handleContentPointerDown(e) {
+		pointerDownPos.current = { x: e.clientX, y: e.clientY };
+	}
+
+	/**
+	 * Open the edit dialog for a genuine click on the card body — bails out if
+	 * the click landed on the options button (its own handler covers Edit via
+	 * the menu) or if the pointer travelled more than a few pixels since
+	 * pointerdown, which means this was a drag rather than a click.
+	 */
+	function handleContentClick(e) {
+		if (e.target.closest('button')) return;
+
+		const start = pointerDownPos.current;
+		const travelled = start
+			? Math.hypot(e.clientX - start.x, e.clientY - start.y)
+			: 0;
+		if (travelled > 5) return;
+
+		if (onEditCard) onEditCard(card);
+	}
+
 	/*
 	 * Render
 	 * ─────────────────────────────────────────────────────────────────────
@@ -240,7 +285,11 @@ export default function CardItem({ card, index, onDeleteCard }) {
 					...(!isDragSource && { '&:hover': { borderColor: theme.palette.border.hover } }),
 				})}
 			>
-				<Box sx={{ visibility: isDragSource ? 'hidden' : 'visible', width: '100%' }}>
+				<Box
+					onPointerDown={handleContentPointerDown}
+					onClick={handleContentClick}
+					sx={{ visibility: isDragSource ? 'hidden' : 'visible', width: '100%', cursor: 'pointer' }}
+				>
 					{/* Card header row — title on the left, options button on the right. */}
 					<Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
 						<ListItemText
@@ -283,6 +332,9 @@ export default function CardItem({ card, index, onDeleteCard }) {
 					open={open}
 					onClose={handleMenuClose}
 				>
+					<MenuItem onClick={handleEdit} sx={{ gap: 1, fontSize: '0.875rem' }}>
+						<EditIcon fontSize="small" /> Edit
+					</MenuItem>
 					<MenuItem onClick={handleDelete} sx={{ color: 'error.main', gap: 1, fontSize: '0.875rem' }}>
 						<DeleteIcon fontSize="small" /> Delete
 					</MenuItem>
