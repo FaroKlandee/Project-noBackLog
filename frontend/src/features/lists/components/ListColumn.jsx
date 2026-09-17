@@ -307,7 +307,12 @@ export default function ListColumn({
 	/**
 	 * Handle keyboard shortcuts inside the title TextField.
 	 *
-	 * - Enter  — commit the edit (blur also commits, so this just short-circuits).
+	 * - Enter  — commit the edit directly. (We can't just blur() here: MUI
+	 *            TextField forwards onKeyDown to its root FormControl <div>, so
+	 *            e.currentTarget is that non-focusable div and .blur() is a
+	 *            no-op — which is why Enter did nothing. commitTitleEdit leaves
+	 *            edit mode, so the field then unmounts and its onBlur fires too;
+	 *            that second commitTitleEdit no-ops on the unchanged-value check.)
 	 * - Escape — discard the draft and leave edit mode without renaming. Resets
 	 *            titleDraft back to optimisticName first so that if the browser
 	 *            also fires a blur while the field unmounts, commitTitleEdit's
@@ -319,7 +324,7 @@ export default function ListColumn({
 	function handleTitleKeyDown(e) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			e.currentTarget.blur();
+			commitTitleEdit();
 		}
 		if (e.key === 'Escape') {
 			e.preventDefault();
@@ -711,7 +716,7 @@ export default function ListColumn({
 										'&:disabled': { opacity: 0.5 },
 									}}
 								>
-									{isSubmitting ? '…' : 'Add (Shift+↵'}
+									{isSubmitting ? '…' : 'Add (Shift+↵)'}
 								</Box>
 								<IconButton
 									size="small"
