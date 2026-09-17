@@ -67,25 +67,40 @@ public class CardService : ICardService
         return card;
     }
 
-    public async Task<Card?> UpdateCardAsync(int id, Card updated)
+    public async Task<Card?> UpdateCardAsync(int id, CardUpdateRequest updated)
     {
         var card = await _context.Cards.FindAsync(id);
         if (card is null) return null;
 
-        if (updated.ListId != 0 && updated.ListId != card.ListId)
+        if (updated.ListId.HasValue && updated.ListId.Value != card.ListId)
         {
-            var listExists = await _context.Lists.AnyAsync(l => l.Id == updated.ListId);
+            var listExists = await _context.Lists.AnyAsync(l => l.Id == updated.ListId.Value);
             if (!listExists)
-                throw new KeyNotFoundException($"List with ID {updated.ListId} not found.");
+                throw new KeyNotFoundException($"List with ID {updated.ListId.Value} not found.");
 
-            card.ListId = updated.ListId;
+            card.ListId = updated.ListId.Value;
         }
 
-        card.Title = updated.Title;
-        card.Description = updated.Description;
+        /*
+         * Null / omitted = leave unchanged, mirroring ListService.UpdateListAsync's
+         * BoardId/Position guards — CardUpdateRequest's Title/Description are both
+         * `string?` with no field initializer, so a key absent from the request
+         * JSON leaves them null here, while an explicit "description": "" still
+         * comes through as "" (System.Text.Json doesn't special-case empty
+         * strings), letting a caller clear it. CardsController.Update 400s a
+         * present-but-blank title before the service is ever called, so a null
+         * Title here always means "not sent," never "sent blank."
+         *
+         * Priority stays a full replace: it's a non-nullable enum with no
+         * sentinel for "not sent" (see CardUpdateRequest's own default), so a raw
+         * PUT that omits it would silently reset priority to Medium. Accepted
+         * because the only caller, CardEditDialog, always sends a valid value.
+         */
+        card.Title = updated.Title ?? card.Title;
+        card.Description = updated.Description ?? card.Description;
         card.Priority = updated.Priority;
-        card.TimeTracked = updated.TimeTracked;
         card.UpdatedAt = DateTime.UtcNow;
+        /* TimeTracked is deliberately not read here — owned by the (future) time-log flow. */
 
         await _context.SaveChangesAsync();
 

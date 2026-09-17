@@ -73,16 +73,16 @@ public class CardsController : ControllerBase
 
     // PUT /api/cards/:id
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] Card card)
+    public async Task<IActionResult> Update(int id, [FromBody] CardUpdateRequest request)
     {
         // A non-null Title arrives already trimmed (TrimmingStringConverter, Program.cs);
         // null means "leave it unchanged", so only an explicit blank string is rejected.
-        if (card.Title is not null && string.IsNullOrWhiteSpace(card.Title))
+        if (request.Title is not null && string.IsNullOrWhiteSpace(request.Title))
             return BadRequest(new { success = false, message = "Card title cannot be empty." });
 
         try
         {
-            var updated = await _cardService.UpdateCardAsync(id, card);
+            var updated = await _cardService.UpdateCardAsync(id, request);
             if (updated is null)
                 return NotFound(new { success = false, message = "Card not found." });
 
