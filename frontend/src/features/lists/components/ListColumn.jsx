@@ -32,7 +32,7 @@
  * Cards — card list presenter, imported from the cards feature barrel so this
  *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards } from '../../cards';
+import { Cards, PRIORITIES, DEFAULT_PRIORITY } from '../../cards';
 
 /*
  * Icons
@@ -139,6 +139,9 @@ import {
  *                                                        `(listId, data)` to create a card.
  * @param {Function}      props.onDeleteCard            - Async callback invoked as
  *                                                        `(listId, cardId)` to delete a card.
+ * @param {Function}      props.onEditCard              - Callback invoked as
+ *                                                        `(listId, card)` when a card in
+ *                                                        this column is opened for editing.
  * @param {string|null}   [props.mutationError]         - Card mutation error message already
  *                                                        scoped to this column by the parent,
  *                                                        or null when there is none.
@@ -153,6 +156,7 @@ export default function ListColumn({
 	renameList,
 	onCreateCard,
 	onDeleteCard,
+	onEditCard,
 	mutationError,
 	onDismissMutationError,
 }) {
@@ -346,7 +350,7 @@ export default function ListColumn({
 	 */
 	const [isAddingCard, setIsAddingCard] = useState(false);
 	const [newCardTitle, setNewCardTitle] = useState('');
-	const [newCardPriority, setNewCardPriority] = useState('Medium');
+	const [newCardPriority, setNewCardPriority] = useState(DEFAULT_PRIORITY);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const titleRef = useRef(null);
 
@@ -370,7 +374,7 @@ export default function ListColumn({
 		try {
 			await onCreateCard(list.id, { title: trimmedTitle, priority: newCardPriority });
 			setNewCardTitle('');
-			setNewCardPriority('Medium');
+			setNewCardPriority(DEFAULT_PRIORITY);
 			titleRef.current?.focus();
 		} finally {
 			setIsSubmitting(false);
@@ -382,7 +386,7 @@ export default function ListColumn({
 	 */
 	function handleCancelCard() {
 		setNewCardTitle('');
-		setNewCardPriority('Medium');
+		setNewCardPriority(DEFAULT_PRIORITY);
 		setIsAddingCard(false);
 	}
 
@@ -425,6 +429,16 @@ export default function ListColumn({
 	 */
 	async function handleDeleteCard(cardId) {
 		await onDeleteCard(list.id, cardId);
+	}
+
+	/**
+	 * Delegate opening a card for editing upward, tagging it with this
+	 * column's list ID to match handleDeleteCard's shape.
+	 *
+	 * @param {Object} card - The card to edit.
+	 */
+	function handleEditCard(card) {
+		onEditCard(list.id, card);
 	}
 
 	/**
@@ -616,7 +630,7 @@ export default function ListColumn({
 					 * which CardItem uses as its sortable group.
 					 */}
 					<Box ref={cardDropRef}>
-						<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+						<Cards cards={cards} onDeleteCard={handleDeleteCard} onEditCard={handleEditCard} />
 					</Box>
 
 					{/*
@@ -694,9 +708,9 @@ export default function ListColumn({
 											'& .MuiSelect-icon': { color: theme.palette.secondary.main },
 										})}
 									>
-										<MenuItem value="Low">Low</MenuItem>
-										<MenuItem value="Medium">Medium</MenuItem>
-										<MenuItem value="High">High</MenuItem>
+										{PRIORITIES.map((p) => (
+											<MenuItem key={p} value={p}>{p}</MenuItem>
+										))}
 									</Select>
 								</FormControl>
 								<Box
