@@ -98,6 +98,7 @@ public class CardService : ICardService
          */
         card.Title = updated.Title ?? card.Title;
         card.Description = updated.Description ?? card.Description;
+        card.TimeEstimate = updated.TimeEstimate ?? card.TimeEstimate;
         card.Priority = updated.Priority;
         card.UpdatedAt = DateTime.UtcNow;
         /* TimeTracked is deliberately not read here — owned by the (future) time-log flow. */

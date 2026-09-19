@@ -26,5 +26,8 @@ public class CardUpdateRequest
     [MaxLength(2000)]
     public string? Description { get; set; }
 
+    [MaxLength(50)]
+    public string? TimeEstimate { get; set; }
+
     public Priority Priority { get; set; } = Priority.Medium;
 }

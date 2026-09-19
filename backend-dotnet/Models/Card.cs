@@ -30,6 +30,9 @@ public class Card
 
     public Priority Priority { get; set; } = Priority.Medium;
 
+    [MaxLength(50)]
+    public string? TimeEstimate { get; set; }
+
     public int TimeTracked { get; set; } = 0;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

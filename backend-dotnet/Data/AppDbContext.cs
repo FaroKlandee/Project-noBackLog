@@ -58,6 +58,7 @@ public class AppDbContext : DbContext
             entity.Property(c => c.Title).HasColumnName("title").IsRequired().HasMaxLength(100);
             entity.Property(c => c.Description).HasColumnName("description").HasMaxLength(2000);
             entity.Property(c => c.Priority).HasColumnName("priority").HasConversion<string>();
+            entity.Property(c => c.TimeEstimate).HasColumnName("time_estimate").HasMaxLength(50);
             entity.Property(c => c.TimeTracked).HasColumnName("time_tracked");
             entity.Property(c => c.CreatedAt).HasColumnName("created_at");
             entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
