@@ -93,9 +93,11 @@ async function deleteCard(id) {
  * Update a card's title, description, and/or priority.
  *
  * Calls `PUT /api/cards/<id>` with a JSON body. The service layer treats an
- * omitted or null field as "leave unchanged" (see CardService.UpdateCardAsync),
- * so only the fields the caller actually wants to change need to be sent —
- * though CardEditDialog always sends all three.
+ * omitted or null field as "leave unchanged" (see CardService.UpdateCardAsync)
+ * — except `priority`, a non-nullable enum with no "omitted" sentinel, which
+ * is always a full replace and so must always be sent (CardEditDialog merges
+ * the card's current priority into every partial save; see its handler in
+ * BoardDetailPage.jsx).
  *
  * @async
  * @param {number|string} id   - The unique identifier of the card to update.

@@ -277,18 +277,32 @@ export default function BoardDetailPage() {
 	}
 
 	/**
-	 * Save the in-progress card edit, then close the dialog.
+	 * Save an in-progress card edit. CardEditDialog now commits each field
+	 * independently (title on blur/Enter, priority on select, description and
+	 * time estimate via their own reveal-on-edit Save buttons) rather than one
+	 * form-level Save, so this no longer closes the dialog — it only closes via
+	 * its own close button.
 	 *
 	 * Reads `editingCard.listId` fresh rather than closing over a stale value,
 	 * so a drag that moved the card to another list mid-edit still saves it to
 	 * the right bucket.
 	 *
+	 * `priority` is always merged in ahead of `data`, even when this particular
+	 * save didn't touch it: CardUpdateRequest.Priority is a non-nullable enum
+	 * with no "omitted" sentinel (see CardUpdateRequest.cs), so the backend
+	 * treats it as a full replace on every PUT. The old dialog got away with
+	 * always sending all three fields together; now that title/description/
+	 * priority/timeEstimate each commit independently, a priority-less payload
+	 * would silently reset the card's priority to its Medium default.
+	 *
 	 * @async
-	 * @param {Object} data - `{ title, description, priority }`.
+	 * @param {Object} data - The changed field(s), e.g. `{ title }` or `{ description }`.
 	 */
 	async function handleSaveCardEdit(data) {
-		await submitUpdateCard(editingCard.listId, editingCard.id, data);
-		setEditingCardId(null);
+		await submitUpdateCard(editingCard.listId, editingCard.id, {
+			priority: editingCard.priority,
+			...data,
+		});
 	}
 
 	/*
