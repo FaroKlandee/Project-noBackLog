@@ -32,27 +32,32 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
  * CardPreview component.
  *
  * @component
- * @param {Object} props
- * @param {Object} props.card          - The card object being dragged.
- * @param {string} props.card.title    - Display title of the card.
- * @param {string} props.card.priority - One of "Low" | "Medium" | "High".
+ * @param {Object}  props
+ * @param {Object}  props.card          - The card object being dragged.
+ * @param {string}  props.card.title    - Display title of the card.
+ * @param {string}  props.card.priority - One of "Low" | "Medium" | "High".
+ * @param {boolean} [props.nested=false] - True when this preview is being
+ *   rendered as one of the cards inside a dragged ListColumnPreview, rather
+ *   than as the top-level DragOverlay content for a lone card drag. Nested
+ *   copies skip their own elevation/cursor/fixed-width styling so they read
+ *   as part of the lifted column instead of a second, independently
+ *   "grabbed" card floating inside it.
  * @returns {JSX.Element}
  */
-export default function CardPreview({ card }) {
+export default function CardPreview({ card, nested = false }) {
 	return (
 		<ListItem
 			sx={theme => ({
 				bgcolor: 'background.paper',
 				border: `1px solid ${theme.palette.divider}`,
 				borderRadius: '8px',
-				width: 254,
+				...(nested ? { width: '100%' } : { width: 254 }),
 				px: 1.5,
 				py: 1.25,
 				display: 'flex',
 				flexDirection: 'column',
 				alignItems: 'flex-start',
-				boxShadow: theme.shadows[8],
-				cursor: 'grabbing',
+				...(!nested && { boxShadow: theme.shadows[8], cursor: 'grabbing' }),
 			})}
 			disablePadding={false}
 		>

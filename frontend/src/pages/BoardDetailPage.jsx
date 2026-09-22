@@ -437,7 +437,7 @@ export default function BoardDetailPage() {
 			const listId = fromDndId(source.id);
 			const list = lists.find(l => l.id === listId);
 			if (!list) return null;
-			return <ListColumnPreview list={list} cardCount={(cardsByList[list.id] ?? []).length} />;
+			return <ListColumnPreview list={list} cards={cardsByList[list.id] ?? []} />;
 		}
 
 		return null;
