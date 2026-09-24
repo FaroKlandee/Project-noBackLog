@@ -18,7 +18,7 @@
  * ───────────────────────────────────────────────────────────────────────────
  * React
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /*
  * MUI primitives used to build the card item:
@@ -48,9 +48,69 @@ import EditIcon from '@mui/icons-material/Edit';
  * SortableKeyboardPlugin — see the `plugins` option on the useSortable call
  *               below for why this is passed explicitly instead of using
  *               dnd-kit's default plugin set.
+ * PointerSensor, KeyboardSensor, PointerActivationConstraints,
+ * isInteractiveElement — see CARD_DRAG_SENSORS below.
  */
 import { useSortable } from "@dnd-kit/react/sortable";
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
+import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from "@dnd-kit/dom";
+import { isInteractiveElement } from "@dnd-kit/dom/utilities";
+
+/*
+ * Double-Press Drag
+ * ───────────────────────────────────────────────────────────────────────────
+ * A card is dragged by clicking (or tapping) it once, then pressing again
+ * within DOUBLE_PRESS_MS and moving. The same gesture applies to mouse, pen
+ * and touch. A single click on its own opens
+ * the edit dialog, but only after DOUBLE_PRESS_MS has passed without a second
+ * press. That delay is the price of this gesture: opening the dialog on the
+ * first click straight away would put the dialog's backdrop under the second
+ * press, so the card could never be dragged.
+ *
+ * armedPress — the card that was just clicked, as `{ dndId, time }`. Kept at
+ *              module scope rather than in component state because the drag
+ *              sensor below (also module scope) has to read it during
+ *              dnd-kit's native pointerdown listener. That listener runs before
+ *              React's delegated onPointerDown, so the arm is still intact when
+ *              the sensor checks it. Only one card can be armed at a time.
+ */
+const DOUBLE_PRESS_MS = 200;
+let armedPress = null;
+
+function isArmed(dndId) {
+	return armedPress?.dndId === dndId && performance.now() - armedPress.time <= DOUBLE_PRESS_MS;
+}
+
+/*
+ * CARD_DRAG_SENSORS — a draggable's own `sensors` replace the provider's
+ * defaults rather than adding to them, so KeyboardSensor is listed again.
+ *
+ *   - Activation is refused unless this card is armed (see above), and an
+ *     armed press still has to move 5px, so a double click or double tap that
+ *     stays still is just a click.
+ *   - No hold delay for touch, unlike dnd-kit's default. The second tap of
+ *     tap-then-drag moves straight away, and a hold delay would cancel the drag
+ *     as soon as it moved. The armed card's `touch-action: none` (set in the
+ *     component) is what keeps the browser from taking that move as a scroll.
+ *   - Presses on interactive children (the options IconButton) never start a
+ *     drag. That's dnd-kit's default preventActivation, reimplemented here
+ *     because passing our own replaces it.
+ *
+ * Defined at module scope so useSortable gets the same array on every render.
+ */
+const CARD_DRAG_SENSORS = [
+	PointerSensor.configure({
+		activationConstraints: [new PointerActivationConstraints.Distance({ value: 5 })],
+		preventActivation(event, source) {
+			const { target } = event;
+			if (target !== source.element && target instanceof Element && isInteractiveElement(target)) {
+				return true;
+			}
+			return !isArmed(source.id);
+		},
+	}),
+	KeyboardSensor,
+];
 
 /**
  * CardItem component.
@@ -157,6 +217,7 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 		accept: 'card',
 		group: String(card.listId),
 		plugins: [SortableKeyboardPlugin],
+		sensors: CARD_DRAG_SENSORS,
 		transition: { easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
 	});
 
@@ -210,18 +271,53 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 	 *                  of a drag. useSortable here only exposes `{ ref,
 	 *                  isDragSource }` — there's no "a drag just ended" flag —
 	 *                  so this is a manual pointer-travel check instead.
+	 * openTimer      — pending delayed open from a first click; see the
+	 *                  Double-Press Drag comment at the top of this file.
+	 * isSecondPress  — true while the current press is the second half of a
+	 *                  double press, so its click opens the dialog at once.
+	 * touchArmed     — mirrors this card being armed, as render state, so the
+	 *                  card can switch to `touch-action: none` for the second
+	 *                  tap. Browsers decide whether a touch scrolls from the
+	 *                  touch-action in effect the moment the finger lands, before
+	 *                  any JS runs, so it has to be applied after the first tap
+	 *                  and not during the second. Clearing it on the second
+	 *                  pointerdown is safe for the same reason: that touch's
+	 *                  behaviour is already fixed.
 	 */
+	const dndId = `card-${card.id}`;
 	const pointerDownPos = useRef(null);
+	const openTimer = useRef(null);
+	const isSecondPress = useRef(false);
+	const [touchArmed, setTouchArmed] = useState(false);
 
+	/* Cancel a pending open if the card unmounts (e.g. deleted, list removed). */
+	useEffect(() => () => clearTimeout(openTimer.current), []);
+
+	/**
+	 * Record where the press started, and if it's the second press of a
+	 * double press, cancel the first click's pending open: from here the
+	 * press either moves (and dnd-kit takes it as a drag) or releases as a
+	 * double click.
+	 */
 	function handleContentPointerDown(e) {
 		pointerDownPos.current = { x: e.clientX, y: e.clientY };
+		isSecondPress.current = isArmed(dndId);
+		if (isSecondPress.current) {
+			clearTimeout(openTimer.current);
+			armedPress = null;
+			setTouchArmed(false);
+		}
 	}
 
 	/**
-	 * Open the edit dialog for a genuine click on the card body — bails out if
-	 * the click landed on the options button (its own handler covers Edit via
-	 * the menu) or if the pointer travelled more than a few pixels since
-	 * pointerdown, which means this was a drag rather than a click.
+	 * Handle a genuine click on the card body. Bails out if the click landed
+	 * on the options button (its own handler covers Edit via the menu) or if
+	 * the pointer travelled more than a few pixels since pointerdown, which
+	 * means this was a drag rather than a click.
+	 *
+	 * The first click arms the card and opens the dialog after DOUBLE_PRESS_MS
+	 * unless a second press arrives first. A second press that didn't move
+	 * (a plain double click) opens it straight away.
 	 */
 	function handleContentClick(e) {
 		if (e.target.closest('button')) return;
@@ -232,7 +328,20 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 			: 0;
 		if (travelled > 5) return;
 
-		if (onEditCard) onEditCard(card);
+		if (isSecondPress.current) {
+			isSecondPress.current = false;
+			if (onEditCard) onEditCard(card);
+			return;
+		}
+
+		armedPress = { dndId, time: performance.now() };
+		setTouchArmed(true);
+		clearTimeout(openTimer.current);
+		openTimer.current = setTimeout(() => {
+			if (armedPress?.dndId === dndId) armedPress = null;
+			setTouchArmed(false);
+			if (onEditCard) onEditCard(card);
+		}, DOUBLE_PRESS_MS);
 	}
 
 	/*
@@ -271,7 +380,21 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 	 * anchorEl state, never while dragging.
 	 */
 	return (
-		<Box component="li" ref={ref} sx={{ pb: 1, listStyle: 'none' }}>
+		<Box
+			component="li"
+			ref={ref}
+			data-card-item
+			sx={{
+				pb: 1,
+				listStyle: 'none',
+				/*
+				 * `manipulation` keeps swipe-to-scroll but turns off double-tap
+				 * zoom, which would otherwise swallow tap-then-drag. `none` only
+				 * while armed — see touchArmed above.
+				 */
+				touchAction: touchArmed ? 'none' : 'manipulation',
+			}}
+		>
 			<Box
 				sx={theme => ({
 					bgcolor: isDragSource ? 'transparent' : 'background.paper',
@@ -288,7 +411,13 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 				<Box
 					onPointerDown={handleContentPointerDown}
 					onClick={handleContentClick}
-					sx={{ visibility: isDragSource ? 'hidden' : 'visible', width: '100%', cursor: 'pointer' }}
+					sx={{
+						visibility: isDragSource ? 'hidden' : 'visible',
+						width: '100%',
+						cursor: 'pointer',
+						/* An unarmed press-and-move does nothing, so don't let it select the title. */
+						userSelect: 'none',
+					}}
 				>
 					{/* Card header row — title on the left, options button on the right. */}
 					<Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

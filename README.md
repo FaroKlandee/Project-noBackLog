@@ -445,7 +445,7 @@ Open four terminals — one per process — and run all four commands above at t
 
 ### Current Sprint: Core UI Completeness
 - [x] Card detail view / editing (title, description, priority)
-- [ ] List renaming
+- [x] List renaming
 - [ ] Time tracking UI (start/stop/edit, backed by the existing TimeLog API)
 - [ ] Automated backend test project (xUnit against the service layer)
 

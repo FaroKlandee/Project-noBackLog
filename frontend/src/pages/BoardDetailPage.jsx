@@ -210,7 +210,17 @@ export default function BoardDetailPage() {
 	 * Both hooks are keyed on the numeric boardId; they re-fetch automatically
 	 * if the ID changes (e.g. navigating between boards).
 	 */
-	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList, deleteExistingList, renameList } = useLists(Number(boardId));
+	const {
+		lists,
+		loading: loadingList,
+		fetchError: errorList,
+		mutationError: listMutationError,
+		setMutationError: setListMutationError,
+		updateListOrder,
+		createNewList,
+		deleteExistingList,
+		renameList,
+	} = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
 
@@ -310,9 +320,15 @@ export default function BoardDetailPage() {
 	 * revert onDragOver's live updates if the drag is cancelled (e.g. Escape)
 	 * — see handleDragEnd's cancel guard and onDragStart below. Refs rather
 	 * than state because writing them must never itself trigger a re-render.
+	 *
+	 * null whenever no snapshot belongs to the current drag. dnd-kit can report
+	 * a cancelled drag end without ever having fired onDragStart (e.g. the
+	 * browser cancels a touch pointer right as the drag activates). Restoring
+	 * a snapshot in that case would roll the board back to the last drag's
+	 * state, or to the empty pre-fetch state on the first drag of the page.
 	 */
-	const previousCardsByList = useRef(cardsByList);
-	const previousLists = useRef(lists);
+	const previousCardsByList = useRef(null);
+	const previousLists = useRef(null);
 
 	/**
 	 * Handle the end of a drag-and-drop operation on the board.
@@ -332,10 +348,19 @@ export default function BoardDetailPage() {
 	 *   end event containing source/target descriptors and a `canceled` flag.
 	 */
 	function handleDragEnd(event) {
-		/* Guard: drag was cancelled (e.g. user pressed Escape). */
+		const snapshotCards = previousCardsByList.current;
+		const snapshotLists = previousLists.current;
+		previousCardsByList.current = null;
+		previousLists.current = null;
+
+		/*
+		 * Guard: drag was cancelled (e.g. user pressed Escape). Only revert to a
+		 * snapshot taken for this drag; with none, onDragOver never ran either,
+		 * so there's nothing to undo.
+		 */
 		if (event.canceled) {
-			updateCardOrder(previousCardsByList.current);
-			updateListOrder(previousLists.current);
+			if (snapshotCards) updateCardOrder(snapshotCards);
+			if (snapshotLists) updateListOrder(snapshotLists);
 			return;
 		}
 
@@ -601,6 +626,8 @@ export default function BoardDetailPage() {
 						onEditCard={handleEditCard}
 						cardMutationError={cardMutationError}
 						onDismissCardMutationError={() => setCardMutationError(null)}
+						listMutationError={listMutationError}
+						onDismissListMutationError={() => setListMutationError(null)}
 					/>
 				</Box>
 			</Box>

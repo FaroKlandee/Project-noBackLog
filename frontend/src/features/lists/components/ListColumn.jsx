@@ -33,6 +33,7 @@
  *         file never reaches into the cards feature's internal folder structure.
  */
 import { Cards, PRIORITIES, DEFAULT_PRIORITY } from '../../cards';
+import { LIST_NAME_MAX_LENGTH } from '../constants';
 
 /*
  * Icons
@@ -66,9 +67,13 @@ import { useState, useRef, useOptimistic, useTransition } from 'react';
  * SortableKeyboardPlugin — see the `plugins` option on the useSortable call
  *               below for why this is passed explicitly instead of using
  *               dnd-kit's default plugin set.
+ * PointerSensor, KeyboardSensor, PointerActivationConstraints,
+ * isInteractiveElement — see LIST_DRAG_SENSORS below.
  */
 import { useSortable } from '@dnd-kit/react/sortable';
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
+import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dnd-kit/dom';
+import { isInteractiveElement } from '@dnd-kit/dom/utilities';
 
 /*
  * @dnd-kit/react / @dnd-kit/abstract
@@ -106,6 +111,49 @@ import {
 	Select,
 	FormControl,
 } from '@mui/material';
+
+/*
+ * Column Drag Sensors
+ * ───────────────────────────────────────────────────────────────────────────
+ * dnd-kit's default mouse rule starts a drag after 5px of movement OR after
+ * holding still for 200ms, whichever comes first. The hold rule meant a slow
+ * click on the title turned into a drag instead of opening the rename field,
+ * so for mouse/pen a column only starts dragging once the pointer has actually
+ * moved. A still press-and-release is always a click.
+ *
+ * Touch keeps dnd-kit's own default (hold 250ms, 5px tolerance) so a swipe
+ * still scrolls the board instead of grabbing a column.
+ *
+ * preventActivation reimplements dnd-kit's default (a press on an interactive
+ * element such as the rename TextField or a header button never starts a
+ * drag, so dragging in the TextField selects text) and adds one rule: a press
+ * that starts on a card never drags the column. Cards turn down presses that
+ * aren't the second half of a double press (see CardItem.jsx), and a press a
+ * card turns down would otherwise fall through to this column's sensor, so a
+ * press-and-move on a card would drag the whole list instead.
+ *
+ * KeyboardSensor has to be listed again because a draggable's own `sensors`
+ * replace the provider's defaults rather than adding to them.
+ *
+ * Defined at module scope so useSortable gets the same array on every render.
+ */
+const LIST_DRAG_SENSORS = [
+	PointerSensor.configure({
+		activationConstraints(event) {
+			if (event.pointerType === 'touch') {
+				return [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })];
+			}
+			return [new PointerActivationConstraints.Distance({ value: 5 })];
+		},
+		preventActivation(event, source) {
+			const { target } = event;
+			if (target === source.element || !(target instanceof Element)) return false;
+			if (target.closest('[data-card-item]')) return true;
+			return isInteractiveElement(target);
+		},
+	}),
+	KeyboardSensor,
+];
 
 /**
  * ListColumn component.
@@ -146,6 +194,10 @@ import {
  *                                                        scoped to this column by the parent,
  *                                                        or null when there is none.
  * @param {Function}      [props.onDismissMutationError] - Callback to clear the mutation error.
+ * @param {string|null}   [props.listError]             - Rename/delete error for this list,
+ *                                                        already scoped by the parent, or
+ *                                                        null when there is none.
+ * @param {Function}      [props.onDismissListError]    - Callback to clear the list error.
  * @returns {JSX.Element} The rendered column.
  */
 export default function ListColumn({
@@ -159,6 +211,8 @@ export default function ListColumn({
 	onEditCard,
 	mutationError,
 	onDismissMutationError,
+	listError,
+	onDismissListError,
 }) {
 	/*
 	 * Options Menu State
@@ -232,6 +286,7 @@ export default function ListColumn({
 		type: 'list',
 		accept: 'list',
 		plugins: [SortableKeyboardPlugin],
+		sensors: LIST_DRAG_SENSORS,
 	});
 
 	/*
@@ -469,7 +524,8 @@ export default function ListColumn({
 	 *               │    ├─ IconButton (add card)
 	 *               │    ├─ IconButton (options menu trigger)
 	 *               │    └─ Menu > MenuItem (Delete list)
-	 *               ├─ Alert (scoped mutation error banner, shown conditionally)
+	 *               ├─ Alert (list rename/delete error banner, shown conditionally)
+ *               ├─ Alert (scoped card mutation error banner, shown conditionally)
 	 *               ├─ Cards (card list presenter)
 	 *               └─ Box (add-card form, shown conditionally when isAddingCard is true)
 	 *
@@ -531,6 +587,7 @@ export default function ListColumn({
 								fullWidth
 								sx={{ flexGrow: 1 }}
 								slotProps={{
+									htmlInput: { maxLength: LIST_NAME_MAX_LENGTH },
 									input: {
 										sx: (theme) => ({
 											color: 'text.primary',
@@ -604,6 +661,21 @@ export default function ListColumn({
 							</MenuItem>
 						</Menu>
 					</Stack>
+
+					{/*
+					 * List error banner — shown when renaming or deleting THIS list failed.
+					 * A failed rename has already reverted the title on its own (see
+					 * the useOptimistic import comment), so this is the only sign of it.
+					 */}
+					{listError && (
+						<Alert
+							severity="error"
+							onClose={onDismissListError}
+							sx={{ mb: 1, fontSize: '0.8rem' }}
+						>
+							{listError}
+						</Alert>
+					)}
 
 					{/*
 					 * Mutation error banner — shown when a card create/delete originating
