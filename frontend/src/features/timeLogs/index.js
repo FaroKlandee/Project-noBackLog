@@ -8,23 +8,29 @@
  * `hooks/`, or `components/`; they simply import from `features/timeLogs`.
  *
  * Example usage from another module:
- *   import { createTimeLog, deleteTimeLog } from '../features/timeLogs';
+ *   import { TimeLogSection } from '../../timeLogs';
  *
- * As the timeLogs feature grows, new sub-modules (hooks, components, utils,
- * context providers, etc.) should be re-exported here so that the rest of the
- * application always has a single, stable import path to target.
+ * Exported surface:
+ *   getTimeLogsByCard, getTimeLogSettings,
+ *   startTimeLog, finishTimeLog, deleteTimeLog — raw async HTTP functions
+ *                                                 (timeLogService.js)
+ *   useCardTimeLogs  — hook: one card's time logs + the server's entry limit,
+ *                      with start/finish/remove mutations
+ *   formatDuration, formatClock, formatTime — display formatters
+ *   TimeLogSection   — component: the "Time tracking" section rendered inside
+ *                      the card detail dialog (CardEditDialog)
  *
  * @module features/timeLogs
  */
 
-/*
- * API service layer
- * -----------------
- * Re-exports every named export from timeLogService.js, which contains the raw
- * async functions responsible for communicating with the backend REST API
- * (e.g. getAllTimeLogs, getTimeLogById, createTimeLog, updateTimeLog,
- * deleteTimeLog). Consumers that only need to perform direct HTTP operations —
- * such as other hooks, thunks, or one-off utility scripts — can pull these
- * functions straight from this barrel without going deeper into the folder tree.
- */
+/* API service layer — raw async functions for the /api/timelogs resource. */
 export * from './api/timeLogService';
+
+/* Hooks — React hooks that wrap the service layer with local state management. */
+export * from './hooks/useCardTimeLogs';
+
+/* Utils — pure display formatters. */
+export * from './utils/formatDuration';
+
+/* Components — presentational components for the timeLogs feature. */
+export { default as TimeLogSection } from './components/TimeLogSection';
