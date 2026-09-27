@@ -1,7 +1,7 @@
 /**
  * @file CardEditDialog.jsx
  * @description Modal dialog for editing a card's title, description, priority,
- * and time estimate.
+ * and time estimate, and for tracking time against it.
  *
  * Opened from CardItem's context menu ("Edit") or a click on a card's body
  * (both wired in CardItem.jsx and threaded up through Cards.jsx and
@@ -17,11 +17,14 @@
  *   - Description / Time Estimate — free-text fields where a Save button
  *     reveals itself once the draft differs from the saved value, so a
  *     stray blur mid-thought can't silently commit a half-typed edit.
+ *   - Time tracking — delegated to TimeLogSection (features/timeLogs), which
+ *     owns its own Start/Finish/Delete requests against /api/timelogs.
  * The dialog only closes via the header's close button.
  *
  * Hierarchy:
  *   BoardDetailPage (src/pages/BoardDetailPage.jsx)
  *     └─ CardEditDialog  ← YOU ARE HERE
+ *          └─ TimeLogSection (features/timeLogs)
  */
 
 import { useEffect, useState } from 'react';
@@ -45,6 +48,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CloseIcon from '@mui/icons-material/Close';
 import SubjectIcon from '@mui/icons-material/Subject';
 
+import FieldLabel from '../../../shared/components/FieldLabel';
+import { TimeLogSection } from '../../timeLogs';
 import { PRIORITIES } from '../constants';
 
 const TITLE_MAX_LENGTH = 100;
@@ -69,29 +74,6 @@ const surfaceFieldSx = (theme) => ({
 		'&.Mui-focused fieldset': { borderColor: theme.palette.border.active },
 	},
 });
-
-/**
- * An uppercase, icon-prefixed section label (e.g. "TIME ESTIMATE").
- */
-function FieldLabel({ icon, children }) {
-	return (
-		<Typography
-			variant="overline"
-			sx={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 0.5,
-				color: 'text.secondary',
-				fontWeight: 700,
-				letterSpacing: '0.05em',
-				lineHeight: 1.4,
-			}}
-		>
-			{icon}
-			{children}
-		</Typography>
-	);
-}
 
 /**
  * CardEditDialog component.
@@ -398,6 +380,9 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							</Alert>
 						)}
 					</Box>
+
+					{/* Time tracking — Start/Finish timers; entries capped server-side. */}
+					{card && <TimeLogSection cardId={card.id} />}
 
 					{/* Description — free text; saves independently. */}
 					<Box>
