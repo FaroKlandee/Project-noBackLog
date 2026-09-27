@@ -24,8 +24,30 @@ public class TimeLogsController : ControllerBase
         return Ok(new { success = true, data = timeLogs });
     }
 
+    // GET /api/timelogs/settings
+    // Exposes the server-side time-tracking limits the UI needs to render.
+    [HttpGet("settings")]
+    public IActionResult GetSettings()
+    {
+        var settings = _timeLogService.GetSettings();
+        return Ok(new
+        {
+            success = true,
+            data = new { settings.MaxEntriesPerCard, settings.MaxRunningTimers },
+        });
+    }
+
+    // GET /api/timelogs/running
+    // Every timer currently running, across all cards.
+    [HttpGet("running")]
+    public async Task<IActionResult> GetRunning()
+    {
+        var running = await _timeLogService.GetRunningTimersAsync();
+        return Ok(new { success = true, data = running });
+    }
+
     // GET /api/timelogs/:id
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
         var timeLog = await _timeLogService.GetTimeLogByIdAsync(id);
@@ -59,10 +81,54 @@ public class TimeLogsController : ControllerBase
         {
             return BadRequest(new { success = false, message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { success = false, message = ex.Message });
+        }
+    }
+
+    // POST /api/timelogs/start
+    // Starts a timer on a card; the server stamps the start time.
+    [HttpPost("start")]
+    public async Task<IActionResult> Start([FromBody] TimeLogStartRequest request)
+    {
+        try
+        {
+            var created = await _timeLogService.StartTimeLogAsync(request.CardId);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id },
+                new { success = true, message = "Timer started.", data = created });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { success = false, message = ex.Message });
+        }
+    }
+
+    // POST /api/timelogs/:id/finish
+    // Stops a running timer; the server stamps the end time and computes the duration.
+    [HttpPost("{id:int}/finish")]
+    public async Task<IActionResult> Finish(int id)
+    {
+        try
+        {
+            var finished = await _timeLogService.FinishTimeLogAsync(id);
+            if (finished is null)
+                return NotFound(new { success = false, message = "Time log not found." });
+
+            return Ok(new { success = true, message = "Timer finished.", data = finished });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { success = false, message = ex.Message });
+        }
     }
 
     // PUT /api/timelogs/:id
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] TimeLog timeLog)
     {
         try
@@ -84,7 +150,7 @@ public class TimeLogsController : ControllerBase
     }
 
     // DELETE /api/timelogs/:id
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _timeLogService.DeleteTimeLogAsync(id);
