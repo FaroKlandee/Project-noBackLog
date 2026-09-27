@@ -22,7 +22,7 @@ NoBacklog is a modern task management system that combines:
 ## Development Milestones
 
 ### Phase 1: Backend API Development (COMPLETE)
-**Status:** 20 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
+**Status:** 24 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
 
 **Achievement Summary:**
 - Built a production-ready 4-tier hierarchical REST API on ASP.NET Core
@@ -34,7 +34,7 @@ NoBacklog is a modern task management system that combines:
 1. **Board API** - Dashboard/workspace management (5 endpoints)
 2. **List API** - Column/status management (5 endpoints + reorder)
 3. **Card API** - Task/item management (5 endpoints + reposition)
-4. **TimeLog API** - Time tracking functionality (5 endpoints) — implemented but not yet consumed by the frontend
+4. **TimeLog API** - Time tracking functionality (5 CRUD endpoints + start/finish/running/settings)
 
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
@@ -55,10 +55,9 @@ NoBacklog is a modern task management system that combines:
 - Cards: create (inline form with title + priority, keyboard shortcuts), delete, drag-and-drop reordering within a column and across columns
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` to avoid DOM-relocation conflicts with React's reconciliation
+- Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 
 **Not yet built:**
-- List renaming
-- Time tracking UI (backend API exists, frontend `timeLogs` feature folder is still a stub)
 - Loading/error states beyond a single board-level spinner and error banner
 
 ### Phase 3: AI Integration (FUTURE)
@@ -137,7 +136,7 @@ nobacklog/
         │   ├── boards/              # api, components, hooks
         │   ├── lists/               # api, components, hooks
         │   ├── cards/               # api, components, hooks, rank.js
-        │   └── timeLogs/            # stub — not yet implemented
+        │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
             └── api/                 # shared axios/fetch client (api.js)
 ```
@@ -245,12 +244,25 @@ PATCH  /cards/:id/reorder - Reposition a card (body: { listId, position })
 ### TimeLog Endpoints
 ```
 GET    /timelogs        - Get all time logs (optional: ?cardId=xxx)
-POST   /timelogs        - Create new time log
-GET    /timelogs/:id    - Get time log by ID
-PUT    /timelogs/:id    - Update time log
-DELETE /timelogs/:id    - Delete time log
+POST   /timelogs            - Create new time log
+POST   /timelogs/start      - Start a timer on a card (body: { cardId }; server stamps start time)
+POST   /timelogs/:id/finish - Finish a running timer (server stamps end time, computes duration in ms)
+GET    /timelogs/running    - Every running timer across all cards ({ id, cardId, cardTitle, startTime }[])
+GET    /timelogs/settings   - Time-tracking settings ({ maxEntriesPerCard, maxRunningTimers })
+GET    /timelogs/:id        - Get time log by ID
+PUT    /timelogs/:id        - Update time log
+DELETE /timelogs/:id        - Delete time log
 ```
-*(Implemented on the backend; not yet wired up to any frontend UI.)*
+Time-tracking rules (each returns `409 Conflict` when violated):
+- A card may have **one running timer** at a time.
+- A card stores at most `TimeTracking:MaxEntriesPerCard` entries, running included (**default 5**).
+- At most `TimeTracking:MaxRunningTimers` timers may run at once across **all** cards (**default 2**).
+
+Both limits are placeholder settings until a project-manager settings UI exists — override
+them in `appsettings*.json`:
+```json
+"TimeTracking": { "MaxEntriesPerCard": 3, "MaxRunningTimers": 5 }
+```
 
 ---
 
@@ -446,13 +458,20 @@ Open four terminals — one per process — and run all four commands above at t
 ### Current Sprint: Core UI Completeness
 - [x] Card detail view / editing (title, description, priority)
 - [x] List renaming
-- [ ] Time tracking UI (start/stop/edit, backed by the existing TimeLog API)
+- [x] Time tracking UI (start/finish/delete in the card detail dialog; per-card entry cap + global running-timer cap)
 - [ ] Automated backend test project (xUnit against the service layer)
 
 ### Follow-ups from card editing
 - [ ] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
 - [ ] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview`
 - [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
+
+### Follow-ups from time tracking
+- [ ] Manual editing of a time entry's start/finish times
+- [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
+- [ ] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`)
+- [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
+- [ ] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Next Sprint: Hardening
 - [ ] Rank rebalancing when a position gap is exhausted
