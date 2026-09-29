@@ -64,7 +64,23 @@ public class ListService : IListService
         }
 
         list.Name = updated.Name;
-        list.Position = updated.Position;
+
+        /*
+         * Position is only reassigned when the payload carries a non-zero value,
+         * chosen over honouring PUT's full-replacement semantics literally,
+         * because a partial update — a rename sending just { name } — deserialises
+         * Position to 0 and would otherwise silently move the list to the front of
+         * the board. Mirrors the BoardId guard above.
+         *
+         * Known limitation: unlike BoardId, 0 is a *legitimate* position —
+         * ReorderListsAsync assigns 0-based indexes — so this endpoint cannot move
+         * a list into the first slot. Accepted because ordering is owned by
+         * PATCH /api/lists/reorder, which rewrites every list's index in one pass
+         * and never routes through here.
+         */
+        if (updated.Position != 0)
+            list.Position = updated.Position;
+
         list.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

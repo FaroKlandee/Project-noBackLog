@@ -26,13 +26,15 @@
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
  * ListColumn              — container component for a single list column.
- * Box, Button, IconButton,
- * TextField               — MUI layout and form components.
+ * LIST_NAME_MAX_LENGTH    — caps the add-list input at the backend's limit.
+ * Alert, Box, Button,
+ * IconButton, TextField   — MUI layout, feedback, and form components.
  * AddIcon, CloseIcon      — MUI icons for the add and cancel actions.
  * useState                — React hook for local form state.
  */
 import ListColumn from './ListColumn';
-import { Box, Button, IconButton, TextField } from '@mui/material';
+import { LIST_NAME_MAX_LENGTH } from '../constants';
+import { Alert, Box, Button, IconButton, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { useState } from 'react';
@@ -48,9 +50,12 @@ import { useState } from 'react';
  * @param {Array<Object>} props.lists             - Array of list objects to render.
  *   Each object must have at minimum: `id` {number}, `name` {string}.
  * @param {Function}      props.createNewList     - Async callback invoked with the
- *   new list's name string when the user confirms the add-list form.
+ *   new list's name string when the user confirms the add-list form. Resolves
+ *   to whether the list was created; the form stays open if it wasn't.
  * @param {Function}      props.deleteExistingList - Callback invoked with a list's
  *   ID when the user deletes a list from its column menu.
+ * @param {Function}      props.renameList        - Async callback invoked as
+ *   `(listId, name)` when a column's title is edited and committed.
  * @param {Object<number, Array<Object>>} [props.cardsByList={}] - Board-level record
  *   of list ID to that list's cards, owned by useBoardCards in BoardDetailPage.
  *   Sliced per column when rendering each ListColumn.
@@ -58,11 +63,19 @@ import { useState } from 'react';
  *   `(listId, data)` when a column's add-card form is submitted.
  * @param {Function}      props.onDeleteCard      - Async callback invoked as
  *   `(listId, cardId)` when a card is deleted from a column.
+ * @param {Function}      props.onEditCard        - Callback invoked as
+ *   `(listId, card)` when a card in a column is opened for editing.
  * @param {{listId: number, message: string}|null} [props.cardMutationError] - The
  *   board-level card mutation error. Scoped here to a plain message for the
  *   matching column, so ListColumn never sees the envelope shape.
  * @param {Function}      [props.onDismissCardMutationError] - Callback to clear the
  *   card mutation error.
+ * @param {{listId: number|null, message: string}|null} [props.listMutationError] -
+ *   The list create/delete/rename error from useLists. Scoped to the matching
+ *   column like the card error, or shown in the add-list form when `listId`
+ *   is null (a failed create).
+ * @param {Function}      [props.onDismissListMutationError] - Callback to clear the
+ *   list mutation error.
  * @returns {JSX.Element} A horizontally scrollable row of list columns and an
  *   "Add new list" control.
  */
@@ -70,11 +83,15 @@ export default function Lists({
 	lists,
 	createNewList,
 	deleteExistingList,
+	renameList,
 	cardsByList = {},
 	onCreateCard,
 	onDeleteCard,
+	onEditCard,
 	cardMutationError,
 	onDismissCardMutationError,
+	listMutationError,
+	onDismissListMutationError,
 }) {
 	/*
 	 * Local State — Add-list form
@@ -90,25 +107,35 @@ export default function Lists({
 	 * ─────────────────────────────────────────────────────────────────────
 	 */
 
+	/*
+	 * A list mutation error with no listId came from a failed create, so it
+	 * belongs to the add-list form rather than any column.
+	 */
+	const createError = listMutationError?.listId == null ? listMutationError?.message : null;
+
 	/**
 	 * Submit the new list name to the parent callback, then reset the form.
 	 * Guards against empty input — does nothing if the trimmed name is blank.
+	 * On failure the form stays open with the typed name so it can be retried.
 	 *
 	 * @async
 	 */
 	async function handleConfirm() {
-		if (newListName.trim() === '') return;
-		await createNewList(newListName);
+		const trimmedName = newListName.trim();
+		if (trimmedName === '') return;
+		if (!(await createNewList(trimmedName))) return;
 		setNewListName('');
 		setIsAdding(false);
 	}
 
 	/**
-	 * Cancel the add-list form and reset all form state.
+	 * Cancel the add-list form and reset all form state, including any
+	 * create error left over from a previous attempt.
 	 */
 	function handleCancel() {
 		setNewListName('');
 		setIsAdding(false);
+		if (createError) onDismissListMutationError?.();
 	}
 
 	/*
@@ -154,10 +181,14 @@ export default function Lists({
 						index={index}
 						cards={cardsByList[list.id] ?? []}
 						deleteExistingList={deleteExistingList}
+						renameList={renameList}
 						onCreateCard={onCreateCard}
 						onDeleteCard={onDeleteCard}
+						onEditCard={onEditCard}
 						mutationError={cardMutationError?.listId === list.id ? cardMutationError.message : null}
 						onDismissMutationError={onDismissCardMutationError}
+						listError={listMutationError?.listId === list.id ? listMutationError.message : null}
+						onDismissListError={onDismissListMutationError}
 					/>
 				))
 			)}
@@ -183,10 +214,16 @@ export default function Lists({
 							p: 1.5,
 						})}
 					>
+						{createError && (
+							<Alert severity="error" onClose={onDismissListMutationError} sx={{ fontSize: '0.8rem' }}>
+								{createError}
+							</Alert>
+						)}
 						<TextField
 							autoFocus
 							focused
 							value={newListName}
+							slotProps={{ htmlInput: { maxLength: LIST_NAME_MAX_LENGTH } }}
 							onChange={(e) => setNewListName(e.target.value)}
 							onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
 							placeholder="Enter list name…"

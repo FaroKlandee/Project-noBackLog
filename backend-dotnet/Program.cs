@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using NoBacklog.Api.Data;
+using NoBacklog.Api.Json;
+using NoBacklog.Api.Models;
 using NoBacklog.Api.Services;
 using NoBacklog.Api.Services.Interfaces;
 
@@ -11,11 +13,17 @@ builder.Services.AddControllers()
 .AddJsonOptions(options =>
 	{
 		options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+		// Trims whitespace off every inbound string before model validation runs.
+		options.JsonSerializerOptions.Converters.Add(new TrimmingStringConverter());
 	});
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Time tracking settings (defaults in TimeTrackingOptions; override via "TimeTracking" config section)
+builder.Services.Configure<TimeTrackingOptions>(
+    builder.Configuration.GetSection(TimeTrackingOptions.SectionName));
 
 // Dependency Injection - Services
 builder.Services.AddScoped<IBoardService, BoardService>();

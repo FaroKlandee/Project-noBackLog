@@ -42,6 +42,10 @@ export * from './hooks/useBoardCards';
 /* Utils — pure helpers shared by the hooks above and by page-level drag handlers. */
 export * from './utils/rank';
 
+/* Constants — shared values (priority levels, defaults). */
+export * from './constants';
+
 /* Components — presentational components for the cards feature. */
 export { default as Cards } from './components/Cards';
 export { default as CardPreview } from './components/CardPreview';
+export { default as CardEditDialog } from './components/CardEditDialog';

@@ -38,6 +38,7 @@ public class BoardsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Board board)
     {
+        // Name arrives already trimmed — see TrimmingStringConverter (Program.cs).
         if (string.IsNullOrWhiteSpace(board.Name))
             return BadRequest(new { success = false, message = "Board name is required." });
 
@@ -50,6 +51,7 @@ public class BoardsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Board board)
     {
+        // Name arrives already trimmed — see TrimmingStringConverter (Program.cs).
         if (string.IsNullOrWhiteSpace(board.Name))
             return BadRequest(new { success = false, message = "Board name is required." });
 

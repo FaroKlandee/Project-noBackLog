@@ -32,7 +32,8 @@
  * Cards — card list presenter, imported from the cards feature barrel so this
  *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards } from '../../cards';
+import { Cards, PRIORITIES, DEFAULT_PRIORITY } from '../../cards';
+import { LIST_NAME_MAX_LENGTH } from '../constants';
 
 /*
  * Icons
@@ -44,8 +45,17 @@ import CloseIcon from '@mui/icons-material/Close';
 
 /*
  * React
+ * ───────────────────────────────────────────────────────────────────────────
+ * useOptimistic — seeds a locally-displayed title from `list.name` and shows
+ *                 the in-progress rename immediately, reverting on its own to
+ *                 whatever `list.name` actually is once the rename transition
+ *                 settles (the new name on success, since renameList updates
+ *                 it before the transition resolves; the old name on failure,
+ *                 since a failed renameList never touches `list.name`).
+ * useTransition — setOptimisticName must be called inside a transition; this
+ *                 is the manual (non-form-action) way to open one.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useOptimistic, useTransition } from 'react';
 
 /*
  * @dnd-kit/react/sortable
@@ -57,9 +67,13 @@ import { useState, useRef } from 'react';
  * SortableKeyboardPlugin — see the `plugins` option on the useSortable call
  *               below for why this is passed explicitly instead of using
  *               dnd-kit's default plugin set.
+ * PointerSensor, KeyboardSensor, PointerActivationConstraints,
+ * isInteractiveElement — see LIST_DRAG_SENSORS below.
  */
 import { useSortable } from '@dnd-kit/react/sortable';
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
+import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dnd-kit/dom';
+import { isInteractiveElement } from '@dnd-kit/dom/utilities';
 
 /*
  * @dnd-kit/react / @dnd-kit/abstract
@@ -98,6 +112,49 @@ import {
 	FormControl,
 } from '@mui/material';
 
+/*
+ * Column Drag Sensors
+ * ───────────────────────────────────────────────────────────────────────────
+ * dnd-kit's default mouse rule starts a drag after 5px of movement OR after
+ * holding still for 200ms, whichever comes first. The hold rule meant a slow
+ * click on the title turned into a drag instead of opening the rename field,
+ * so for mouse/pen a column only starts dragging once the pointer has actually
+ * moved. A still press-and-release is always a click.
+ *
+ * Touch keeps dnd-kit's own default (hold 250ms, 5px tolerance) so a swipe
+ * still scrolls the board instead of grabbing a column.
+ *
+ * preventActivation reimplements dnd-kit's default (a press on an interactive
+ * element such as the rename TextField or a header button never starts a
+ * drag, so dragging in the TextField selects text) and adds one rule: a press
+ * that starts on a card never drags the column. Cards turn down presses that
+ * aren't the second half of a double press (see CardItem.jsx), and a press a
+ * card turns down would otherwise fall through to this column's sensor, so a
+ * press-and-move on a card would drag the whole list instead.
+ *
+ * KeyboardSensor has to be listed again because a draggable's own `sensors`
+ * replace the provider's defaults rather than adding to them.
+ *
+ * Defined at module scope so useSortable gets the same array on every render.
+ */
+const LIST_DRAG_SENSORS = [
+	PointerSensor.configure({
+		activationConstraints(event) {
+			if (event.pointerType === 'touch') {
+				return [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })];
+			}
+			return [new PointerActivationConstraints.Distance({ value: 5 })];
+		},
+		preventActivation(event, source) {
+			const { target } = event;
+			if (target === source.element || !(target instanceof Element)) return false;
+			if (target.closest('[data-card-item]')) return true;
+			return isInteractiveElement(target);
+		},
+	}),
+	KeyboardSensor,
+];
+
 /**
  * ListColumn component.
  *
@@ -123,14 +180,24 @@ import {
  * @param {Function}      props.deleteExistingList      - Async callback invoked with this
  *                                                        list's ID when the user confirms
  *                                                        list deletion.
+ * @param {Function}      props.renameList              - Async callback invoked as
+ *                                                        `(listId, name)` when the user
+ *                                                        commits an edit to the list title.
  * @param {Function}      props.onCreateCard            - Async callback invoked as
  *                                                        `(listId, data)` to create a card.
  * @param {Function}      props.onDeleteCard            - Async callback invoked as
  *                                                        `(listId, cardId)` to delete a card.
+ * @param {Function}      props.onEditCard              - Callback invoked as
+ *                                                        `(listId, card)` when a card in
+ *                                                        this column is opened for editing.
  * @param {string|null}   [props.mutationError]         - Card mutation error message already
  *                                                        scoped to this column by the parent,
  *                                                        or null when there is none.
  * @param {Function}      [props.onDismissMutationError] - Callback to clear the mutation error.
+ * @param {string|null}   [props.listError]             - Rename/delete error for this list,
+ *                                                        already scoped by the parent, or
+ *                                                        null when there is none.
+ * @param {Function}      [props.onDismissListError]    - Callback to clear the list error.
  * @returns {JSX.Element} The rendered column.
  */
 export default function ListColumn({
@@ -138,10 +205,14 @@ export default function ListColumn({
 	index,
 	cards = [],
 	deleteExistingList,
+	renameList,
 	onCreateCard,
 	onDeleteCard,
+	onEditCard,
 	mutationError,
 	onDismissMutationError,
+	listError,
+	onDismissListError,
 }) {
 	/*
 	 * Options Menu State
@@ -215,6 +286,7 @@ export default function ListColumn({
 		type: 'list',
 		accept: 'list',
 		plugins: [SortableKeyboardPlugin],
+		sensors: LIST_DRAG_SENSORS,
 	});
 
 	/*
@@ -248,6 +320,79 @@ export default function ListColumn({
 	});
 
 	/*
+	 * Title Rename State
+	 * ─────────────────────────────────────────────────────────────────────
+	 * isEditingTitle — toggles the header between the static Typography and
+	 *                  an inline TextField, Trello-style.
+	 * titleDraft     — controlled value for the title TextField while editing.
+	 *                  Seeded from list.name on entering edit mode rather than
+	 *                  bound directly to it, so typing doesn't get clobbered by
+	 *                  the optimistic re-render triggered by a previous commit.
+	 * optimisticName — the name to actually render. Mirrors list.name until a
+	 *                  rename is submitted, at which point it shows the
+	 *                  in-flight new name immediately; see the useOptimistic
+	 *                  import comment above for how/why it reverts on its own.
+	 */
+	const [isEditingTitle, setIsEditingTitle] = useState(false);
+	const [titleDraft, setTitleDraft] = useState(list.name);
+	const [optimisticName, setOptimisticName] = useOptimistic(list.name);
+	const [, startRenameTransition] = useTransition();
+
+	/**
+	 * Enter title edit mode, seeding the draft from the current (optimistic)
+	 * name so a rename that's still settling doesn't get overwritten.
+	 */
+	function handleTitleClick() {
+		setTitleDraft(optimisticName);
+		setIsEditingTitle(true);
+	}
+
+	/**
+	 * Commit the title edit: leaves edit mode, then — if the trimmed draft is
+	 * non-empty and actually different — kicks off the optimistic rename.
+	 * A blank or unchanged draft is silently discarded rather than sent to
+	 * the server.
+	 */
+	function commitTitleEdit() {
+		setIsEditingTitle(false);
+		const trimmed = titleDraft.trim();
+		if (trimmed === '' || trimmed === optimisticName) return;
+		startRenameTransition(async () => {
+			setOptimisticName(trimmed);
+			await renameList(list.id, trimmed);
+		});
+	}
+
+	/**
+	 * Handle keyboard shortcuts inside the title TextField.
+	 *
+	 * - Enter  — commit the edit directly. (We can't just blur() here: MUI
+	 *            TextField forwards onKeyDown to its root FormControl <div>, so
+	 *            e.currentTarget is that non-focusable div and .blur() is a
+	 *            no-op — which is why Enter did nothing. commitTitleEdit leaves
+	 *            edit mode, so the field then unmounts and its onBlur fires too;
+	 *            that second commitTitleEdit no-ops on the unchanged-value check.)
+	 * - Escape — discard the draft and leave edit mode without renaming. Resets
+	 *            titleDraft back to optimisticName first so that if the browser
+	 *            also fires a blur while the field unmounts, commitTitleEdit's
+	 *            unchanged-value check silently no-ops instead of re-committing
+	 *            the discarded draft.
+	 *
+	 * @param {React.KeyboardEvent} e - The keydown event from the title field.
+	 */
+	function handleTitleKeyDown(e) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitTitleEdit();
+		}
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			setTitleDraft(optimisticName);
+			setIsEditingTitle(false);
+		}
+	}
+
+	/*
 	 * Add-Card Form State
 	 * ─────────────────────────────────────────────────────────────────────
 	 * isAddingCard   — toggles the inline add-card form visibility.
@@ -260,7 +405,7 @@ export default function ListColumn({
 	 */
 	const [isAddingCard, setIsAddingCard] = useState(false);
 	const [newCardTitle, setNewCardTitle] = useState('');
-	const [newCardPriority, setNewCardPriority] = useState('Medium');
+	const [newCardPriority, setNewCardPriority] = useState(DEFAULT_PRIORITY);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const titleRef = useRef(null);
 
@@ -278,12 +423,13 @@ export default function ListColumn({
 	 * @async
 	 */
 	async function handleCreateCard() {
-		if (newCardTitle.trim() === '') return;
+		const trimmedTitle = newCardTitle.trim();
+		if (trimmedTitle === '') return;
 		setIsSubmitting(true);
 		try {
-			await onCreateCard(list.id, { title: newCardTitle, priority: newCardPriority });
+			await onCreateCard(list.id, { title: trimmedTitle, priority: newCardPriority });
 			setNewCardTitle('');
-			setNewCardPriority('Medium');
+			setNewCardPriority(DEFAULT_PRIORITY);
 			titleRef.current?.focus();
 		} finally {
 			setIsSubmitting(false);
@@ -295,7 +441,7 @@ export default function ListColumn({
 	 */
 	function handleCancelCard() {
 		setNewCardTitle('');
-		setNewCardPriority('Medium');
+		setNewCardPriority(DEFAULT_PRIORITY);
 		setIsAddingCard(false);
 	}
 
@@ -341,6 +487,16 @@ export default function ListColumn({
 	}
 
 	/**
+	 * Delegate opening a card for editing upward, tagging it with this
+	 * column's list ID to match handleDeleteCard's shape.
+	 *
+	 * @param {Object} card - The card to edit.
+	 */
+	function handleEditCard(card) {
+		onEditCard(list.id, card);
+	}
+
+	/**
 	 * Delegate list deletion to the parent-supplied deleteExistingList callback.
 	 *
 	 * @async
@@ -368,7 +524,8 @@ export default function ListColumn({
 	 *               │    ├─ IconButton (add card)
 	 *               │    ├─ IconButton (options menu trigger)
 	 *               │    └─ Menu > MenuItem (Delete list)
-	 *               ├─ Alert (scoped mutation error banner, shown conditionally)
+	 *               ├─ Alert (list rename/delete error banner, shown conditionally)
+ *               ├─ Alert (scoped card mutation error banner, shown conditionally)
 	 *               ├─ Cards (card list presenter)
 	 *               └─ Box (add-card form, shown conditionally when isAddingCard is true)
 	 *
@@ -413,11 +570,53 @@ export default function ListColumn({
 				<Box sx={{ visibility: isDragSource ? 'hidden' : 'visible' }}>
 					{/* Column header row — list name, card count badge, add and options buttons. */}
 					<Stack direction="row" alignItems="center" sx={{ mb: 1, gap: 0.5 }}>
-						<Typography
-							sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}
-						>
-							{list.name}
-						</Typography>
+						{/*
+						 * List title — Typography by default; clicking it swaps in a
+						 * TextField for a Trello-style inline rename. Enter/blur commits,
+						 * Escape discards (see handleTitleKeyDown/commitTitleEdit above).
+						 */}
+						{isEditingTitle ? (
+							<TextField
+								autoFocus
+								value={titleDraft}
+								onChange={(e) => setTitleDraft(e.target.value)}
+								onKeyDown={handleTitleKeyDown}
+								onBlur={commitTitleEdit}
+								onFocus={(e) => e.currentTarget.select()}
+								size="small"
+								fullWidth
+								sx={{ flexGrow: 1 }}
+								slotProps={{
+									htmlInput: { maxLength: LIST_NAME_MAX_LENGTH },
+									input: {
+										sx: (theme) => ({
+											color: 'text.primary',
+											bgcolor: theme.palette.background.surface,
+											borderRadius: 1,
+											fontSize: '0.95rem',
+											fontWeight: 700,
+										}),
+									},
+								}}
+							/>
+						) : (
+							<Typography
+								onClick={handleTitleClick}
+								sx={{
+									fontWeight: 700,
+									color: 'text.primary',
+									fontSize: '0.95rem',
+									flexGrow: 1,
+									cursor: 'pointer',
+									borderRadius: 1,
+									px: 0.5,
+									mx: -0.5,
+									'&:hover': { bgcolor: 'action.hover' },
+								}}
+							>
+								{optimisticName}
+							</Typography>
+						)}
 
 						{/* Card count badge — pill showing total cards in this column. */}
 						<Box
@@ -464,6 +663,21 @@ export default function ListColumn({
 					</Stack>
 
 					{/*
+					 * List error banner — shown when renaming or deleting THIS list failed.
+					 * A failed rename has already reverted the title on its own (see
+					 * the useOptimistic import comment), so this is the only sign of it.
+					 */}
+					{listError && (
+						<Alert
+							severity="error"
+							onClose={onDismissListError}
+							sx={{ mb: 1, fontSize: '0.8rem' }}
+						>
+							{listError}
+						</Alert>
+					)}
+
+					{/*
 					 * Mutation error banner — shown when a card create/delete originating
 					 * from THIS column failed. The parent scopes the board-level mutation
 					 * error down to a plain message for the matching list, so this
@@ -488,7 +702,7 @@ export default function ListColumn({
 					 * which CardItem uses as its sortable group.
 					 */}
 					<Box ref={cardDropRef}>
-						<Cards cards={cards} onDeleteCard={handleDeleteCard} />
+						<Cards cards={cards} onDeleteCard={handleDeleteCard} onEditCard={handleEditCard} />
 					</Box>
 
 					{/*
@@ -566,9 +780,9 @@ export default function ListColumn({
 											'& .MuiSelect-icon': { color: theme.palette.secondary.main },
 										})}
 									>
-										<MenuItem value="Low">Low</MenuItem>
-										<MenuItem value="Medium">Medium</MenuItem>
-										<MenuItem value="High">High</MenuItem>
+										{PRIORITIES.map((p) => (
+											<MenuItem key={p} value={p}>{p}</MenuItem>
+										))}
 									</Select>
 								</FormControl>
 								<Box
@@ -588,7 +802,7 @@ export default function ListColumn({
 										'&:disabled': { opacity: 0.5 },
 									}}
 								>
-									{isSubmitting ? '…' : 'Add (Shift+↵'}
+									{isSubmitting ? '…' : 'Add (Shift+↵)'}
 								</Box>
 								<IconButton
 									size="small"

@@ -22,7 +22,7 @@ NoBacklog is a modern task management system that combines:
 ## Development Milestones
 
 ### Phase 1: Backend API Development (COMPLETE)
-**Status:** 20 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
+**Status:** 24 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
 
 **Achievement Summary:**
 - Built a production-ready 4-tier hierarchical REST API on ASP.NET Core
@@ -34,15 +34,14 @@ NoBacklog is a modern task management system that combines:
 1. **Board API** - Dashboard/workspace management (5 endpoints)
 2. **List API** - Column/status management (5 endpoints + reorder)
 3. **Card API** - Task/item management (5 endpoints + reposition)
-4. **TimeLog API** - Time tracking functionality (5 endpoints) — implemented but not yet consumed by the frontend
+4. **TimeLog API** - Time tracking functionality (5 CRUD endpoints + start/finish/running/settings)
 
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
 - 4 ASP.NET controllers, each backed by an injected service class and interface
 - EF Core migrations tracking schema evolution (including the card `Position` ranking column)
 - `.http` request file for manual endpoint testing
-
-> **Note:** There is currently no automated test suite for the backend (no xUnit/NUnit project, no Postman collection). This is a gap versus the original QA-driven goal for this project and is worth prioritizing before further backend work.
+- xUnit test project (`backend-tests/`) covering all four services against an in-memory SQLite database
 
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
@@ -55,11 +54,9 @@ NoBacklog is a modern task management system that combines:
 - Cards: create (inline form with title + priority, keyboard shortcuts), delete, drag-and-drop reordering within a column and across columns
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` to avoid DOM-relocation conflicts with React's reconciliation
+- Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 
 **Not yet built:**
-- Card detail view / editing (title, description, priority updates)
-- List renaming
-- Time tracking UI (backend API exists, frontend `timeLogs` feature folder is still a stub)
 - Loading/error states beyond a single board-level spinner and error banner
 
 ### Phase 3: AI Integration (FUTURE)
@@ -83,6 +80,7 @@ NoBacklog is a modern task management system that combines:
 | ORM | Entity Framework Core | 10.0.5 |
 | DB Driver | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.1 |
 | API Testing | `.http` file (`NoBacklog.Api.http`) | — |
+| Unit Testing | xUnit + EF Core Sqlite (in-memory) | 2.9.3 / 10.0.5 |
 
 ### Frontend (In Development)
 | Category | Technology | Version |
@@ -130,6 +128,12 @@ nobacklog/
 │   ├── Program.cs                 # App entry point, DI, CORS, DbContext config
 │   └── NoBacklog.Api.csproj
 │
+├── backend-tests/
+│   ├── Infrastructure/
+│   │   └── TestDb.cs              # per-test in-memory SQLite database + seed helpers
+│   ├── Services/                  # BoardService, ListService, CardService, TimeLogService tests
+│   └── NoBacklog.Api.Tests.csproj
+│
 └── frontend/
     └── src/
         ├── app/                    # main.jsx, routes.jsx, theme.js
@@ -138,7 +142,7 @@ nobacklog/
         │   ├── boards/              # api, components, hooks
         │   ├── lists/               # api, components, hooks
         │   ├── cards/               # api, components, hooks, rank.js
-        │   └── timeLogs/            # stub — not yet implemented
+        │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
             └── api/                 # shared axios/fetch client (api.js)
 ```
@@ -246,12 +250,25 @@ PATCH  /cards/:id/reorder - Reposition a card (body: { listId, position })
 ### TimeLog Endpoints
 ```
 GET    /timelogs        - Get all time logs (optional: ?cardId=xxx)
-POST   /timelogs        - Create new time log
-GET    /timelogs/:id    - Get time log by ID
-PUT    /timelogs/:id    - Update time log
-DELETE /timelogs/:id    - Delete time log
+POST   /timelogs            - Create new time log
+POST   /timelogs/start      - Start a timer on a card (body: { cardId }; server stamps start time)
+POST   /timelogs/:id/finish - Finish a running timer (server stamps end time, computes duration in ms)
+GET    /timelogs/running    - Every running timer across all cards ({ id, cardId, cardTitle, startTime }[])
+GET    /timelogs/settings   - Time-tracking settings ({ maxEntriesPerCard, maxRunningTimers })
+GET    /timelogs/:id        - Get time log by ID
+PUT    /timelogs/:id        - Update time log
+DELETE /timelogs/:id        - Delete time log
 ```
-*(Implemented on the backend; not yet wired up to any frontend UI.)*
+Time-tracking rules (each returns `409 Conflict` when violated):
+- A card may have **one running timer** at a time.
+- A card stores at most `TimeTracking:MaxEntriesPerCard` entries, running included (**default 5**).
+- At most `TimeTracking:MaxRunningTimers` timers may run at once across **all** cards (**default 2**).
+
+Both limits are placeholder settings until a project-manager settings UI exists — override
+them in `appsettings*.json`:
+```json
+"TimeTracking": { "MaxEntriesPerCard": 3, "MaxRunningTimers": 5 }
+```
 
 ---
 
@@ -288,10 +305,20 @@ DELETE /timelogs/:id    - Delete time log
 ### Testing Philosophy
 **QA-Driven Development:** Leveraging ISTQB Foundation Level principles — positive/negative cases, boundary value analysis, equivalence partitioning, reference integrity testing.
 
-### Current State
-There is **no automated test suite in the repository right now** (backend or frontend). The `.http` file in `backend-dotnet/` supports manual endpoint verification during development, but it is not a substitute for a real test project.
+### Backend (xUnit)
+`backend-tests/` holds an xUnit project that exercises every service class directly (`BoardService`, `ListService`, `CardService`, `TimeLogService`). No database server or Docker is needed:
 
-**Recommended next step:** stand up an xUnit test project against the service layer (services are already interface-based and injected, so they're mockable) before the API surface grows further — this restores the QA-driven approach the project is meant to demonstrate.
+```bash
+dotnet test backend-tests
+```
+
+- **Database:** each test gets its own in-memory SQLite database (`Infrastructure/TestDb.cs`), created from the EF model with `EnsureCreated()`. SQLite was chosen over EF's InMemory provider because it's a real relational engine, so foreign keys and `ON DELETE CASCADE` are actually enforced.
+- **Assertions read back through a fresh `DbContext`**, so they check what was persisted rather than the change tracker's in-memory copy.
+- **Coverage focus:** reference-integrity errors (unknown parent IDs), not-found paths, partial-update semantics (card/list `PUT`), cascade deletes, ordering and tie-breaks, and boundary values for the time-tracking limits (one below / at `MaxEntriesPerCard` and `MaxRunningTimers`).
+- **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself. Controllers (request validation, status codes, response envelope) aren't covered yet. The next step there would be `WebApplicationFactory` integration tests.
+
+### Frontend
+No automated tests yet (tracked under *Next Sprint: Hardening*). The `.http` file in `backend-dotnet/` is still useful for manual endpoint checks.
 
 ---
 
@@ -445,10 +472,27 @@ Open four terminals — one per process — and run all four commands above at t
 - [x] Card CRUD (create, delete) + drag-and-drop reordering, including cross-list moves
 
 ### Current Sprint: Core UI Completeness
-- [ ] Card detail view / editing (title, description, priority)
-- [ ] List renaming
-- [ ] Time tracking UI (start/stop/edit, backed by the existing TimeLog API)
-- [ ] Automated backend test project (xUnit against the service layer)
+- [x] Card detail view / editing (title, description, priority)
+- [x] List renaming
+- [x] Time tracking UI (start/finish/delete in the card detail dialog; per-card entry cap + global running-timer cap)
+- [x] Automated backend test project (xUnit against the service layer, in-memory SQLite)
+
+### Follow-ups from card editing
+- [ ] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
+- [ ] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview`
+- [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
+
+### Follow-ups from time tracking
+- [ ] Manual editing of a time entry's start/finish times
+- [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
+- [ ] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`)
+- [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
+- [ ] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
+
+### Follow-ups from backend tests
+- [ ] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
+- [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
+- [ ] Run `dotnet test` in CI (GitHub Actions)
 
 ### Next Sprint: Hardening
 - [ ] Rank rebalancing when a position gap is exhausted

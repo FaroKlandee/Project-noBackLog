@@ -42,9 +42,11 @@ import CardItem from './CardItem';
  *   which CardItem uses directly as its sortable group.
  * @param {Function}        props.onDeleteCard - Callback invoked with a card's
  *   `id` when the user confirms deletion from a CardItem's context menu.
+ * @param {Function}        props.onEditCard   - Callback invoked with a card
+ *   object when the user opens it for editing from a CardItem.
  * @returns {JSX.Element} A list of CardItem components or an empty-state message.
  */
-export default function Cards({ cards, onDeleteCard }) {
+export default function Cards({ cards, onDeleteCard, onEditCard }) {
 	/*
 	 * Empty State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -69,7 +71,7 @@ export default function Cards({ cards, onDeleteCard }) {
 	return (
 		<List sx={{ p: 0, m: 0 }}>
 			{cards.map((card, index) => (
-				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} />
+				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} onEditCard={onEditCard} />
 			))}
 		</List>
 	);

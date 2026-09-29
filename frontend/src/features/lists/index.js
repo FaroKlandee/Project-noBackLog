@@ -12,7 +12,8 @@
  *   getAllLists, getListById, createList,
  *   updateList, deleteList, reorderLists — raw async HTTP functions (listService.js)
  *   useLists                            — hook: fetches lists for a board and
- *                                         exposes create/delete/reorder mutations
+ *                                         exposes create/delete/rename/reorder mutations
+ *   LIST_NAME_MAX_LENGTH                — longest list name the backend accepts
  *   Lists                               — component: horizontally-scrollable row
  *                                         of list columns + "add new list" form
  *   ListColumn                          — component: single Kanban column with
@@ -24,6 +25,9 @@ export * from './api/listService';
 
 /* Hooks — React hooks that wrap the service layer with local state management. */
 export * from './hooks/useLists';
+
+/* Constants shared across the lists feature. */
+export * from './constants';
 
 /* Components — container and presentational components for the lists feature. */
 export { default as Lists } from './components/Lists';

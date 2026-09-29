@@ -37,7 +37,7 @@
  *   }
  *
  * Depends on:
- *   - getAllCardsByBoard, createCard, deleteCard, reorderCard
+ *   - getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard
  *     (features/cards/api/cardService.js)
  */
 
@@ -47,11 +47,12 @@
  * useEffect, useState  — React hooks for side-effects and local state.
  * getAllCardsByBoard   — GET    /api/cards?boardId=<id>
  * createCard           — POST   /api/cards/
+ * updateCard           — PUT    /api/cards/<id>
  * deleteCard           — DELETE /api/cards/<id>
  * reorderCard          — PATCH  /api/cards/<id>/reorder
  */
 import { useEffect, useState } from "react";
-import { getAllCardsByBoard, createCard, deleteCard, reorderCard } from "../api/cardService";
+import { createCard, deleteCard, getAllCardsByBoard, reorderCard, updateCard } from "../api/cardService";
 import { generateRank } from "../utils/rank";
 
 /**
@@ -120,6 +121,7 @@ function groupCardsByList(cards) {
  *   mutationError:        {listId: number, message: string}|null,
  *   setMutationError:     Function,
  *   submitCreateCard:     Function,
+ *   submitUpdateCard:     Function,
  *   submitDeleteCard:     Function,
  *   updateCardOrder:      Function,
  *   persistCardPosition:  Function
@@ -134,6 +136,7 @@ function groupCardsByList(cards) {
  *                             scoped to its originating column; otherwise null.
  *   - `setMutationError`    — Setter so the UI can dismiss the mutation error.
  *   - `submitCreateCard`    — Create a card in a given list and add it to state.
+ *   - `submitUpdateCard`    — Update a card's fields and merge the result into state.
  *   - `submitDeleteCard`    — Delete a card from a given list and remove it.
  *   - `updateCardOrder`     — Replace the whole record after a drag reorder.
  *   - `persistCardPosition` — PATCH a card's new list + position to the backend.
@@ -206,6 +209,24 @@ export function useBoardCards(boardId) {
 	}
 
 	/**
+	 * Merge a patch onto one card in one list's bucket, replacing it with a new
+	 * object so the change is picked up by React's identity comparison. Other
+	 * cards in the bucket are left by reference.
+	 *
+	 * @param {number} listId - ID of the list the card belongs to.
+	 * @param {number} cardId - ID of the card to update.
+	 * @param {Object} patch  - Fields to merge onto the matching card.
+	 */
+	function mergeCard(listId, cardId, patch) {
+		setCardsByList(prev => ({
+			...prev,
+			[listId]: (prev[listId] ?? []).map(card =>
+				card.id === cardId ? { ...card, ...patch } : card
+			),
+		}));
+	}
+
+	/**
 	 * Remove a card from one list's bucket in the record.
 	 *
 	 * @param {number} listId - ID of the list the card belongs to.
@@ -256,6 +277,28 @@ export function useBoardCards(boardId) {
 		} catch (err) {
 			setMutationError({ listId, message: err.message });
 		}
+	}
+
+	/**
+	 * Update a card's fields and merge the canonical result into its list's bucket.
+	 *
+	 * Deliberately does NOT set the board-level `mutationError` on failure, unlike
+	 * `submitCreateCard`/`submitDeleteCard` — it lets the error propagate to the
+	 * caller instead, so CardEditDialog can show it inline and stay open with the
+	 * user's edits intact, rather than the dialog silently closing while an error
+	 * banner appears elsewhere on the board.
+	 *
+	 * @async
+	 * @param {number} listId - ID of the list the card belongs to.
+	 * @param {number} cardId - ID of the card to update.
+	 * @param {Object} data   - Fields to update (e.g. `{ title, description, priority }`).
+	 * @returns {Promise<Object>} The updated card as returned by the API.
+	 * @throws {Error} Propagated from the API call so the caller can handle it.
+	 */
+	async function submitUpdateCard(listId, cardId, data) {
+		const response = await updateCard(cardId, data);
+		mergeCard(listId, cardId, response.data);
+		return response.data;
 	}
 
 	/**
@@ -319,6 +362,7 @@ export function useBoardCards(boardId) {
 		mutationError,
 		setMutationError,
 		submitCreateCard,
+		submitUpdateCard,
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,

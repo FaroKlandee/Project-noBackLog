@@ -37,12 +37,12 @@ import { useLists, Lists, ListColumnPreview } from "../features/lists/";
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useBoardDetails } from "../features/boards";
-import { useBoardCards, generateRank, CardPreview } from "../features/cards";
+import { useBoardCards, generateRank, CardPreview, CardEditDialog } from "../features/cards";
 import { Box, Typography } from "@mui/material";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { reorderLists } from "../features/lists/";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Translate between dnd-kit's registry ids and the underlying numeric
@@ -204,12 +204,23 @@ export default function BoardDetailPage() {
 	 * Data Fetching
 	 * ─────────────────────────────────────────────────────────────────────
 	 * useLists   — fetches all lists for this board; also exposes mutation
-	 *              helpers (createNewList, deleteExistingList, updateListOrder).
+	 *              helpers (createNewList, deleteExistingList, updateListOrder,
+	 *              renameList).
 	 * useBoardDetails — fetches the board record (name, metadata).
 	 * Both hooks are keyed on the numeric boardId; they re-fetch automatically
 	 * if the ID changes (e.g. navigating between boards).
 	 */
-	const { lists, loading: loadingList, error: errorList, updateListOrder, createNewList, deleteExistingList } = useLists(Number(boardId));
+	const {
+		lists,
+		loading: loadingList,
+		fetchError: errorList,
+		mutationError: listMutationError,
+		setMutationError: setListMutationError,
+		updateListOrder,
+		createNewList,
+		deleteExistingList,
+		renameList,
+	} = useLists(Number(boardId));
 
 	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
 
@@ -234,19 +245,90 @@ export default function BoardDetailPage() {
 		mutationError: cardMutationError,
 		setMutationError: setCardMutationError,
 		submitCreateCard,
+		submitUpdateCard,
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,
 	} = useBoardCards(Number(boardId));
 
 	/*
+	 * Card Edit Dialog State
+	 * ──────────────────────────────────────────────────────────────────
+	 * editingCardId — id of the card currently open in CardEditDialog, or
+	 *                 null when the dialog is closed. Only the id is held in
+	 *                 state; the live card object is derived below on every
+	 *                 render so a background drag or cardsByList update that
+	 *                 moves or changes it is always reflected while open.
+	 */
+	const [editingCardId, setEditingCardId] = useState(null);
+	const editingCard = editingCardId == null
+		? null
+		: Object.values(cardsByList).flat().find(c => c.id === editingCardId) ?? null;
+
+	/*
+	 * Auto-close the dialog if its card disappears out from under it (e.g.
+	 * deleted here or in another tab) while open.
+	 */
+	useEffect(() => {
+		if (editingCardId != null && editingCard == null) {
+			setEditingCardId(null);
+		}
+	}, [editingCardId, editingCard]);
+
+	/**
+	 * Open the edit dialog for a card. `listId` isn't needed here — the dialog
+	 * derives the live card (and its current listId) from cardsByList above.
+	 *
+	 * @param {number} _listId - Unused; kept to match onDeleteCard's `(listId, ...)` shape.
+	 * @param {Object} card    - The card to edit.
+	 */
+	function handleEditCard(_listId, card) {
+		setEditingCardId(card.id);
+	}
+
+	/**
+	 * Save an in-progress card edit. CardEditDialog now commits each field
+	 * independently (title on blur/Enter, priority on select, description and
+	 * time estimate via their own reveal-on-edit Save buttons) rather than one
+	 * form-level Save, so this no longer closes the dialog — it only closes via
+	 * its own close button.
+	 *
+	 * Reads `editingCard.listId` fresh rather than closing over a stale value,
+	 * so a drag that moved the card to another list mid-edit still saves it to
+	 * the right bucket.
+	 *
+	 * `priority` is always merged in ahead of `data`, even when this particular
+	 * save didn't touch it: CardUpdateRequest.Priority is a non-nullable enum
+	 * with no "omitted" sentinel (see CardUpdateRequest.cs), so the backend
+	 * treats it as a full replace on every PUT. The old dialog got away with
+	 * always sending all three fields together; now that title/description/
+	 * priority/timeEstimate each commit independently, a priority-less payload
+	 * would silently reset the card's priority to its Medium default.
+	 *
+	 * @async
+	 * @param {Object} data - The changed field(s), e.g. `{ title }` or `{ description }`.
+	 */
+	async function handleSaveCardEdit(data) {
+		await submitUpdateCard(editingCard.listId, editingCard.id, {
+			priority: editingCard.priority,
+			...data,
+		});
+	}
+
+	/*
 	 * Snapshots of cardsByList/lists taken at the start of each drag, used to
 	 * revert onDragOver's live updates if the drag is cancelled (e.g. Escape)
 	 * — see handleDragEnd's cancel guard and onDragStart below. Refs rather
 	 * than state because writing them must never itself trigger a re-render.
+	 *
+	 * null whenever no snapshot belongs to the current drag. dnd-kit can report
+	 * a cancelled drag end without ever having fired onDragStart (e.g. the
+	 * browser cancels a touch pointer right as the drag activates). Restoring
+	 * a snapshot in that case would roll the board back to the last drag's
+	 * state, or to the empty pre-fetch state on the first drag of the page.
 	 */
-	const previousCardsByList = useRef(cardsByList);
-	const previousLists = useRef(lists);
+	const previousCardsByList = useRef(null);
+	const previousLists = useRef(null);
 
 	/**
 	 * Handle the end of a drag-and-drop operation on the board.
@@ -266,10 +348,19 @@ export default function BoardDetailPage() {
 	 *   end event containing source/target descriptors and a `canceled` flag.
 	 */
 	function handleDragEnd(event) {
-		/* Guard: drag was cancelled (e.g. user pressed Escape). */
+		const snapshotCards = previousCardsByList.current;
+		const snapshotLists = previousLists.current;
+		previousCardsByList.current = null;
+		previousLists.current = null;
+
+		/*
+		 * Guard: drag was cancelled (e.g. user pressed Escape). Only revert to a
+		 * snapshot taken for this drag; with none, onDragOver never ran either,
+		 * so there's nothing to undo.
+		 */
 		if (event.canceled) {
-			updateCardOrder(previousCardsByList.current);
-			updateListOrder(previousLists.current);
+			if (snapshotCards) updateCardOrder(snapshotCards);
+			if (snapshotLists) updateListOrder(snapshotLists);
 			return;
 		}
 
@@ -371,7 +462,7 @@ export default function BoardDetailPage() {
 			const listId = fromDndId(source.id);
 			const list = lists.find(l => l.id === listId);
 			if (!list) return null;
-			return <ListColumnPreview list={list} cardCount={(cardsByList[list.id] ?? []).length} />;
+			return <ListColumnPreview list={list} cards={cardsByList[list.id] ?? []} />;
 		}
 
 		return null;
@@ -528,15 +619,25 @@ export default function BoardDetailPage() {
 						lists={lists}
 						createNewList={createNewList}
 						deleteExistingList={deleteExistingList}
+						renameList={renameList}
 						cardsByList={cardsByList}
 						onCreateCard={submitCreateCard}
 						onDeleteCard={submitDeleteCard}
+						onEditCard={handleEditCard}
 						cardMutationError={cardMutationError}
 						onDismissCardMutationError={() => setCardMutationError(null)}
+						listMutationError={listMutationError}
+						onDismissListMutationError={() => setListMutationError(null)}
 					/>
 				</Box>
 			</Box>
 			<DragOverlay>{renderDragOverlay}</DragOverlay>
+			<CardEditDialog
+				open={editingCard != null}
+				card={editingCard}
+				onClose={() => setEditingCardId(null)}
+				onSave={handleSaveCardEdit}
+			/>
 		</DragDropProvider>
 	);
 }

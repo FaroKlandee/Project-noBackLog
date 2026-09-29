@@ -49,6 +49,7 @@ public class CardsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Card card)
     {
+        // Title arrives already trimmed — see TrimmingStringConverter (Program.cs).
         if (string.IsNullOrWhiteSpace(card.Title))
             return BadRequest(new { success = false, message = "Card title is required." });
 
@@ -72,14 +73,16 @@ public class CardsController : ControllerBase
 
     // PUT /api/cards/:id
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] Card card)
+    public async Task<IActionResult> Update(int id, [FromBody] CardUpdateRequest request)
     {
-        if (card.Title is not null && string.IsNullOrWhiteSpace(card.Title))
+        // A non-null Title arrives already trimmed (TrimmingStringConverter, Program.cs);
+        // null means "leave it unchanged", so only an explicit blank string is rejected.
+        if (request.Title is not null && string.IsNullOrWhiteSpace(request.Title))
             return BadRequest(new { success = false, message = "Card title cannot be empty." });
 
         try
         {
-            var updated = await _cardService.UpdateCardAsync(id, card);
+            var updated = await _cardService.UpdateCardAsync(id, request);
             if (updated is null)
                 return NotFound(new { success = false, message = "Card not found." });
 
