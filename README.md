@@ -4,7 +4,7 @@ AI-powered task management application with natural language command interface. 
 
 **Developer:** Patiphak Klandee (Faro)  
 **Technical Background:** ISTQB Certified | 3+ Years QA/Development Experience  
-**Project Status:** Backend Complete (Core CRUD + Reordering) | Frontend In Progress (Boards/Lists/Cards + Drag-and-Drop Working)
+**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) | Next: Hardening
 
 ---
 
@@ -22,13 +22,16 @@ NoBacklog is a modern task management system that combines:
 ## Development Milestones
 
 ### Phase 1: Backend API Development (COMPLETE)
-**Status:** 24 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
+**Status:** 26 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
 
 **Achievement Summary:**
 - Built a production-ready 4-tier hierarchical REST API on ASP.NET Core
 - Implemented comprehensive validation patterns (field + reference)
 - Designed a controller → service → EF Core data-access layering with PostgreSQL
 - Added rank-based positioning for drag-and-drop reordering (Lists and Cards)
+- Partial updates on `PUT /cards/:id` via a dedicated `CardUpdateRequest` DTO (omitted fields are left unchanged)
+- Server-stamped Start/Finish timers with configurable per-card and global limits (`409 Conflict` on violation)
+- Global `TrimmingStringConverter` trims whitespace from every inbound string before validation
 
 **Completed APIs:**
 1. **Board API** - Dashboard/workspace management (5 endpoints)
@@ -39,25 +42,28 @@ NoBacklog is a modern task management system that combines:
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
 - 4 ASP.NET controllers, each backed by an injected service class and interface
-- EF Core migrations tracking schema evolution (including the card `Position` ranking column)
+- EF Core migrations tracking schema evolution (including the card `Position` ranking column and nullable `TimeEstimate`)
 - `.http` request file for manual endpoint testing
 - xUnit test project (`backend-tests/`) covering all four services against an in-memory SQLite database
 
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
 **Styling/Components:** MUI (Material UI)  
-**Status:** Core Kanban experience is functional — board list, board detail, list and card CRUD, and full drag-and-drop reordering (within and across columns) are implemented.
+**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Next up is hardening (loading/error states, rank rebalancing, frontend tests).
 
 **Implemented so far:**
 - Boards list and board detail pages (`react-router` routed)
-- List columns: create, delete, drag-and-drop reordering
+- List columns: create, delete, inline click-to-edit rename, drag-and-drop reordering
 - Cards: create (inline form with title + priority, keyboard shortcuts), delete, drag-and-drop reordering within a column and across columns
+- Card detail dialog (`CardEditDialog`) with per-field saving for title, description, priority, and time estimate
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
-- `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` to avoid DOM-relocation conflicts with React's reconciliation
+- `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` (dragged lists render a clone of their cards) to avoid DOM-relocation conflicts with React's reconciliation
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 
 **Not yet built:**
-- Loading/error states beyond a single board-level spinner and error banner
+- Loading/error states for boards and cards beyond a board-level spinner and error banner (list mutations now report errors per list)
+- Manual editing of time entries
+- Frontend automated tests
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -115,7 +121,13 @@ nobacklog/
 │   │   ├── Card.cs
 │   │   ├── TimeLog.cs
 │   │   ├── CardReorderRequest.cs
-│   │   └── ListReorderItem.cs
+│   │   ├── CardUpdateRequest.cs   # partial-update DTO for PUT /cards/:id
+│   │   ├── ListReorderItem.cs
+│   │   ├── TimeLogStartRequest.cs
+│   │   ├── RunningTimerSummary.cs
+│   │   └── TimeTrackingOptions.cs # MaxEntriesPerCard / MaxRunningTimers
+│   ├── Json/
+│   │   └── TrimmingStringConverter.cs
 │   ├── Services/
 │   │   ├── Interfaces/           # IBoardService, IListService, ICardService, ITimeLogService
 │   │   ├── BoardService.cs
@@ -140,11 +152,12 @@ nobacklog/
         ├── pages/                  # BoardsPage, BoardDetailPage
         ├── features/
         │   ├── boards/              # api, components, hooks
-        │   ├── lists/               # api, components, hooks
-        │   ├── cards/               # api, components, hooks, rank.js
+        │   ├── lists/               # api, components, hooks, constants
+        │   ├── cards/               # api, components (incl. CardEditDialog), hooks, constants, rank.js
         │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
-            └── api/                 # shared axios/fetch client (api.js)
+            ├── api/                 # shared axios/fetch client (api.js)
+            └── components/          # shared UI (FieldLabel)
 ```
 
 ---
@@ -169,14 +182,15 @@ Board (Dashboard/Workspace)
                     ├── ListId: int → List
                     ├── Position: string  (rank-based ordering)
                     ├── Priority: enum[Low, Medium, High]
-                    ├── TimeTracked: int
+                    ├── TimeEstimate: string? (free text, max 50)
+                    ├── TimeTracked: int  (currently unused)
                     └── TimeLogs[] ─┐
                                     │
                               TimeLog (Work Log Entry)
                                 ├── CardId: int → Card
                                 ├── StartTime: DateTime
                                 ├── EndTime: DateTime? (nullable)
-                                └── Duration: (calculated)
+                                └── Duration: long (ms, computed on finish)
 ```
 
 ### Validation Strategy
@@ -296,6 +310,7 @@ them in `appsettings*.json`:
 - `201` - Created (POST)
 - `400` - Validation Error (client error)
 - `404` - Resource Not Found
+- `409` - Conflict (time-tracking limits)
 - `500` - Server Error (unhandled)
 
 ---
@@ -471,7 +486,7 @@ Open four terminals — one per process — and run all four commands above at t
 - [x] List column CRUD (create, delete) + drag-and-drop reordering
 - [x] Card CRUD (create, delete) + drag-and-drop reordering, including cross-list moves
 
-### Current Sprint: Core UI Completeness
+### Previous Sprint: Core UI Completeness (Complete)
 - [x] Card detail view / editing (title, description, priority)
 - [x] List renaming
 - [x] Time tracking UI (start/finish/delete in the card detail dialog; per-card entry cap + global running-timer cap)
@@ -494,7 +509,7 @@ Open four terminals — one per process — and run all four commands above at t
 - [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 - [ ] Run `dotnet test` in CI (GitHub Actions)
 
-### Next Sprint: Hardening
+### Current Sprint: Hardening
 - [ ] Rank rebalancing when a position gap is exhausted
 - [ ] Per-feature loading/error states (currently board-level only)
 - [ ] Frontend test coverage
@@ -521,7 +536,7 @@ Open four terminals — one per process — and run all four commands above at t
 - Equivalence partitioning for error scenarios
 - Edge case consideration (null values, empty strings, invalid references, exhausted rank gaps)
 - Negative testing coverage (400, 404 responses)
-- State transition testing (active timer → stopped timer, once TimeLog UI exists)
+- State transition testing (idle → running timer → finished timer)
 
 ---
 
@@ -554,5 +569,5 @@ LinkedIn: [linkedin.com/in/patiphak-klandee](https://linkedin.com/in/patiphak-kl
 Portfolio: [faroklandee.in](https://faroklandee.in/)
 
  
-**Current Phase:** Frontend Development - Core Kanban UI functional (boards, lists, cards, drag-and-drop); time tracking UI and card editing still open  
-**Backend Status:** Core CRUD + reordering complete across Board, List, Card, TimeLog resources | No automated test suite yet
+**Current Phase:** Frontend Development - Core Kanban UI complete (boards, lists, cards, drag-and-drop, card editing, time tracking); hardening sprint next  
+**Backend Status:** CRUD, reordering and timer endpoints complete across Board, List, Card, TimeLog resources | xUnit service-layer tests in place; controller integration tests pending
