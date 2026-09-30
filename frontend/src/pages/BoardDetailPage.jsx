@@ -23,25 +23,23 @@
  *                   create/delete/reorder mutations.
  * Lists           – Presentational component; renders list columns and the
  *                   "add new list" form.
- * CircularProgress– MUI spinner shown while data is loading.
- * Alert           – MUI error banner shown when a fetch fails.
+ * ListColumnSkeleton – Placeholder columns shown while lists are loading.
+ * LoadError       – Shared error banner with a Retry action for failed loads.
  * useBoardDetails – Custom hook; fetches a single board's metadata by ID.
  * Box             – MUI layout wrapper.
+ * Skeleton        – MUI placeholder for the board name while it loads.
  * Typography      – MUI text component; renders the board name in the header.
  * DragDropProvider– @dnd-kit/react context provider; enables drag-and-drop.
  * move            – @dnd-kit/helpers utility; reorders an array given a drag event.
- * reorderLists    – Service function; PATCHes the new list order to the backend.
  */
 import { useParams } from "react-router";
-import { useLists, Lists, ListColumnPreview } from "../features/lists/";
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
+import { useLists, Lists, ListColumnPreview, ListColumnSkeleton } from "../features/lists/";
 import { useBoardDetails } from "../features/boards";
 import { useBoardCards, generateRank, CardPreview, CardEditDialog } from "../features/cards";
-import { Box, Typography } from "@mui/material";
+import LoadError from "../shared/components/LoadError";
+import { Box, Skeleton, Typography } from "@mui/material";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
-import { reorderLists } from "../features/lists/";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -187,8 +185,8 @@ function moveCardsByList(cardsByList, event) {
  * list columns with drag-and-drop reordering.
  *
  * @component
- * @returns {JSX.Element} The rendered detail page, a loading spinner, or an
- *   error banner depending on fetch state.
+ * @returns {JSX.Element} The rendered detail page. Loading and error states
+ *   are rendered per feature inside it rather than replacing it.
  */
 export default function BoardDetailPage() {
 	/*
@@ -217,12 +215,19 @@ export default function BoardDetailPage() {
 		mutationError: listMutationError,
 		setMutationError: setListMutationError,
 		updateListOrder,
+		persistListOrder,
+		reload: reloadLists,
 		createNewList,
 		deleteExistingList,
 		renameList,
 	} = useLists(Number(boardId));
 
-	const { board, loading: loadingBoard, error: errorBoard } = useBoardDetails(Number(boardId));
+	const {
+		board,
+		loading: loadingBoard,
+		error: errorBoard,
+		reload: reloadBoard,
+	} = useBoardDetails(Number(boardId));
 
 	/*
 	 * Card Data — Board Level
@@ -250,6 +255,7 @@ export default function BoardDetailPage() {
 		updateCardOrder,
 		persistCardPosition,
 		rebalanceList,
+		reload: reloadCards,
 	} = useBoardCards(Number(boardId));
 
 	/*
@@ -417,11 +423,16 @@ export default function BoardDetailPage() {
 			/*
 			 * Persist the card's new list + rank to the backend, or — with no rank
 			 * left — re-space the whole list, which persists the move as well.
+			 *
+			 * Either call rolls back to the pre-drag record if the request fails.
+			 * Without a snapshot (see the refs' comment) the current record is the
+			 * closest thing to the pre-drop state available.
 			 */
+			const rollback = snapshotCards ?? cardsByList;
 			if (position === null) {
-				rebalanceList(listId, cardsInList.map(card => card.id));
+				rebalanceList(listId, cardsInList.map(card => card.id), rollback);
 			} else {
-				persistCardPosition(cardId, listId, position);
+				persistCardPosition(cardId, listId, position, rollback);
 			}
 
 			return;
@@ -441,8 +452,15 @@ export default function BoardDetailPage() {
 		 * reorder instead of confirming it.
 		 */
 
-		/* Persist the current (already up to date) order to the backend as an array of IDs. */
-		reorderLists(lists.map(list => list.id));
+		/*
+		 * Persist the current (already up to date) order to the backend as an
+		 * array of IDs, rolling back to the pre-drag order if that fails.
+		 */
+		persistListOrder(
+			lists.map(list => list.id),
+			fromDndId(event.operation.source.id),
+			snapshotLists ?? lists,
+		);
 	}
 
 	/**
@@ -482,29 +500,21 @@ export default function BoardDetailPage() {
 	}
 
 	/*
-	 * Loading State
-	 * ─────────────────────────────────────────────────────────────────────
-	 * Show a spinner while either the board metadata or the lists are still
-	 * in-flight. Both must be ready before the page can render meaningfully.
-	 */
-	if (loadingList === true || loadingBoard === true || loadingCards === true) {
-		return <CircularProgress aria-label="Loading…" />;
-	}
-
-	/*
-	 * Error State
-	 * ─────────────────────────────────────────────────────────────────────
-	 * Surface a single error banner if either fetch failed. Individual error
-	 * messages from each hook are not surfaced here to keep the UI simple.
-	 */
-	if (errorList !== null || errorBoard !== null || errorCards !== null) {
-		return <Alert variant="filled" severity="error">An error has occurred.</Alert>;
-	}
-
-	/*
 	 * Render
 	 * ─────────────────────────────────────────────────────────────────────
-	 * Happy path — both board metadata and lists are loaded.
+	 * Loading and error states are handled per feature rather than for the
+	 * whole page, since the board, its lists and its cards are three
+	 * independent requests:
+	 *   - Board name  — skeleton in the header while loading; an inline error
+	 *                   with Retry if it failed.
+	 *   - Lists       — placeholder columns while loading; an error with Retry
+	 *                   in place of the columns if it failed.
+	 *   - Cards       — per-column placeholders while loading (see Cards.jsx);
+	 *                   one banner with Retry above the columns if it failed,
+	 *                   since the single board-wide request isn't scoped to any
+	 *                   one column.
+	 * The page used to swap everything for one spinner or one generic "An
+	 * error has occurred." until all three had succeeded.
 	 *
 	 * Layout structure:
 	 *   DragDropProvider              (drag-and-drop context)
@@ -605,13 +615,24 @@ export default function BoardDetailPage() {
 						borderBottom: `1px solid ${theme.palette.badge.bg}`,
 					})}
 				>
-					<Typography
-						sx={{
-							fontWeight: 700,
-							color: 'text.primary',
-							fontSize: '1.25rem',
-						}}
-					>{board.name}</Typography>
+					{loadingBoard ? (
+						<Skeleton aria-label="Loading board…" width={200} sx={{ fontSize: '1.25rem' }} />
+					) : errorBoard ? (
+						<LoadError
+							title="Couldn't load this board"
+							message={errorBoard}
+							onRetry={reloadBoard}
+							sx={{ py: 0 }}
+						/>
+					) : (
+						<Typography
+							sx={{
+								fontWeight: 700,
+								color: 'text.primary',
+								fontSize: '1.25rem',
+							}}
+						>{board.name}</Typography>
+					)}
 				</Box>
 
 				{/*
@@ -624,24 +645,56 @@ export default function BoardDetailPage() {
 						px: 3,
 						py: 2,
 						flex: 1,
+						minHeight: 0,
 						overflowY: 'hidden',
 						overflowX: 'auto',
+						display: 'flex',
+						flexDirection: 'column',
 					}}
 				>
-					<Lists
-						lists={lists}
-						createNewList={createNewList}
-						deleteExistingList={deleteExistingList}
-						renameList={renameList}
-						cardsByList={cardsByList}
-						onCreateCard={submitCreateCard}
-						onDeleteCard={submitDeleteCard}
-						onEditCard={handleEditCard}
-						cardMutationError={cardMutationError}
-						onDismissCardMutationError={() => setCardMutationError(null)}
-						listMutationError={listMutationError}
-						onDismissListMutationError={() => setListMutationError(null)}
-					/>
+					{/*
+					  * Card load failure — one banner for the whole board. Only
+					  * shown once the lists themselves are on screen; otherwise the
+					  * lists' own error or placeholders already cover this area.
+					  */}
+					{errorCards && !loadingList && !errorList && (
+						<LoadError
+							title="Couldn't load cards"
+							message={errorCards}
+							onRetry={reloadCards}
+							sx={{ mb: 2, maxWidth: 600 }}
+						/>
+					)}
+
+					{loadingList ? (
+						<Box aria-label="Loading lists…" sx={{ display: 'flex', flexGrow: 1, minHeight: 0 }}>
+							{[0, 1, 2].map(i => <ListColumnSkeleton key={i} />)}
+						</Box>
+					) : errorList ? (
+						<LoadError
+							title="Couldn't load lists"
+							message={errorList}
+							onRetry={reloadLists}
+							sx={{ maxWidth: 600 }}
+						/>
+					) : (
+						<Lists
+							lists={lists}
+							createNewList={createNewList}
+							deleteExistingList={deleteExistingList}
+							renameList={renameList}
+							cardsByList={cardsByList}
+							cardsLoading={loadingCards}
+							cardsError={errorCards}
+							onCreateCard={submitCreateCard}
+							onDeleteCard={submitDeleteCard}
+							onEditCard={handleEditCard}
+							cardMutationError={cardMutationError}
+							onDismissCardMutationError={() => setCardMutationError(null)}
+							listMutationError={listMutationError}
+							onDismissListMutationError={() => setListMutationError(null)}
+						/>
+					)}
 				</Box>
 			</Box>
 			<DragOverlay>{renderDragOverlay}</DragOverlay>

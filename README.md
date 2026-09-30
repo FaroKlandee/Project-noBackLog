@@ -49,7 +49,7 @@ NoBacklog is a modern task management system that combines:
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
 **Styling/Components:** MUI (Material UI)  
-**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Hardening is in progress: card rank rebalancing is done; loading/error states and frontend tests are next.
+**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Hardening is in progress: card rank rebalancing and per-feature loading/error states are done; frontend tests are next.
 
 **Implemented so far:**
 - Boards list and board detail pages (`react-router` routed)
@@ -59,9 +59,10 @@ NoBacklog is a modern task management system that combines:
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` (dragged lists render a clone of their cards) to avoid DOM-relocation conflicts with React's reconciliation
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
+- Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
+- Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
 
 **Not yet built:**
-- Loading/error states for boards and cards beyond a board-level spinner and error banner (list mutations now report errors per list)
 - Manual editing of time entries
 - Frontend automated tests
 
@@ -157,7 +158,7 @@ nobacklog/
         │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
             ├── api/                 # shared axios/fetch client (api.js)
-            └── components/          # shared UI (FieldLabel)
+            └── components/          # shared UI (FieldLabel, LoadError)
 ```
 
 ---
@@ -512,7 +513,7 @@ Open four terminals — one per process — and run all four commands above at t
 
 ### Current Sprint: Hardening
 - [x] Rank rebalancing when a position gap is exhausted (`PATCH /lists/:listId/cards/rebalance`)
-- [ ] Per-feature loading/error states (currently board-level only)
+- [x] Per-feature loading/error states (board name, lists and cards load and retry independently; failed drag persists roll back)
 - [ ] Frontend test coverage
 
 ### Future Features

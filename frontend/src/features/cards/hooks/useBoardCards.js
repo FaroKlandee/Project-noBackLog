@@ -52,7 +52,7 @@
  * reorderCard          — PATCH  /api/cards/<id>/reorder
  * rebalanceListCards   — PATCH  /api/lists/<id>/cards/rebalance
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createCard, deleteCard, getAllCardsByBoard, rebalanceListCards, reorderCard, updateCard } from "../api/cardService";
 import { generateRank } from "../utils/rank";
 
@@ -126,7 +126,8 @@ function groupCardsByList(cards) {
  *   submitDeleteCard:     Function,
  *   updateCardOrder:      Function,
  *   persistCardPosition:  Function,
- *   rebalanceList:        Function
+ *   rebalanceList:        Function,
+ *   reload:               Function
  * }} An object containing:
  *   - `cardsByList`         — Record of list ID to that list's cards array.
  *                             Lists with no cards are simply absent, so consumers
@@ -144,6 +145,8 @@ function groupCardsByList(cards) {
  *   - `persistCardPosition` — PATCH a card's new list + position to the backend.
  *   - `rebalanceList`       — Re-space a list's ranks on the backend once a
  *                             gap is exhausted, and apply them to state.
+ *   - `reload`              — Re-runs the board's card fetch, e.g. from a Retry
+ *                             button after a failed load.
  */
 export function useBoardCards(boardId) {
 	/*
@@ -160,6 +163,10 @@ export function useBoardCards(boardId) {
 	const [fetchError, setFetchError] = useState(null);
 	const [mutationError, setMutationError] = useState(null);
 
+	/* Bumped by `reload` to re-run the fetch effect below (see useBoards). */
+	const [reloadKey, setReloadKey] = useState(0);
+	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+
 	/*
 	 * Fetch Effect
 	 * ─────────────────────────────────────────────────────────────────────
@@ -169,6 +176,7 @@ export function useBoardCards(boardId) {
 	 * board has changed, which would otherwise write another board's cards into
 	 * state.
 	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
 		/* No board resolved yet (e.g. a non-numeric URL param). */
 		if (!boardId && boardId !== 0) {
@@ -192,7 +200,7 @@ export function useBoardCards(boardId) {
 			.finally(() => { if (!cancelled) setLoading(false); });
 
 		return () => { cancelled = true; };
-	}, [boardId]);
+	}, [boardId, reloadKey]);
 
 	/*
 	 * Local State Helpers
@@ -376,16 +384,26 @@ export function useBoardCards(boardId) {
 	 * because an optimistic update keeps the drag interaction responsive and a
 	 * failure can still surface as a scoped mutation error.
 	 *
+	 * On failure the record is rolled back to `previousCardsByList`, chosen over
+	 * leaving the optimistic placement, because the server still holds the old
+	 * one — the next load would silently undo the move, so it's undone visibly
+	 * now, next to the error. The rollback replaces the whole record, so another
+	 * card change that lands while the request is in flight is reverted too;
+	 * accepted given how short that window is.
+	 *
 	 * @async
 	 * @param {number} cardId   - ID of the card that moved.
 	 * @param {number} listId   - ID of the list the card now belongs to.
 	 * @param {string} position - The card's new position rank within that list.
+	 * @param {Object<number, Array<Object>>} previousCardsByList - The pre-drag
+	 *   record to restore if the request fails.
 	 */
-	async function persistCardPosition(cardId, listId, position) {
+	async function persistCardPosition(cardId, listId, position, previousCardsByList) {
 		try {
 			await reorderCard(cardId, { listId, position });
 		} catch (err) {
-			setMutationError({ listId, message: err.message });
+			setCardsByList(previousCardsByList);
+			setMutationError({ listId, message: `Couldn't move the card: ${err.message}` });
 		}
 	}
 
@@ -403,13 +421,16 @@ export function useBoardCards(boardId) {
 	 * @param {number}   listId         - ID of the list to rebalance.
 	 * @param {number[]} orderedCardIds - The list's card IDs, top to bottom,
 	 *   including the card that was just dropped.
+	 * @param {Object<number, Array<Object>>} previousCardsByList - The pre-drag
+	 *   record to restore if the request fails (see persistCardPosition).
 	 */
-	async function rebalanceList(listId, orderedCardIds) {
+	async function rebalanceList(listId, orderedCardIds, previousCardsByList) {
 		try {
 			const response = await rebalanceListCards(listId, orderedCardIds);
 			applyRanks(listId, response.data);
 		} catch (err) {
-			setMutationError({ listId, message: err.message });
+			setCardsByList(previousCardsByList);
+			setMutationError({ listId, message: `Couldn't move the card: ${err.message}` });
 		}
 	}
 
@@ -425,5 +446,6 @@ export function useBoardCards(boardId) {
 		updateCardOrder,
 		persistCardPosition,
 		rebalanceList,
+		reload,
 	};
 }

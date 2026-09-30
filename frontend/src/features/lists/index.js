@@ -33,3 +33,4 @@ export * from './constants';
 export { default as Lists } from './components/Lists';
 export { default as ListColumn } from './components/ListColumn';
 export { default as ListColumnPreview } from './components/ListColumnPreview';
+export { default as ListColumnSkeleton } from './components/ListColumnSkeleton';

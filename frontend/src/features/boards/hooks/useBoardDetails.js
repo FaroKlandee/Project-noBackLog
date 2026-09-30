@@ -19,7 +19,7 @@
  * useEffect, useState — React hooks for side-effects and local state.
  * getBoardById        — service function that calls GET /api/boards/<id>.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getBoardById } from "../api/boardService";
 
 /**
@@ -32,12 +32,14 @@ import { getBoardById } from "../api/boardService";
  * @returns {{
  *   board:   Object|null,
  *   loading: boolean,
- *   error:   string|null
+ *   error:   string|null,
+ *   reload:  Function
  * }} An object containing:
  *   - `board`   — The fetched board object (`{ id, name, ... }`), or `null`
  *                 before the first successful fetch.
  *   - `loading` — `true` while the HTTP request is in-flight.
  *   - `error`   — `null` on success; the error message string if the fetch fails.
+ *   - `reload`  — Re-runs the fetch, e.g. from a Retry button after a failure.
  */
 export function useBoardDetails(id) {
 	/*
@@ -51,7 +53,18 @@ export function useBoardDetails(id) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 
+	/* Bumped by `reload` to re-run the fetch effect (see useBoards). */
+	const [reloadKey, setReloadKey] = useState(0);
+	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
+		/*
+		 * The `cancelled` flag drops a late response from a previous board, so
+		 * navigating quickly between boards can't show the wrong name.
+		 */
+		let cancelled = false;
+
 		/*
 		 * fetchBoard is defined as an inner async function because useEffect
 		 * callbacks must not be async themselves (they must return either nothing
@@ -59,17 +72,22 @@ export function useBoardDetails(id) {
 		 */
 		const fetchBoard = async () => {
 			const response = await getBoardById(id);
-			setBoard(response.data);
+			if (!cancelled) setBoard(response.data);
 		};
 
-		/* Reset loading to true on each re-run (e.g. when id changes). */
+		/*
+		 * Reset on each re-run (id change or reload), so a previous failure
+		 * doesn't outlive the fetch that replaced it.
+		 */
 		setLoading(true);
+		setError(null);
 
 		fetchBoard()
-			.catch(err => setError(err.message))
-			.finally(() => setLoading(false));
+			.catch(err => { if (!cancelled) setError(err.message); })
+			.finally(() => { if (!cancelled) setLoading(false); });
 
-	}, [id]); /* Re-run whenever the board ID changes. */
+		return () => { cancelled = true; };
+	}, [id, reloadKey]); /* Re-run whenever the board ID changes or on reload. */
 
-	return { board, loading, error };
+	return { board, loading, error, reload };
 }

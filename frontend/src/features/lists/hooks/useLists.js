@@ -7,7 +7,9 @@
  *   - Fetches all lists on mount (and re-fetches if the board ID changes).
  *   - Exposes createNewList and deleteExistingList for server mutations with
  *     optimistic local-state updates.
- *   - Exposes updateListOrder for drag-and-drop reorder without a re-fetch.
+ *   - Exposes updateListOrder for drag-and-drop reorder without a re-fetch,
+ *     and persistListOrder to save that order (rolling back on failure).
+ *   - Exposes reload so a failed initial fetch can be retried.
  *
  * The initial fetch and later mutations report failures separately, like
  * useBoardCards does: `fetchError` means the board has no lists to show, while
@@ -18,7 +20,8 @@
  *   - BoardDetailPage (src/pages/BoardDetailPage.jsx)
  *
  * Depends on:
- *   - getAllLists, createList, deleteList, updateList (features/lists/api/listService.js)
+ *   - getAllLists, createList, deleteList, updateList, reorderLists
+ *     (features/lists/api/listService.js)
  */
 
 /*
@@ -29,9 +32,10 @@
  * getAllLists          — GET  /api/lists?boardId=<id>
  * deleteList          — DELETE /api/lists/<id>
  * updateList          — PUT  /api/lists/<id>
+ * reorderLists        — PATCH /api/lists/reorder
  */
-import { useEffect, useState } from "react";
-import { createList, getAllLists, deleteList, updateList } from "../api/listService";
+import { useCallback, useEffect, useState } from "react";
+import { createList, getAllLists, deleteList, updateList, reorderLists } from "../api/listService";
 
 /**
  * Custom hook that fetches all lists for a given board and exposes list
@@ -47,6 +51,8 @@ import { createList, getAllLists, deleteList, updateList } from "../api/listServ
  *   mutationError:       {listId: number|null, message: string}|null,
  *   setMutationError:    Function,
  *   updateListOrder:     Function,
+ *   persistListOrder:    Function,
+ *   reload:              Function,
  *   createNewList:       Function,
  *   deleteExistingList:  Function,
  *   renameList:          Function
@@ -54,12 +60,15 @@ import { createList, getAllLists, deleteList, updateList } from "../api/listServ
  *   - `lists`              — Array of list objects for this board, ordered by position.
  *   - `loading`            — `true` while the initial fetch is in-flight.
  *   - `fetchError`         — `null` on success; error message string if the fetch fails.
- *   - `mutationError`      — `{ listId, message }` if the last create/delete/rename
- *                            failed; `listId` is null for a failed create.
+ *   - `mutationError`      — `{ listId, message }` if the last create/delete/rename/
+ *                            reorder failed; `listId` is null for a failed create.
  *   - `setMutationError`   — Setter so the UI can dismiss the mutation error.
  *   - `updateListOrder`    — Replaces the lists array with a new ordered array.
  *                            Called after drag-and-drop to update local state without
  *                            triggering a full re-fetch.
+ *   - `persistListOrder`   — Saves the current order to the backend, restoring a
+ *                            given snapshot if the request fails.
+ *   - `reload`             — Re-runs the initial fetch, e.g. from a Retry button.
  *   - `createNewList`      — Async function to create a list and append it to local state.
  *                            Resolves to `true` on success, `false` on failure.
  *   - `deleteExistingList` — Async function to delete a list and remove it from local state.
@@ -72,8 +81,8 @@ export function useLists(id) {
 	 * ─────────────────────────────────────────────────────────────────────
 	 * lists         — the fetched lists array, ordered by position.
 	 * loading       — true while the initial fetch is in-flight. Mutations
-	 *                 don't touch it: BoardDetailPage swaps the whole board
-	 *                 for a spinner while it's true.
+	 *                 don't touch it: BoardDetailPage swaps the list columns
+	 *                 for placeholders while it's true.
 	 * fetchError    — set if the initial fetch failed.
 	 * mutationError — set if a create/delete/rename failed, tagged with the
 	 *                 originating listId (null for create).
@@ -82,6 +91,10 @@ export function useLists(id) {
 	const [loading, setLoading] = useState(true);
 	const [fetchError, setFetchError] = useState(null);
 	const [mutationError, setMutationError] = useState(null);
+
+	/* Bumped by `reload` to re-run the fetch effect (see useBoards). */
+	const [reloadKey, setReloadKey] = useState(0);
+	const reload = useCallback(() => setReloadKey(key => key + 1), []);
 
 	/*
 	 * Mutation Helpers
@@ -98,6 +111,33 @@ export function useLists(id) {
 	 */
 	function updateListOrder(newOrderedLists) {
 		setLists(newOrderedLists);
+	}
+
+	/**
+	 * Persist a list order that updateListOrder has already applied locally.
+	 *
+	 * Rolls local state back to `previousLists` on failure, chosen over leaving
+	 * the optimistic order in place, because the server still holds the old
+	 * order — the next load would silently undo the drag, so it's better to
+	 * undo it visibly now, next to an error. The error is tagged with the
+	 * dragged list's id so it renders in that column.
+	 *
+	 * The rollback replaces the whole array, so a rename or create that lands
+	 * while the reorder is in flight is also reverted; accepted given how
+	 * short that window is.
+	 *
+	 * @async
+	 * @param {number[]}      orderedIds    - Every list ID on the board, in the new order.
+	 * @param {number}        movedListId   - The list that was dragged.
+	 * @param {Array<Object>} previousLists - The pre-drag lists array to restore on failure.
+	 */
+	async function persistListOrder(orderedIds, movedListId, previousLists) {
+		try {
+			await reorderLists(orderedIds);
+		} catch (err) {
+			setLists(previousLists);
+			setMutationError({ listId: movedListId, message: `Couldn't save the new list order: ${err.message}` });
+		}
 	}
 
 	/**
@@ -172,21 +212,31 @@ export function useLists(id) {
 	/*
 	 * Initial Fetch Effect
 	 * ─────────────────────────────────────────────────────────────────────
-	 * Runs on mount and re-runs whenever the board ID changes. fetchLists is
-	 * a nested async function because useEffect callbacks must not themselves
-	 * be async.
+	 * Runs on mount and re-runs whenever the board ID changes or `reload` is
+	 * called. fetchLists is a nested async function because useEffect
+	 * callbacks must not themselves be async.
+	 *
+	 * The `cancelled` flag drops a late response from a previous board, which
+	 * would otherwise write another board's lists into state.
 	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
+		let cancelled = false;
+
 		const fetchLists = async () => {
 			const response = await getAllLists(id);
-			setLists(response.data);
+			if (!cancelled) setLists(response.data);
 		};
 
-		fetchLists()
-			.catch(err => setFetchError(err.message))
-			.finally(() => setLoading(false));
+		setLoading(true);
+		setFetchError(null);
 
-	}, [id]); /* Re-run whenever the board ID changes. */
+		fetchLists()
+			.catch(err => { if (!cancelled) setFetchError(err.message); })
+			.finally(() => { if (!cancelled) setLoading(false); });
+
+		return () => { cancelled = true; };
+	}, [id, reloadKey]); /* Re-run whenever the board ID changes or on reload. */
 
 	return {
 		lists,
@@ -195,6 +245,8 @@ export function useLists(id) {
 		mutationError,
 		setMutationError,
 		updateListOrder,
+		persistListOrder,
+		reload,
 		createNewList,
 		deleteExistingList,
 		renameList,

@@ -16,9 +16,12 @@
  *   - The inline add-card form with title input, priority selector, and
  *     keyboard shortcuts (Shift+Enter to submit; L/M/H to set priority).
  *
- * Card loading and fetch-error states are no longer handled here — they are
- * board-level concerns surfaced once by BoardDetailPage, since useBoardCards
- * loads every list's cards in one pass.
+ * Card loading and fetch-error states are owned board-wide by useBoardCards,
+ * which loads every list's cards in one pass. This column only reflects them:
+ * it passes them on to Cards (placeholders / "unavailable" text) and hides the
+ * card count and add-card button until the cards have loaded — creating a card
+ * against an unloaded list would rank it without knowing the existing ranks.
+ * The Retry banner for a failed load is rendered once by BoardDetailPage.
  *
  * Hierarchy:
  *   Lists           (src/features/lists/components/Lists.jsx)
@@ -204,6 +207,8 @@ export default function ListColumn({
 	list,
 	index,
 	cards = [],
+	cardsLoading = false,
+	cardsError = null,
 	deleteExistingList,
 	renameList,
 	onCreateCard,
@@ -214,6 +219,12 @@ export default function ListColumn({
 	listError,
 	onDismissListError,
 }) {
+	/*
+	 * Whether this column's cards are loaded and usable. Gates the card count
+	 * badge and the add-card controls (see the file header).
+	 */
+	const cardsReady = !cardsLoading && !cardsError;
+
 	/*
 	 * Options Menu State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -619,7 +630,7 @@ export default function ListColumn({
 						)}
 
 						{/* Card count badge — pill showing total cards in this column. */}
-						<Box
+						{cardsReady && <Box
 							component="span"
 							sx={(theme) => ({
 								ml: 1,
@@ -632,16 +643,18 @@ export default function ListColumn({
 							})}
 						>
 							{cards.length}
-						</Box>
+						</Box>}
 
 						{/* Add card button — opens the inline add-card form. */}
-						<IconButton
-							size="small"
-							onClick={() => setIsAddingCard(true)}
-							sx={{ color: 'secondary.main', p: 0.5 }}
-						>
-							<AddIcon fontSize="small" />
-						</IconButton>
+						{cardsReady && (
+							<IconButton
+								size="small"
+								onClick={() => setIsAddingCard(true)}
+								sx={{ color: 'secondary.main', p: 0.5 }}
+							>
+								<AddIcon fontSize="small" />
+							</IconButton>
+						)}
 
 						{/* Options menu trigger — opens the MoreVert dropdown. */}
 						<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
@@ -702,7 +715,13 @@ export default function ListColumn({
 					 * which CardItem uses as its sortable group.
 					 */}
 					<Box ref={cardDropRef}>
-						<Cards cards={cards} onDeleteCard={handleDeleteCard} onEditCard={handleEditCard} />
+						<Cards
+							cards={cards}
+							loading={cardsLoading}
+							error={cardsError}
+							onDeleteCard={handleDeleteCard}
+							onEditCard={handleEditCard}
+						/>
 					</Box>
 
 					{/*
@@ -716,7 +735,7 @@ export default function ListColumn({
 					 * container, but ignores blur events caused by clicking into a MUI
 					 * Select listbox popover (which is rendered outside the form in the DOM).
 					 */}
-					{isAddingCard && (
+					{isAddingCard && cardsReady && (
 						<Box
 							data-card-form
 							onKeyDown={handleFormKeyDown}
