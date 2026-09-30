@@ -132,5 +132,26 @@ async function reorderCard(id, data) {
 	return await api.patch(`/api/cards/${id}/reorder`, data);
 }
 
+/**
+ * Rewrite every card rank in one list, evenly spaced, in the given order.
+ *
+ * Calls `PATCH /api/lists/<listId>/cards/rebalance` with the list's card IDs
+ * in their intended order. Used once `generateRank` reports an exhausted gap
+ * (see utils/rank.js). The payload must include every card currently in the
+ * list; a card ID from another list is moved into this one, so a cross-list
+ * drop needs no separate `reorderCard` call.
+ *
+ * @async
+ * @param {number|string} listId         - ID of the list to rebalance.
+ * @param {number[]}      orderedCardIds - The list's card IDs, top to bottom.
+ * @returns {Promise<Object>} Parsed JSON response (`{ data: Card[] }`, in order,
+ *   each carrying its new `position`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status (409 if
+ *   the list holds a card the payload omitted).
+ */
+async function rebalanceListCards(listId, orderedCardIds) {
+	return await api.patch(`/api/lists/${listId}/cards/rebalance`, orderedCardIds);
+}
+
 /* Exports */
-export { getAllCards, getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard };
+export { getAllCards, getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard, rebalanceListCards };

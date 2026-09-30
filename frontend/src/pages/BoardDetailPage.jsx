@@ -249,6 +249,7 @@ export default function BoardDetailPage() {
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,
+		rebalanceList,
 	} = useBoardCards(Number(boardId));
 
 	/*
@@ -398,18 +399,30 @@ export default function BoardDetailPage() {
 			 */
 			const position = generateRank(cardsInList[index - 1]?.position, cardsInList[index + 1]?.position);
 
+			/*
+			 * A null position means the gap between the new neighbors is exhausted.
+			 * The card keeps its old rank locally until the rebalance response
+			 * assigns real ones — its place in the array is what renders the order.
+			 */
 			const nextCardsByList = {
 				...moved,
 				[listId]: cardsInList.map((card, i) =>
-					i === index ? { ...card, listId, position } : card
+					i === index ? { ...card, listId, position: position ?? card.position } : card
 				),
 			};
 
 			/* Update local state immediately for a responsive UI. */
 			updateCardOrder(nextCardsByList);
 
-			/* Persist the card's new list + rank to the backend. */
-			persistCardPosition(cardId, listId, position);
+			/*
+			 * Persist the card's new list + rank to the backend, or — with no rank
+			 * left — re-space the whole list, which persists the move as well.
+			 */
+			if (position === null) {
+				rebalanceList(listId, cardsInList.map(card => card.id));
+			} else {
+				persistCardPosition(cardId, listId, position);
+			}
 
 			return;
 		}

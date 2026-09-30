@@ -49,7 +49,7 @@ NoBacklog is a modern task management system that combines:
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
 **Styling/Components:** MUI (Material UI)  
-**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Next up is hardening (loading/error states, rank rebalancing, frontend tests).
+**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Hardening is in progress: card rank rebalancing is done; loading/error states and frontend tests are next.
 
 **Implemented so far:**
 - Boards list and board detail pages (`react-router` routed)
@@ -219,7 +219,7 @@ if (string.IsNullOrWhiteSpace(request.Position))
 ```
 
 ### Ordering Strategy
-Lists and Cards both carry a string `Position` field. The backend orders by a plain `OrderBy(x => x.Position)`; the frontend generates fixed-width, zero-padded rank strings (see [`rank.js`](frontend/src/features/cards/utils/rank.js)) so a lexicographic string sort is equivalent to a numeric one. New positions are computed client-side as the midpoint between two neighboring ranks, which supports append and insert-between without a server round trip to compute the value. Rebalancing an exhausted gap is not yet implemented.
+Lists and Cards both carry a string `Position` field. The backend orders by a plain `OrderBy(x => x.Position)`; the frontend generates fixed-width, zero-padded rank strings (see [`rank.js`](frontend/src/features/cards/utils/rank.js)) so a lexicographic string sort is equivalent to a numeric one. New positions are computed client-side as the midpoint between two neighboring ranks, which supports append and insert-between without a server round trip to compute the value. When no integer rank is left between two neighbors (or an append would overflow the 8-digit width), `generateRank` returns `null` and the client sends the list's intended card order to `PATCH /lists/:listId/cards/rebalance`. The server then rewrites every rank in that list 1000 apart in a single transaction. A card coming from another list is moved in by the same call, so a cross-list drop that exhausts a gap is persisted in one request.
 
 ---
 
@@ -259,6 +259,7 @@ GET    /cards/:id         - Get card by ID
 PUT    /cards/:id         - Update card
 DELETE /cards/:id         - Delete card
 PATCH  /cards/:id/reorder - Reposition a card (body: { listId, position })
+PATCH  /lists/:listId/cards/rebalance - Re-space every card rank in a list (body: ordered array of card IDs; 409 if a card in the list is missing)
 ```
 
 ### TimeLog Endpoints
@@ -510,7 +511,7 @@ Open four terminals — one per process — and run all four commands above at t
 - [ ] Run `dotnet test` in CI (GitHub Actions)
 
 ### Current Sprint: Hardening
-- [ ] Rank rebalancing when a position gap is exhausted
+- [x] Rank rebalancing when a position gap is exhausted (`PATCH /lists/:listId/cards/rebalance`)
 - [ ] Per-feature loading/error states (currently board-level only)
 - [ ] Frontend test coverage
 

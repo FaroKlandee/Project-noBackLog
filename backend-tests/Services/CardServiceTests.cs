@@ -242,4 +242,69 @@ public class CardServiceTests : IDisposable
         Assert.Null(await CreateService().RepositionCardAsync(
             999, new CardReorderRequest { ListId = list.Id, Position = "a" }));
     }
+
+    [Fact]
+    public async Task RebalanceListCards_RewritesRanksEvenlyInGivenOrder()
+    {
+        var list = _db.AddList(_db.AddBoard().Id);
+        /* An exhausted gap: A and B are adjacent integers, C collides with B. */
+        var a = _db.AddCard(list.Id, "A", position: "00000500");
+        var b = _db.AddCard(list.Id, "B", position: "00000501");
+        var c = _db.AddCard(list.Id, "C", position: "00000501");
+
+        await CreateService().RebalanceListCardsAsync(list.Id, [a.Id, c.Id, b.Id]);
+
+        var cards = (await CreateService().GetAllCardsAsync(list.Id, null)).ToList();
+        Assert.Equal(["A", "C", "B"], cards.Select(x => x.Title));
+        Assert.Equal(["00001000", "00002000", "00003000"], cards.Select(x => x.Position));
+    }
+
+    [Fact]
+    public async Task RebalanceListCards_MovesCardFromAnotherList()
+    {
+        var board = _db.AddBoard();
+        var list = _db.AddList(board.Id);
+        var source = _db.AddList(board.Id);
+        var a = _db.AddCard(list.Id, "A", position: "00000500");
+        var b = _db.AddCard(list.Id, "B", position: "00000501");
+        var moving = _db.AddCard(source.Id, "Moving", position: "00001000");
+
+        await CreateService().RebalanceListCardsAsync(list.Id, [a.Id, moving.Id, b.Id]);
+
+        var cards = await CreateService().GetAllCardsAsync(list.Id, null);
+        Assert.Equal(["A", "Moving", "B"], cards.Select(x => x.Title));
+        Assert.Empty(await CreateService().GetAllCardsAsync(source.Id, null));
+    }
+
+    [Fact]
+    public async Task RebalanceListCards_UnknownList_Throws()
+    {
+        var card = _db.AddCardWithParents();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            CreateService().RebalanceListCardsAsync(999, [card.Id]));
+    }
+
+    [Fact]
+    public async Task RebalanceListCards_UnknownCard_Throws()
+    {
+        var card = _db.AddCardWithParents();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            CreateService().RebalanceListCardsAsync(card.ListId, [card.Id, 999]));
+    }
+
+    [Fact]
+    public async Task RebalanceListCards_PayloadMissingACardInList_ThrowsAndLeavesRanksUntouched()
+    {
+        var list = _db.AddList(_db.AddBoard().Id);
+        var a = _db.AddCard(list.Id, "A", position: "00000500");
+        _db.AddCard(list.Id, "B", position: "00000501");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().RebalanceListCardsAsync(list.Id, [a.Id]));
+
+        var cards = await CreateService().GetAllCardsAsync(list.Id, null);
+        Assert.Equal(["00000500", "00000501"], cards.Select(x => x.Position));
+    }
 }

@@ -37,8 +37,8 @@
  *   }
  *
  * Depends on:
- *   - getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard
- *     (features/cards/api/cardService.js)
+ *   - getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard,
+ *     rebalanceListCards (features/cards/api/cardService.js)
  */
 
 /*
@@ -50,9 +50,10 @@
  * updateCard           — PUT    /api/cards/<id>
  * deleteCard           — DELETE /api/cards/<id>
  * reorderCard          — PATCH  /api/cards/<id>/reorder
+ * rebalanceListCards   — PATCH  /api/lists/<id>/cards/rebalance
  */
 import { useEffect, useState } from "react";
-import { createCard, deleteCard, getAllCardsByBoard, reorderCard, updateCard } from "../api/cardService";
+import { createCard, deleteCard, getAllCardsByBoard, rebalanceListCards, reorderCard, updateCard } from "../api/cardService";
 import { generateRank } from "../utils/rank";
 
 /**
@@ -124,7 +125,8 @@ function groupCardsByList(cards) {
  *   submitUpdateCard:     Function,
  *   submitDeleteCard:     Function,
  *   updateCardOrder:      Function,
- *   persistCardPosition:  Function
+ *   persistCardPosition:  Function,
+ *   rebalanceList:        Function
  * }} An object containing:
  *   - `cardsByList`         — Record of list ID to that list's cards array.
  *                             Lists with no cards are simply absent, so consumers
@@ -140,6 +142,8 @@ function groupCardsByList(cards) {
  *   - `submitDeleteCard`    — Delete a card from a given list and remove it.
  *   - `updateCardOrder`     — Replace the whole record after a drag reorder.
  *   - `persistCardPosition` — PATCH a card's new list + position to the backend.
+ *   - `rebalanceList`       — Re-space a list's ranks on the backend once a
+ *                             gap is exhausted, and apply them to state.
  */
 export function useBoardCards(boardId) {
 	/*
@@ -227,6 +231,28 @@ export function useBoardCards(boardId) {
 	}
 
 	/**
+	 * Apply server-assigned ranks from a rebalance to one list's bucket.
+	 *
+	 * Only `position` (and `listId`, for a card the rebalance moved in) is
+	 * merged, chosen over replacing the bucket with the response, because the
+	 * bucket is already in the right order from the optimistic update and the
+	 * rest of each card is unchanged.
+	 *
+	 * @param {number}        listId      - ID of the rebalanced list.
+	 * @param {Array<Object>} rankedCards - Cards returned by the rebalance call.
+	 */
+	function applyRanks(listId, rankedCards) {
+		const positions = new Map(rankedCards.map(card => [card.id, card.position]));
+
+		setCardsByList(prev => ({
+			...prev,
+			[listId]: (prev[listId] ?? []).map(card =>
+				positions.has(card.id) ? { ...card, listId, position: positions.get(card.id) } : card
+			),
+		}));
+	}
+
+	/**
 	 * Remove a card from one list's bucket in the record.
 	 *
 	 * @param {number} listId - ID of the list the card belongs to.
@@ -260,7 +286,9 @@ export function useBoardCards(boardId) {
 	 *
 	 * The new card is always ranked after the current last card in the list —
 	 * `generateRank(lastCard?.position, undefined)` with no upper bound — since a
-	 * freshly created card has no drag context to place it anywhere else.
+	 * freshly created card has no drag context to place it anywhere else. If
+	 * that append would overflow the rank width, the list is rebalanced first
+	 * and the new card is ranked after the re-spaced last card.
 	 *
 	 * @async
 	 * @param {number} listId - ID of the list to create the card in.
@@ -270,7 +298,13 @@ export function useBoardCards(boardId) {
 		try {
 			const existingCards = cardsByList[listId] ?? [];
 			const lastCard = existingCards[existingCards.length - 1];
-			const position = generateRank(lastCard?.position, undefined);
+			let position = generateRank(lastCard?.position, undefined);
+
+			if (position === null) {
+				const rebalanced = (await rebalanceListCards(listId, existingCards.map(card => card.id))).data;
+				applyRanks(listId, rebalanced);
+				position = generateRank(rebalanced[rebalanced.length - 1]?.position, undefined);
+			}
 
 			const response = await createCard({ ...data, listId, position });
 			addCard(listId, response.data);
@@ -355,6 +389,30 @@ export function useBoardCards(boardId) {
 		}
 	}
 
+	/**
+	 * Re-space every rank in a list, in the order given, and apply the new
+	 * ranks to state.
+	 *
+	 * Called instead of `persistCardPosition` when `generateRank` returns null
+	 * for a drop — the gap between the card's new neighbors is exhausted. Like
+	 * `persistCardPosition`, it runs after `updateCardOrder` has already placed
+	 * the card locally; the rebalance call both persists that placement (moving
+	 * the card into the list if it came from another) and assigns real ranks.
+	 *
+	 * @async
+	 * @param {number}   listId         - ID of the list to rebalance.
+	 * @param {number[]} orderedCardIds - The list's card IDs, top to bottom,
+	 *   including the card that was just dropped.
+	 */
+	async function rebalanceList(listId, orderedCardIds) {
+		try {
+			const response = await rebalanceListCards(listId, orderedCardIds);
+			applyRanks(listId, response.data);
+		} catch (err) {
+			setMutationError({ listId, message: err.message });
+		}
+	}
+
 	return {
 		cardsByList,
 		loading,
@@ -366,5 +424,6 @@ export function useBoardCards(boardId) {
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,
+		rebalanceList,
 	};
 }

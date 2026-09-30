@@ -23,9 +23,9 @@ public class CardService : ICardService
      * board-sized row counts.
      *
      * Position ordering is tie-broken by CreatedAt, accepted deliberately over
-     * ordering on Position alone, because two cards can still legitimately share
-     * a rank — rank.js's generateRank() falls back to a colliding value once a
-     * gap between neighbors is exhausted rather than rebalancing the list — and
+     * ordering on Position alone, because two cards can still share a rank —
+     * rows written before RebalanceListCardsAsync existed, when an exhausted
+     * gap fell back to a colliding value, or two clients ranking at once — and
      * ordering on an all-identical column is non-deterministic in Postgres, so
      * rows with a shared rank would reshuffle after any unrelated UPDATE.
      */
@@ -135,5 +135,69 @@ public class CardService : ICardService
         await _context.SaveChangesAsync();
 
         return card;
+    }
+
+    /*
+     * Rank format shared with frontend/src/features/cards/utils/rank.js —
+     * fixed-width, zero-padded integers spaced RankGap apart. Must stay in sync
+     * with RANK_WIDTH / RANK_GAP there, or rebalanced ranks and client-generated
+     * ranks would stop sorting against each other.
+     */
+    private const int RankWidth = 8;
+    private const int RankGap = 1000;
+
+    /*
+     * Rewrites every card rank in one list, evenly spaced, in the order given.
+     *
+     * Called by the client once rank.js reports that no integer rank is left
+     * between two neighbors. The client sends the list's full intended order,
+     * chosen over the server re-spacing the current stored order, because the
+     * drop that triggered the rebalance hasn't been persisted yet — the
+     * payload is the only place the new order exists.
+     *
+     * A card ID currently in another list is moved into this one, so a
+     * cross-list drop that exhausts a gap is persisted in this single call
+     * rather than a reposition followed by a rebalance.
+     *
+     * The payload must cover every card currently in the list. A card missing
+     * from it means the client's view is stale (e.g. a card was added
+     * elsewhere), and re-spacing only some cards would collide with the ranks
+     * the others keep — so that is rejected as a conflict rather than guessed at.
+     *
+     * One SaveChangesAsync call, so the whole rewrite is a single transaction:
+     * the list is never left with a mix of old and new ranks.
+     */
+    public async Task<IEnumerable<Card>> RebalanceListCardsAsync(int listId, IReadOnlyList<int> orderedCardIds)
+    {
+        var listExists = await _context.Lists.AnyAsync(l => l.Id == listId);
+        if (!listExists)
+            throw new KeyNotFoundException($"List with ID {listId} not found.");
+
+        var cards = await _context.Cards
+            .Where(c => c.ListId == listId || orderedCardIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id);
+
+        var unknownIds = orderedCardIds.Where(id => !cards.ContainsKey(id)).ToList();
+        if (unknownIds.Count > 0)
+            throw new KeyNotFoundException($"Card with ID {unknownIds[0]} not found.");
+
+        var requested = orderedCardIds.ToHashSet();
+        if (cards.Values.Any(c => c.ListId == listId && !requested.Contains(c.Id)))
+            throw new InvalidOperationException(
+                "The card order is out of date — reload the board and try again.");
+
+        var now = DateTime.UtcNow;
+        var ordered = orderedCardIds.Select(id => cards[id]).ToList();
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].ListId = listId;
+            ordered[i].Position = ((i + 1) * RankGap).ToString().PadLeft(RankWidth, '0');
+            ordered[i].UpdatedAt = now;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return ordered;
     }
 }
