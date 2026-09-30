@@ -311,6 +311,12 @@ export default function ListColumn({
 	 * land. Giving the card area itself a droppable makes it a valid target
 	 * regardless of how many cards it currently holds.
 	 *
+	 * The ref goes on the column's visible surface (the inner Box in the render
+	 * below), not just a wrapper around <Cards>. A wrapper is only as tall as
+	 * its content — in an empty column that's the one "No cards yet" line — so
+	 * a card hovered anywhere lower down in the column had nothing to collide
+	 * with and the drop was ignored. The surface spans the full column height.
+	 *
 	 * `collisionPriority: CollisionPriority.Low` — dnd-kit resolves overlapping
 	 * collisions by priority first (highest wins), and an explicit
 	 * collisionPriority on a droppable overrides its naturally-computed one.
@@ -526,7 +532,7 @@ export default function ListColumn({
 	 *
 	 * Column structure:
 	 *   Box (outer — ref/hit-area for dnd-kit, inter-column gap as padding)
-	 *     └─ Box (inner — visual column surface: bg, border, radius)
+	 *     └─ Box (inner — visual column surface: bg, border, radius; card drop zone)
 	 *          └─ Box (content wrapper — hidden via visibility while isDragSource,
 	 *                   same placeholder treatment as CardItem.jsx)
 	 *               ├─ Stack (column header row)
@@ -565,6 +571,7 @@ export default function ListColumn({
 	return (
 		<Box ref={ref} component="section" sx={{ flexGrow: 0, flexShrink: 0, height: '100%', pr: 2 }}>
 			<Box
+				ref={cardDropRef}
 				sx={(theme) => ({
 					width: 280,
 					bgcolor: isDragSource ? 'transparent' : theme.palette.background.surface,
@@ -707,22 +714,18 @@ export default function ListColumn({
 					)}
 
 					{/*
-					 * Card drop zone — wraps the Cards presenter so the droppable area spans
-					 * both the populated and empty-state renders (see cardDropRef above).
-					 *
 					 * Cards presenter is purely presentational; receives the cards array and a
 					 * delete callback. No listId is passed: each card already carries its own,
-					 * which CardItem uses as its sortable group.
+					 * which CardItem uses as its sortable group. The card drop zone is the
+					 * whole column surface above, not this element (see cardDropRef).
 					 */}
-					<Box ref={cardDropRef}>
-						<Cards
-							cards={cards}
-							loading={cardsLoading}
-							error={cardsError}
-							onDeleteCard={handleDeleteCard}
-							onEditCard={handleEditCard}
-						/>
-					</Box>
+					<Cards
+						cards={cards}
+						loading={cardsLoading}
+						error={cardsError}
+						onDeleteCard={handleDeleteCard}
+						onEditCard={handleEditCard}
+					/>
 
 					{/*
 					 * Inline add-card form — conditionally rendered when isAddingCard is true.
