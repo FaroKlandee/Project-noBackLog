@@ -1,7 +1,7 @@
-diff --git a/node_modules/@dnd-kit/dom/sortable.cjs b/node_modules/@dnd-kit/dom/sortable.cjs
+diff --git a/sortable.cjs b/sortable.cjs
 index d931a15..0e84fc3 100644
---- a/node_modules/@dnd-kit/dom/sortable.cjs
-+++ b/node_modules/@dnd-kit/dom/sortable.cjs
+--- a/sortable.cjs
++++ b/sortable.cjs
 @@ -411,6 +411,9 @@ var defaultGroup = "__default__";
  var OptimisticSortingPlugin = class extends abstract.Plugin {
    constructor(manager) {
@@ -50,10 +50,10 @@ index d931a15..0e84fc3 100644
          if (!event.canceled) {
            return;
          }
-diff --git a/node_modules/@dnd-kit/dom/sortable.js b/node_modules/@dnd-kit/dom/sortable.js
+diff --git a/sortable.js b/sortable.js
 index bfa62cc..0388323 100644
---- a/node_modules/@dnd-kit/dom/sortable.js
-+++ b/node_modules/@dnd-kit/dom/sortable.js
+--- a/sortable.js
++++ b/sortable.js
 @@ -409,6 +409,9 @@ var defaultGroup = "__default__";
  var OptimisticSortingPlugin = class extends Plugin {
    constructor(manager) {
