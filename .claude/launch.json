@@ -3,15 +3,15 @@
   "configurations": [
     {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "frontend", "dev"],
       "port": 5173
     },
     {
       "name": "backend",
-      "runtimeExecutable": "dotnet",
+      "runtimeExecutable": "C:\\Program Files\\dotnet\\dotnet.exe",
       "runtimeArgs": ["run", "--project", "backend-dotnet", "--launch-profile", "http"],
-      "port": 5001
+      "port": 5000
     }
   ]
 }
