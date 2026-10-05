@@ -10,12 +10,16 @@
  */
 
 /**
- * `defineConfig` is a helper from Vite that provides IntelliSense/type-checking
- * for the config object without needing a TypeScript setup. It is a pure
- * identity function at runtime — it just returns the object passed to it —
- * but editors and IDEs use it to infer the correct config shape.
+ * `defineConfig` is a helper that provides IntelliSense/type-checking for the
+ * config object without needing a TypeScript setup. It is a pure identity
+ * function at runtime — it just returns the object passed to it — but editors
+ * and IDEs use it to infer the correct config shape.
+ *
+ * Imported from `vitest/config` rather than `vite`, because Vitest's version is
+ * a superset that also types the `test` key below. Vite itself ignores `test`,
+ * so `vite dev` / `vite build` behave exactly as before.
  */
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 /**
  * `@vitejs/plugin-react` enables full React support inside Vite:
@@ -49,4 +53,21 @@ export default defineConfig({
 	plugins: [
 		react(),
 	],
+
+	/**
+	 * `test` configures Vitest (`pnpm test`). Living in this file rather than a
+	 * separate vitest.config.js, so tests are transformed by the same plugins
+	 * as the app.
+	 *
+	 *  - `environment: 'jsdom'` — gives each test file a simulated browser DOM,
+	 *    which `renderHook` needs to mount a React root.
+	 *  - `setupFiles` — runs before every test file; see src/test/setup.js.
+	 *
+	 * `globals` is left at its default (false): tests import `describe`/`it`/
+	 * `expect` explicitly, matching the codebase's explicit-import style.
+	 */
+	test: {
+		environment: 'jsdom',
+		setupFiles: ['./src/test/setup.js'],
+	},
 })
