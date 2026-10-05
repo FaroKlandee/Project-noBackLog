@@ -4,7 +4,7 @@ AI-powered task management application with natural language command interface. 
 
 **Developer:** Patiphak Klandee (Faro)  
 **Technical Background:** ISTQB Certified | 3+ Years QA/Development Experience  
-**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) | Next: Hardening
+**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook Tests | Hardening Sprint Complete
 
 ---
 
@@ -49,7 +49,7 @@ NoBacklog is a modern task management system that combines:
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
 **Styling/Components:** MUI (Material UI)  
-**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. Hardening is in progress: card rank rebalancing and per-feature loading/error states are done; frontend tests are next.
+**Status:** Core Kanban experience is complete — board list, board detail, list and card CRUD, full drag-and-drop reordering (within and across columns), card editing, list renaming, and time tracking are implemented. The hardening sprint is complete: card rank rebalancing, per-feature loading/error states, and a Vitest suite covering the rank/duration utils and the data-owning hooks.
 
 **Implemented so far:**
 - Boards list and board detail pages (`react-router` routed)
@@ -61,10 +61,11 @@ NoBacklog is a modern task management system that combines:
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 - Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
+- Vitest test suite for the pure utils (`generateRank`, `formatDuration`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend
 
 **Not yet built:**
 - Manual editing of time entries
-- Frontend automated tests
+- Component-level frontend tests (React Testing Library)
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -99,6 +100,8 @@ NoBacklog is a modern task management system that combines:
 | Drag-and-Drop | `@dnd-kit` (react, abstract, helpers) | ^0.4.0 |
 | Package Manager | pnpm | — |
 | Lint/Format | Biome | ^1.9.4 |
+| Unit Testing | Vitest + jsdom + React Testing Library | ^5.0.3 / ^30.1.2 / ^16.3.3 |
+| API Mocking | MSW (Mock Service Worker) | ^3.0.2 |
 
 ### Future Integrations
 - **AI:** Anthropic Claude API
@@ -150,6 +153,7 @@ nobacklog/
 └── frontend/
     └── src/
         ├── app/                    # main.jsx, routes.jsx, theme.js
+        ├── test/                   # Vitest setup, MSW server, apiUrl helper
         ├── pages/                  # BoardsPage, BoardDetailPage
         ├── features/
         │   ├── boards/              # api, components, hooks
@@ -334,8 +338,22 @@ dotnet test backend-tests
 - **Coverage focus:** reference-integrity errors (unknown parent IDs), not-found paths, partial-update semantics (card/list `PUT`), cascade deletes, ordering and tie-breaks, and boundary values for the time-tracking limits (one below / at `MaxEntriesPerCard` and `MaxRunningTimers`).
 - **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself. Controllers (request validation, status codes, response envelope) aren't covered yet. The next step there would be `WebApplicationFactory` integration tests.
 
-### Frontend
-No automated tests yet (tracked under *Next Sprint: Hardening*). The `.http` file in `backend-dotnet/` is still useful for manual endpoint checks.
+### Frontend (Vitest)
+Test files sit next to the code they cover (`rank.js` → `rank.test.js`). No backend or database is needed:
+
+```bash
+cd frontend
+pnpm test            # run once
+pnpm test:watch      # re-run affected tests on save
+pnpm test:coverage   # coverage report (text + coverage/index.html)
+```
+
+- **Runner:** Vitest, configured in `vite.config.js` so tests go through the same transform pipeline as the app. `globals` is off — tests import `describe`/`it`/`expect` explicitly, so `src/test/setup.js` calls Testing Library's `cleanup()` itself.
+- **Backend stand-in:** MSW (`src/test/server.js`) intercepts `fetch`, so the real `api.js` and service modules run in every hook test: URLs, verbs, request bodies and error conversion are all exercised. The server starts with no handlers; each test declares exactly the endpoints it expects with `server.use(...)`, and any undeclared request fails the test (`onUnhandledRequest: 'error'`).
+- **Hooks** are driven with `renderHook` / `waitFor` / `act`. Error assertions match the exact message (e.g. `HTTP error: 500 Internal Server Error`), because an unmatched handler also produces an error (`TypeError: fetch failed`) and a vague assertion would pass for the wrong reason.
+- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
+- **Not covered yet:** components and pages (the coverage report lists them at 0%), and `api.js`'s timeout path.
 
 ---
 
@@ -470,6 +488,9 @@ Open four terminals — one per process — and run all four commands above at t
 ### Testing References
 - [ISTQB Syllabus](https://www.istqb.org/certifications/certified-tester-foundation-level)
 - [xUnit Documentation](https://xunit.net/)
+- [Vitest Documentation](https://vitest.dev/guide/)
+- [MSW Documentation](https://mswjs.io/docs/)
+- [React Testing Library — `renderHook`](https://testing-library.com/docs/react-testing-library/api/#renderhook)
 
 ---
 
@@ -511,10 +532,19 @@ Open four terminals — one per process — and run all four commands above at t
 - [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 - [ ] Run `dotnet test` in CI (GitHub Actions)
 
-### Current Sprint: Hardening
+### Previous Sprint: Hardening (Complete)
 - [x] Rank rebalancing when a position gap is exhausted (`PATCH /lists/:listId/cards/rebalance`)
 - [x] Per-feature loading/error states (board name, lists and cards load and retry independently; failed drag persists roll back)
-- [ ] Frontend test coverage
+- [x] Frontend test coverage (Vitest + MSW: rank/duration utils and the `useLists`, `useBoardCards`, `useCardTimeLogs` hooks)
+
+### Follow-ups from frontend tests
+- [ ] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`), then pages
+- [ ] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
+- [ ] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
+- [ ] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null (it currently keeps the last card's data)
+- [ ] Run `pnpm test` in CI alongside `dotnet test`
+- [ ] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite)
+- [ ] Add coverage thresholds once components are tested
 
 ### Future Features
 - [ ] User authentication
@@ -571,5 +601,5 @@ LinkedIn: [linkedin.com/in/patiphak-klandee](https://linkedin.com/in/patiphak-kl
 Portfolio: [faroklandee.in](https://faroklandee.in/)
 
  
-**Current Phase:** Frontend Development - Core Kanban UI complete (boards, lists, cards, drag-and-drop, card editing, time tracking); hardening sprint next  
+**Current Phase:** Frontend Development - Core Kanban UI complete (boards, lists, cards, drag-and-drop, card editing, time tracking); hardening sprint complete (incl. Vitest util/hook tests)  
 **Backend Status:** CRUD, reordering and timer endpoints complete across Board, List, Card, TimeLog resources | xUnit service-layer tests in place; controller integration tests pending

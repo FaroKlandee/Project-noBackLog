@@ -62,6 +62,9 @@ export default defineConfig({
 	 *  - `environment: 'jsdom'` — gives each test file a simulated browser DOM,
 	 *    which `renderHook` needs to mount a React root.
 	 *  - `setupFiles` — runs before every test file; see src/test/setup.js.
+	 *  - `coverage` — used by `pnpm test:coverage`. Measures all of `src/`, not
+	 *    just files some test imports, so untested components show up as 0%
+	 *    rather than being silently left out. Report only, no thresholds yet.
 	 *
 	 * `globals` is left at its default (false): tests import `describe`/`it`/
 	 * `expect` explicitly, matching the codebase's explicit-import style.
@@ -69,5 +72,12 @@ export default defineConfig({
 	test: {
 		environment: 'jsdom',
 		setupFiles: ['./src/test/setup.js'],
+		coverage: {
+			provider: 'v8',
+			include: ['src/**/*.{js,jsx}'],
+			exclude: ['src/test/**', 'src/**/*.test.{js,jsx}'],
+			/* skipFull: false — list 100%-covered files too, rather than omitting them. */
+			reporter: ['text-summary', ['text', { skipFull: false }], 'html'],
+		},
 	},
 })
