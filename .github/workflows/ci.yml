@@ -1,0 +1,76 @@
+# CI — runs both test suites on every push.
+#
+# Two independent jobs, run in parallel on separate runners:
+#   - backend:  `dotnet test` over backend-tests/ (xUnit, in-memory SQLite —
+#               no Postgres service needed).
+#   - frontend: `pnpm test` (Vitest + MSW — no backend needed), then
+#               `pnpm build` to catch anything that only breaks the bundle.
+#
+# `pnpm lint` is deliberately not run yet: the project has pre-existing Biome
+# errors outside the test suite (see the README's frontend-test follow-ups),
+# so it would fail every run until that cleanup lands.
+
+name: CI
+
+on:
+  push:
+  # Lets a run be started by hand from the Actions tab.
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The jobs only read the repo.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests (xUnit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # Builds backend-dotnet/ too, via the test project's ProjectReference.
+      - name: Test
+        run: dotnet test backend-tests --logger "console;verbosity=normal"
+
+  frontend:
+    name: Frontend tests (Vitest) + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs the pnpm version pinned in frontend/package.json's
+      # `packageManager` field, so CI and local installs match.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # --frozen-lockfile fails instead of silently updating the lockfile if it
+      # is out of sync with package.json.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
