@@ -16,9 +16,12 @@
  *   - The inline add-card form with title input, priority selector, and
  *     keyboard shortcuts (Shift+Enter to submit; L/M/H to set priority).
  *
- * Card loading and fetch-error states are no longer handled here — they are
- * board-level concerns surfaced once by BoardDetailPage, since useBoardCards
- * loads every list's cards in one pass.
+ * Card loading and fetch-error states are owned board-wide by useBoardCards,
+ * which loads every list's cards in one pass. This column only reflects them:
+ * it passes them on to Cards (placeholders / "unavailable" text) and hides the
+ * card count and add-card button until the cards have loaded — creating a card
+ * against an unloaded list would rank it without knowing the existing ranks.
+ * The Retry banner for a failed load is rendered once by BoardDetailPage.
  *
  * Hierarchy:
  *   Lists           (src/features/lists/components/Lists.jsx)
@@ -204,6 +207,8 @@ export default function ListColumn({
 	list,
 	index,
 	cards = [],
+	cardsLoading = false,
+	cardsError = null,
 	deleteExistingList,
 	renameList,
 	onCreateCard,
@@ -214,6 +219,12 @@ export default function ListColumn({
 	listError,
 	onDismissListError,
 }) {
+	/*
+	 * Whether this column's cards are loaded and usable. Gates the card count
+	 * badge and the add-card controls (see the file header).
+	 */
+	const cardsReady = !cardsLoading && !cardsError;
+
 	/*
 	 * Options Menu State
 	 * ─────────────────────────────────────────────────────────────────────
@@ -299,6 +310,12 @@ export default function ListColumn({
 	 * items — so a card dragged over an empty list would have nowhere to
 	 * land. Giving the card area itself a droppable makes it a valid target
 	 * regardless of how many cards it currently holds.
+	 *
+	 * The ref goes on the column's visible surface (the inner Box in the render
+	 * below), not just a wrapper around <Cards>. A wrapper is only as tall as
+	 * its content — in an empty column that's the one "No cards yet" line — so
+	 * a card hovered anywhere lower down in the column had nothing to collide
+	 * with and the drop was ignored. The surface spans the full column height.
 	 *
 	 * `collisionPriority: CollisionPriority.Low` — dnd-kit resolves overlapping
 	 * collisions by priority first (highest wins), and an explicit
@@ -515,7 +532,7 @@ export default function ListColumn({
 	 *
 	 * Column structure:
 	 *   Box (outer — ref/hit-area for dnd-kit, inter-column gap as padding)
-	 *     └─ Box (inner — visual column surface: bg, border, radius)
+	 *     └─ Box (inner — visual column surface: bg, border, radius; card drop zone)
 	 *          └─ Box (content wrapper — hidden via visibility while isDragSource,
 	 *                   same placeholder treatment as CardItem.jsx)
 	 *               ├─ Stack (column header row)
@@ -554,6 +571,7 @@ export default function ListColumn({
 	return (
 		<Box ref={ref} component="section" sx={{ flexGrow: 0, flexShrink: 0, height: '100%', pr: 2 }}>
 			<Box
+				ref={cardDropRef}
 				sx={(theme) => ({
 					width: 280,
 					bgcolor: isDragSource ? 'transparent' : theme.palette.background.surface,
@@ -619,7 +637,7 @@ export default function ListColumn({
 						)}
 
 						{/* Card count badge — pill showing total cards in this column. */}
-						<Box
+						{cardsReady && <Box
 							component="span"
 							sx={(theme) => ({
 								ml: 1,
@@ -632,16 +650,18 @@ export default function ListColumn({
 							})}
 						>
 							{cards.length}
-						</Box>
+						</Box>}
 
 						{/* Add card button — opens the inline add-card form. */}
-						<IconButton
-							size="small"
-							onClick={() => setIsAddingCard(true)}
-							sx={{ color: 'secondary.main', p: 0.5 }}
-						>
-							<AddIcon fontSize="small" />
-						</IconButton>
+						{cardsReady && (
+							<IconButton
+								size="small"
+								onClick={() => setIsAddingCard(true)}
+								sx={{ color: 'secondary.main', p: 0.5 }}
+							>
+								<AddIcon fontSize="small" />
+							</IconButton>
+						)}
 
 						{/* Options menu trigger — opens the MoreVert dropdown. */}
 						<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
@@ -694,16 +714,18 @@ export default function ListColumn({
 					)}
 
 					{/*
-					 * Card drop zone — wraps the Cards presenter so the droppable area spans
-					 * both the populated and empty-state renders (see cardDropRef above).
-					 *
 					 * Cards presenter is purely presentational; receives the cards array and a
 					 * delete callback. No listId is passed: each card already carries its own,
-					 * which CardItem uses as its sortable group.
+					 * which CardItem uses as its sortable group. The card drop zone is the
+					 * whole column surface above, not this element (see cardDropRef).
 					 */}
-					<Box ref={cardDropRef}>
-						<Cards cards={cards} onDeleteCard={handleDeleteCard} onEditCard={handleEditCard} />
-					</Box>
+					<Cards
+						cards={cards}
+						loading={cardsLoading}
+						error={cardsError}
+						onDeleteCard={handleDeleteCard}
+						onEditCard={handleEditCard}
+					/>
 
 					{/*
 					 * Inline add-card form — conditionally rendered when isAddingCard is true.
@@ -716,7 +738,7 @@ export default function ListColumn({
 					 * container, but ignores blur events caused by clicking into a MUI
 					 * Select listbox popover (which is rendered outside the form in the DOM).
 					 */}
-					{isAddingCard && (
+					{isAddingCard && cardsReady && (
 						<Box
 							data-card-form
 							onKeyDown={handleFormKeyDown}

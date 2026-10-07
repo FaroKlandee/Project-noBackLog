@@ -135,4 +135,39 @@ public class CardsController : ControllerBase
 				return NotFound(new { success = false, message = ex.Message });
 			}
     }
+
+    /*
+     * PATCH /api/lists/{listId}/cards/rebalance
+     *
+     * Body: the list's card IDs in their intended order. Rewrites every card's
+     * rank evenly spaced (see CardService.RebalanceListCardsAsync) and returns
+     * the cards with their new positions.
+     *
+     * Routed under /api/lists with an absolute ("~/") template, but kept on this
+     * controller, because the URL is scoped to a list while the operation only
+     * ever touches cards and belongs with the other card-ranking logic.
+     */
+    [HttpPatch("~/api/lists/{listId}/cards/rebalance")]
+    public async Task<IActionResult> Rebalance(int listId, [FromBody] int[] orderedCardIds)
+    {
+        if (orderedCardIds is null || orderedCardIds.Length == 0)
+            return BadRequest(new { success = false, message = "Rebalance payload cannot be empty." });
+
+        if (orderedCardIds.Distinct().Count() != orderedCardIds.Length)
+            return BadRequest(new { success = false, message = "Rebalance payload contains duplicate card IDs." });
+
+        try
+        {
+            var cards = await _cardService.RebalanceListCardsAsync(listId, orderedCardIds);
+            return Ok(new { success = true, message = "Cards successfully rebalanced.", data = cards });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { success = false, message = ex.Message });
+        }
+    }
 }

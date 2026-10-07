@@ -25,13 +25,22 @@
  * each bisect the remaining gap before two neighboring ranks become adjacent
  * integers with no midpoint left. At `RANK_GAP = 1000`, that's ~9 successive
  * inserts into the same gap before exhaustion — ample for a Kanban card's
- * expected reorder frequency. Rebalancing the whole list's ranks, needed once
- * a gap is fully exhausted, is not implemented; `generateRank` degrades to
- * returning a duplicate/adjacent rank instead of throwing (see below).
+ * expected reorder frequency.
+ *
+ * ── Exhaustion and rebalancing ──────────────────────────────────────────────
+ *
+ * Once a gap runs out (neighbors one apart), or an append would overflow
+ * RANK_WIDTH digits, `generateRank` returns `null` rather than a rank that
+ * would collide with a neighbor. The caller then sends the list's intended
+ * card order to `PATCH /api/lists/{id}/cards/rebalance`, which rewrites every
+ * rank in the list RANK_GAP apart in one transaction (see
+ * `CardService.RebalanceListCardsAsync`, which mirrors RANK_WIDTH/RANK_GAP —
+ * keep the two in sync).
  */
 
 const RANK_WIDTH = 8;
 const RANK_GAP = 1000;
+const RANK_MAX = 10 ** RANK_WIDTH - 1;
 
 /**
  * Parse a stored position string back into its integer value.
@@ -77,13 +86,15 @@ function encodeRank(value) {
  *   should sort immediately before the new rank, or nullish if there isn't one.
  * @param {string|null|undefined} nextPosition - Position of the card that
  *   should sort immediately after the new rank, or nullish if there isn't one.
- * @returns {string} A fixed-width position string sorting between the two.
+ * @returns {string|null} A fixed-width position string sorting between the
+ *   two, or `null` if no such rank exists and the list must be rebalanced.
  */
 export function generateRank(prevPosition, nextPosition) {
 	const prev = prevPosition != null ? decodeRank(prevPosition) : 0;
 
 	if (nextPosition == null) {
-		return encodeRank((prevPosition != null ? prev : 0) + RANK_GAP);
+		const appended = prev + RANK_GAP;
+		return appended <= RANK_MAX ? encodeRank(appended) : null;
 	}
 
 	const next = decodeRank(nextPosition);
@@ -91,9 +102,7 @@ export function generateRank(prevPosition, nextPosition) {
 
 	/*
 	 * No integer room left between two neighbors one apart (e.g. prev=500,
-	 * next=501) — the gap is exhausted. Rebalancing the list is out of scope
-	 * (see file header); fall back to sorting immediately after `prev` even
-	 * though that may collide with an existing rank.
+	 * next=501) — the gap is exhausted and the list needs rebalancing.
 	 */
-	return encodeRank(midpoint > prev ? midpoint : prev + 1);
+	return midpoint > prev ? encodeRank(midpoint) : null;
 }

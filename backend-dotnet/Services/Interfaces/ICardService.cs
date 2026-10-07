@@ -10,4 +10,5 @@ public interface ICardService
     Task<Card?> UpdateCardAsync(int id, CardUpdateRequest updated);
     Task<bool> DeleteCardAsync(int id);
     Task<Card?> RepositionCardAsync(int id, CardReorderRequest request);
+    Task<IEnumerable<Card>> RebalanceListCardsAsync(int listId, IReadOnlyList<int> orderedCardIds);
 }

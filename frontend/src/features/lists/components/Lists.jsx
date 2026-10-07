@@ -59,6 +59,11 @@ import { useState } from 'react';
  * @param {Object<number, Array<Object>>} [props.cardsByList={}] - Board-level record
  *   of list ID to that list's cards, owned by useBoardCards in BoardDetailPage.
  *   Sliced per column when rendering each ListColumn.
+ * @param {boolean}       [props.cardsLoading=false] - True while the board's cards
+ *   are still loading; every column shows card placeholders.
+ * @param {string|null}   [props.cardsError=null] - Set when the board's cards
+ *   failed to load. The Retry banner lives in BoardDetailPage; columns only
+ *   show that their cards are unavailable.
  * @param {Function}      props.onCreateCard      - Async callback invoked as
  *   `(listId, data)` when a column's add-card form is submitted.
  * @param {Function}      props.onDeleteCard      - Async callback invoked as
@@ -85,6 +90,8 @@ export default function Lists({
 	deleteExistingList,
 	renameList,
 	cardsByList = {},
+	cardsLoading = false,
+	cardsError = null,
 	onCreateCard,
 	onDeleteCard,
 	onEditCard,
@@ -180,6 +187,8 @@ export default function Lists({
 						list={list}
 						index={index}
 						cards={cardsByList[list.id] ?? []}
+						cardsLoading={cardsLoading}
+						cardsError={cardsError}
 						deleteExistingList={deleteExistingList}
 						renameList={renameList}
 						onCreateCard={onCreateCard}

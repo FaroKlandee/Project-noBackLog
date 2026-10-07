@@ -9,9 +9,9 @@
     },
     {
       "name": "backend",
-      "runtimeExecutable": "dotnet",
+      "runtimeExecutable": "C:\\Program Files\\dotnet\\dotnet.exe",
       "runtimeArgs": ["run", "--project", "backend-dotnet", "--launch-profile", "http"],
-      "port": 5001
+      "port": 5000
     }
   ]
 }

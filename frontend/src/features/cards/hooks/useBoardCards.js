@@ -37,8 +37,8 @@
  *   }
  *
  * Depends on:
- *   - getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard
- *     (features/cards/api/cardService.js)
+ *   - getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard,
+ *     rebalanceListCards (features/cards/api/cardService.js)
  */
 
 /*
@@ -50,9 +50,10 @@
  * updateCard           — PUT    /api/cards/<id>
  * deleteCard           — DELETE /api/cards/<id>
  * reorderCard          — PATCH  /api/cards/<id>/reorder
+ * rebalanceListCards   — PATCH  /api/lists/<id>/cards/rebalance
  */
-import { useEffect, useState } from "react";
-import { createCard, deleteCard, getAllCardsByBoard, reorderCard, updateCard } from "../api/cardService";
+import { useCallback, useEffect, useState } from "react";
+import { createCard, deleteCard, getAllCardsByBoard, rebalanceListCards, reorderCard, updateCard } from "../api/cardService";
 import { generateRank } from "../utils/rank";
 
 /**
@@ -124,7 +125,9 @@ function groupCardsByList(cards) {
  *   submitUpdateCard:     Function,
  *   submitDeleteCard:     Function,
  *   updateCardOrder:      Function,
- *   persistCardPosition:  Function
+ *   persistCardPosition:  Function,
+ *   rebalanceList:        Function,
+ *   reload:               Function
  * }} An object containing:
  *   - `cardsByList`         — Record of list ID to that list's cards array.
  *                             Lists with no cards are simply absent, so consumers
@@ -140,6 +143,10 @@ function groupCardsByList(cards) {
  *   - `submitDeleteCard`    — Delete a card from a given list and remove it.
  *   - `updateCardOrder`     — Replace the whole record after a drag reorder.
  *   - `persistCardPosition` — PATCH a card's new list + position to the backend.
+ *   - `rebalanceList`       — Re-space a list's ranks on the backend once a
+ *                             gap is exhausted, and apply them to state.
+ *   - `reload`              — Re-runs the board's card fetch, e.g. from a Retry
+ *                             button after a failed load.
  */
 export function useBoardCards(boardId) {
 	/*
@@ -156,6 +163,10 @@ export function useBoardCards(boardId) {
 	const [fetchError, setFetchError] = useState(null);
 	const [mutationError, setMutationError] = useState(null);
 
+	/* Bumped by `reload` to re-run the fetch effect below (see useBoards). */
+	const [reloadKey, setReloadKey] = useState(0);
+	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+
 	/*
 	 * Fetch Effect
 	 * ─────────────────────────────────────────────────────────────────────
@@ -165,6 +176,7 @@ export function useBoardCards(boardId) {
 	 * board has changed, which would otherwise write another board's cards into
 	 * state.
 	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
 		/* No board resolved yet (e.g. a non-numeric URL param). */
 		if (!boardId && boardId !== 0) {
@@ -188,7 +200,7 @@ export function useBoardCards(boardId) {
 			.finally(() => { if (!cancelled) setLoading(false); });
 
 		return () => { cancelled = true; };
-	}, [boardId]);
+	}, [boardId, reloadKey]);
 
 	/*
 	 * Local State Helpers
@@ -227,6 +239,28 @@ export function useBoardCards(boardId) {
 	}
 
 	/**
+	 * Apply server-assigned ranks from a rebalance to one list's bucket.
+	 *
+	 * Only `position` (and `listId`, for a card the rebalance moved in) is
+	 * merged, chosen over replacing the bucket with the response, because the
+	 * bucket is already in the right order from the optimistic update and the
+	 * rest of each card is unchanged.
+	 *
+	 * @param {number}        listId      - ID of the rebalanced list.
+	 * @param {Array<Object>} rankedCards - Cards returned by the rebalance call.
+	 */
+	function applyRanks(listId, rankedCards) {
+		const positions = new Map(rankedCards.map(card => [card.id, card.position]));
+
+		setCardsByList(prev => ({
+			...prev,
+			[listId]: (prev[listId] ?? []).map(card =>
+				positions.has(card.id) ? { ...card, listId, position: positions.get(card.id) } : card
+			),
+		}));
+	}
+
+	/**
 	 * Remove a card from one list's bucket in the record.
 	 *
 	 * @param {number} listId - ID of the list the card belongs to.
@@ -260,7 +294,9 @@ export function useBoardCards(boardId) {
 	 *
 	 * The new card is always ranked after the current last card in the list —
 	 * `generateRank(lastCard?.position, undefined)` with no upper bound — since a
-	 * freshly created card has no drag context to place it anywhere else.
+	 * freshly created card has no drag context to place it anywhere else. If
+	 * that append would overflow the rank width, the list is rebalanced first
+	 * and the new card is ranked after the re-spaced last card.
 	 *
 	 * @async
 	 * @param {number} listId - ID of the list to create the card in.
@@ -270,7 +306,13 @@ export function useBoardCards(boardId) {
 		try {
 			const existingCards = cardsByList[listId] ?? [];
 			const lastCard = existingCards[existingCards.length - 1];
-			const position = generateRank(lastCard?.position, undefined);
+			let position = generateRank(lastCard?.position, undefined);
+
+			if (position === null) {
+				const rebalanced = (await rebalanceListCards(listId, existingCards.map(card => card.id))).data;
+				applyRanks(listId, rebalanced);
+				position = generateRank(rebalanced[rebalanced.length - 1]?.position, undefined);
+			}
 
 			const response = await createCard({ ...data, listId, position });
 			addCard(listId, response.data);
@@ -342,16 +384,53 @@ export function useBoardCards(boardId) {
 	 * because an optimistic update keeps the drag interaction responsive and a
 	 * failure can still surface as a scoped mutation error.
 	 *
+	 * On failure the record is rolled back to `previousCardsByList`, chosen over
+	 * leaving the optimistic placement, because the server still holds the old
+	 * one — the next load would silently undo the move, so it's undone visibly
+	 * now, next to the error. The rollback replaces the whole record, so another
+	 * card change that lands while the request is in flight is reverted too;
+	 * accepted given how short that window is.
+	 *
 	 * @async
 	 * @param {number} cardId   - ID of the card that moved.
 	 * @param {number} listId   - ID of the list the card now belongs to.
 	 * @param {string} position - The card's new position rank within that list.
+	 * @param {Object<number, Array<Object>>} previousCardsByList - The pre-drag
+	 *   record to restore if the request fails.
 	 */
-	async function persistCardPosition(cardId, listId, position) {
+	async function persistCardPosition(cardId, listId, position, previousCardsByList) {
 		try {
 			await reorderCard(cardId, { listId, position });
 		} catch (err) {
-			setMutationError({ listId, message: err.message });
+			setCardsByList(previousCardsByList);
+			setMutationError({ listId, message: `Couldn't move the card: ${err.message}` });
+		}
+	}
+
+	/**
+	 * Re-space every rank in a list, in the order given, and apply the new
+	 * ranks to state.
+	 *
+	 * Called instead of `persistCardPosition` when `generateRank` returns null
+	 * for a drop — the gap between the card's new neighbors is exhausted. Like
+	 * `persistCardPosition`, it runs after `updateCardOrder` has already placed
+	 * the card locally; the rebalance call both persists that placement (moving
+	 * the card into the list if it came from another) and assigns real ranks.
+	 *
+	 * @async
+	 * @param {number}   listId         - ID of the list to rebalance.
+	 * @param {number[]} orderedCardIds - The list's card IDs, top to bottom,
+	 *   including the card that was just dropped.
+	 * @param {Object<number, Array<Object>>} previousCardsByList - The pre-drag
+	 *   record to restore if the request fails (see persistCardPosition).
+	 */
+	async function rebalanceList(listId, orderedCardIds, previousCardsByList) {
+		try {
+			const response = await rebalanceListCards(listId, orderedCardIds);
+			applyRanks(listId, response.data);
+		} catch (err) {
+			setCardsByList(previousCardsByList);
+			setMutationError({ listId, message: `Couldn't move the card: ${err.message}` });
 		}
 	}
 
@@ -366,5 +445,7 @@ export function useBoardCards(boardId) {
 		submitDeleteCard,
 		updateCardOrder,
 		persistCardPosition,
+		rebalanceList,
+		reload,
 	};
 }
