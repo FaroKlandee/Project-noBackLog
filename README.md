@@ -106,7 +106,7 @@ NoBacklog is a modern task management system that combines:
 ### Future Integrations
 - **AI:** Anthropic Claude API
 - **Deployment:** TBD
-- **CI/CD:** GitHub Actions (planned)
+- **CI/CD:** GitHub Actions — CI in place (both test suites + frontend build on every push); deployment pipeline planned
 
 ---
 
@@ -355,6 +355,14 @@ pnpm test:coverage   # coverage report (text + coverage/index.html)
 - **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
 - **Not covered yet:** components and pages (the coverage report lists them at 0%), and `api.js`'s timeout path.
 
+### Continuous Integration
+`.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
+
+- **Backend:** `dotnet test backend-tests` on .NET 10.
+- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm test`, then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
+
+A newer push to the same branch cancels the run it supersedes. `pnpm lint` isn't run yet; see the Biome-cleanup follow-up.
+
 ---
 
 ## Established Code Patterns
@@ -530,7 +538,7 @@ Open four terminals — one per process — and run all four commands above at t
 ### Follow-ups from backend tests
 - [ ] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
 - [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
-- [ ] Run `dotnet test` in CI (GitHub Actions)
+- [x] Run `dotnet test` in CI (GitHub Actions)
 
 ### Previous Sprint: Hardening (Complete)
 - [x] Rank rebalancing when a position gap is exhausted (`PATCH /lists/:listId/cards/rebalance`)
@@ -542,8 +550,8 @@ Open four terminals — one per process — and run all four commands above at t
 - [ ] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
 - [ ] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
 - [ ] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null (it currently keeps the last card's data)
-- [ ] Run `pnpm test` in CI alongside `dotnet test`
-- [ ] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite)
+- [x] Run `pnpm test` in CI alongside `dotnet test`
+- [ ] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
 - [ ] Add coverage thresholds once components are tested
 
 ### Future Features
