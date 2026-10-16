@@ -61,11 +61,11 @@ NoBacklog is a modern task management system that combines:
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 - Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
-- Vitest test suite for the pure utils (`generateRank`, `formatDuration`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend
+- Vitest test suite for the pure utils (`generateRank`, `formatDuration`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and the `LoadError`, `CardEditDialog` and `TimeLogSection` components (React Testing Library)
 
 **Not yet built:**
 - Manual editing of time entries
-- Component-level frontend tests (React Testing Library)
+- Tests for pages and the drag-and-drop components
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -102,6 +102,7 @@ NoBacklog is a modern task management system that combines:
 | Lint/Format | Biome | ^1.9.4 |
 | Unit Testing | Vitest + jsdom + React Testing Library | ^5.0.3 / ^30.1.2 / ^16.3.3 |
 | API Mocking | MSW (Mock Service Worker) | ^3.0.2 |
+| Component Testing | `@testing-library/user-event` + `@testing-library/jest-dom` | ^14.6.7 / ^7.0.1 |
 
 ### Future Integrations
 - **AI:** Anthropic Claude API
@@ -153,7 +154,7 @@ nobacklog/
 └── frontend/
     └── src/
         ├── app/                    # main.jsx, routes.jsx, theme.js
-        ├── test/                   # Vitest setup, MSW server, apiUrl helper
+        ├── test/                   # Vitest setup, MSW server, apiUrl + renderWithTheme helpers
         ├── pages/                  # BoardsPage, BoardDetailPage
         ├── features/
         │   ├── boards/              # api, components, hooks
@@ -350,10 +351,11 @@ pnpm test:coverage   # coverage report (text + coverage/index.html)
 
 - **Runner:** Vitest, configured in `vite.config.js` so tests go through the same transform pipeline as the app. `globals` is off — tests import `describe`/`it`/`expect` explicitly, so `src/test/setup.js` calls Testing Library's `cleanup()` itself.
 - **Backend stand-in:** MSW (`src/test/server.js`) intercepts `fetch`, so the real `api.js` and service modules run in every hook test: URLs, verbs, request bodies and error conversion are all exercised. The server starts with no handlers; each test declares exactly the endpoints it expects with `server.use(...)`, and any undeclared request fails the test (`onUnhandledRequest: 'error'`).
+- **Components** render through `renderWithTheme` (`src/test/render.jsx`), which wraps them in the app's `ThemeProvider` (their `sx` callbacks read custom palette tokens MUI's default theme lacks) and returns a `user-event` session (`delay: null`, so typing doesn't wait a timer tick per keystroke). Elements are queried role-first (`getByRole('button', { name: 'Save' })`), then label/placeholder/text — never MUI class names. `jest-dom` matchers (`toBeDisabled`, `toHaveValue`, …) are registered in `setup.js`.
 - **Hooks** are driven with `renderHook` / `waitFor` / `act`. Error assertions match the exact message (e.g. `HTTP error: 500 Internal Server Error`), because an unmatched handler also produces an error (`TypeError: fetch failed`) and a vague assertion would pass for the wrong reason.
-- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit without closing the dialog, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
 - **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
-- **Not covered yet:** components and pages (the coverage report lists them at 0%), and `api.js`'s timeout path.
+- **Not covered yet:** pages and the drag-and-drop components (the coverage report lists them at 0%), and `api.js`'s timeout path.
 
 ### Continuous Integration
 `.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
@@ -546,7 +548,9 @@ Open four terminals — one per process — and run all four commands above at t
 - [x] Frontend test coverage (Vitest + MSW: rank/duration utils and the `useLists`, `useBoardCards`, `useCardTimeLogs` hooks)
 
 ### Follow-ups from frontend tests
-- [ ] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`), then pages
+- [x] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`)
+- [ ] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [ ] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
 - [ ] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
 - [ ] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
 - [ ] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null (it currently keeps the last card's data)

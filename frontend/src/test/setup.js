@@ -14,8 +14,13 @@
  * This project runs Vitest with `globals: false`, so the cleanup is wired up
  * explicitly here — without it, every `renderHook` root from earlier tests
  * would stay mounted and keep reacting to state changes in later ones.
+ *
+ * `@testing-library/jest-dom/vitest` extends Vitest's `expect` with DOM
+ * matchers (`toBeInTheDocument`, `toBeDisabled`, `toHaveValue`, …) for the
+ * component tests.
  */
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server';

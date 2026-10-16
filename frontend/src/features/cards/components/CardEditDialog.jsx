@@ -316,7 +316,12 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							</Alert>
 						)}
 					</Box>
-					<IconButton onClick={onClose} size="small" sx={{ color: 'secondary.main', mt: -0.5 }}>
+					<IconButton
+						aria-label="Close"
+						onClick={onClose}
+						size="small"
+						sx={{ color: 'secondary.main', mt: -0.5 }}
+					>
 						<CloseIcon />
 					</IconButton>
 				</Stack>
