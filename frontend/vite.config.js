@@ -19,7 +19,7 @@
  * a superset that also types the `test` key below. Vite itself ignores `test`,
  * so `vite dev` / `vite build` behave exactly as before.
  */
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
 
 /**
  * `@vitejs/plugin-react` enables full React support inside Vite:
@@ -30,7 +30,7 @@ import { defineConfig } from 'vitest/config'
  *  - Automatically injects the React runtime in JSX files, so explicit
  *    `import React from 'react'` statements are not required in every file.
  */
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react';
 
 /**
  * The default export is the resolved Vite configuration object.
@@ -50,9 +50,7 @@ export default defineConfig({
 	 *    overrides). No custom options are needed here, so it is invoked with
 	 *    no arguments.
 	 */
-	plugins: [
-		react(),
-	],
+	plugins: [react()],
 
 	/**
 	 * `test` configures Vitest (`pnpm test`). Living in this file rather than a
@@ -80,4 +78,4 @@ export default defineConfig({
 			reporter: ['text-summary', ['text', { skipFull: false }], 'html'],
 		},
 	},
-})
+});

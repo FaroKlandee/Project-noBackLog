@@ -25,7 +25,7 @@
  *               └─ CardPreview (nested, one per card)
  */
 
-import { Box, Typography, Stack, List } from '@mui/material';
+import { Box, List, Stack, Typography } from '@mui/material';
 import { CardPreview } from '../../cards';
 
 /**
@@ -43,7 +43,7 @@ import { CardPreview } from '../../cards';
 export default function ListColumnPreview({ list, cards = [] }) {
 	return (
 		<Box
-			sx={theme => ({
+			sx={(theme) => ({
 				width: 280,
 				bgcolor: theme.palette.background.surface,
 				border: `1px solid ${theme.palette.divider}`,
@@ -55,12 +55,14 @@ export default function ListColumnPreview({ list, cards = [] }) {
 			})}
 		>
 			<Stack direction="row" alignItems="center" sx={{ gap: 0.5, mb: 1 }}>
-				<Typography sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}>
+				<Typography
+					sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.95rem', flexGrow: 1 }}
+				>
 					{list.name}
 				</Typography>
 				<Box
 					component="span"
-					sx={theme => ({
+					sx={(theme) => ({
 						px: 1,
 						py: 0.25,
 						bgcolor: theme.palette.badge.bg,
@@ -75,7 +77,7 @@ export default function ListColumnPreview({ list, cards = [] }) {
 
 			{cards.length > 0 && (
 				<List sx={{ p: 0, m: 0 }}>
-					{cards.map(card => (
+					{cards.map((card) => (
 						<Box key={card.id} sx={{ pb: 1 }}>
 							<CardPreview card={card} nested />
 						</Box>

@@ -15,7 +15,7 @@
  * Boards — feature component that fetches all boards via `useBoards` and
  *          renders them as a responsive grid of BoardCard items.
  */
-import { Boards } from "../features/boards/index.js";
+import { Boards } from '../features/boards/index.js';
 
 /**
  * BoardsPage component.
@@ -27,7 +27,5 @@ import { Boards } from "../features/boards/index.js";
  * @returns {JSX.Element} The full boards listing view.
  */
 export default function BoardsPage() {
-	return (
-		<Boards />
-	)
+	return <Boards />;
 }

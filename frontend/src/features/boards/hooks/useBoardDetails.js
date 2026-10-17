@@ -19,8 +19,8 @@
  * useEffect, useState — React hooks for side-effects and local state.
  * getBoardById        — service function that calls GET /api/boards/<id>.
  */
-import { useCallback, useEffect, useState } from "react";
-import { getBoardById } from "../api/boardService";
+import { useCallback, useEffect, useState } from 'react';
+import { getBoardById } from '../api/boardService';
 
 /**
  * Custom hook that fetches a single board by ID and exposes loading/error state.
@@ -55,7 +55,7 @@ export function useBoardDetails(id) {
 
 	/* Bumped by `reload` to re-run the fetch effect (see useBoards). */
 	const [reloadKey, setReloadKey] = useState(0);
-	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
@@ -83,10 +83,16 @@ export function useBoardDetails(id) {
 		setError(null);
 
 		fetchBoard()
-			.catch(err => { if (!cancelled) setError(err.message); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.catch((err) => {
+				if (!cancelled) setError(err.message);
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
 
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [id, reloadKey]); /* Re-run whenever the board ID changes or on reload. */
 
 	return { board, loading, error, reload };

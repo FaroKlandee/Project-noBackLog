@@ -53,9 +53,16 @@
  * reorderCard          — PATCH  /api/cards/<id>/reorder
  * rebalanceListCards   — PATCH  /api/lists/<id>/cards/rebalance
  */
-import { useCallback, useEffect, useState } from "react";
-import { createCard, deleteCard, getAllCardsByBoard, rebalanceListCards, reorderCard, updateCard } from "../api/cardService";
-import { generateRank } from "../utils/rank";
+import { useCallback, useEffect, useState } from 'react';
+import {
+	createCard,
+	deleteCard,
+	getAllCardsByBoard,
+	rebalanceListCards,
+	reorderCard,
+	updateCard,
+} from '../api/cardService';
+import { generateRank } from '../utils/rank';
 
 /**
  * Group a flat array of cards into a record keyed by their list ID.
@@ -166,7 +173,7 @@ export function useBoardCards(boardId) {
 
 	/* Bumped by `reload` to re-run the fetch effect below (see useBoards). */
 	const [reloadKey, setReloadKey] = useState(0);
-	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
 	/*
 	 * Fetch Effect
@@ -197,10 +204,16 @@ export function useBoardCards(boardId) {
 		};
 
 		fetchBoardCards()
-			.catch(err => { if (!cancelled) setFetchError(err.message); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.catch((err) => {
+				if (!cancelled) setFetchError(err.message);
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
 
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [boardId, reloadKey]);
 
 	/*
@@ -215,7 +228,7 @@ export function useBoardCards(boardId) {
 	 * @param {Object} card   - The newly created card returned by the API.
 	 */
 	function addCard(listId, card) {
-		setCardsByList(prev => ({
+		setCardsByList((prev) => ({
 			...prev,
 			[listId]: [...(prev[listId] ?? []), card],
 		}));
@@ -231,9 +244,9 @@ export function useBoardCards(boardId) {
 	 * @param {Object} patch  - Fields to merge onto the matching card.
 	 */
 	function mergeCard(listId, cardId, patch) {
-		setCardsByList(prev => ({
+		setCardsByList((prev) => ({
 			...prev,
-			[listId]: (prev[listId] ?? []).map(card =>
+			[listId]: (prev[listId] ?? []).map((card) =>
 				card.id === cardId ? { ...card, ...patch } : card
 			),
 		}));
@@ -251,11 +264,11 @@ export function useBoardCards(boardId) {
 	 * @param {Array<Object>} rankedCards - Cards returned by the rebalance call.
 	 */
 	function applyRanks(listId, rankedCards) {
-		const positions = new Map(rankedCards.map(card => [card.id, card.position]));
+		const positions = new Map(rankedCards.map((card) => [card.id, card.position]));
 
-		setCardsByList(prev => ({
+		setCardsByList((prev) => ({
 			...prev,
-			[listId]: (prev[listId] ?? []).map(card =>
+			[listId]: (prev[listId] ?? []).map((card) =>
 				positions.has(card.id) ? { ...card, listId, position: positions.get(card.id) } : card
 			),
 		}));
@@ -268,9 +281,9 @@ export function useBoardCards(boardId) {
 	 * @param {number} cardId - ID of the card to remove.
 	 */
 	function removeCard(listId, cardId) {
-		setCardsByList(prev => ({
+		setCardsByList((prev) => ({
 			...prev,
-			[listId]: (prev[listId] ?? []).filter(card => card.id !== cardId),
+			[listId]: (prev[listId] ?? []).filter((card) => card.id !== cardId),
 		}));
 	}
 
@@ -310,7 +323,12 @@ export function useBoardCards(boardId) {
 			let position = generateRank(lastCard?.position, undefined);
 
 			if (position === null) {
-				const rebalanced = (await rebalanceListCards(listId, existingCards.map(card => card.id))).data;
+				const rebalanced = (
+					await rebalanceListCards(
+						listId,
+						existingCards.map((card) => card.id)
+					)
+				).data;
 				applyRanks(listId, rebalanced);
 				position = generateRank(rebalanced[rebalanced.length - 1]?.position, undefined);
 			}

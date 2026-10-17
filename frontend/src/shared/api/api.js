@@ -172,11 +172,11 @@ async function request(method, path, data = null) {
  * @property {Function} patch  - Send a PATCH request with a JSON body.
  */
 const api = {
-	get:    (path)       => request('GET',    path),
-	post:   (path, data) => request('POST',   path, data),
-	put:    (path, data) => request('PUT',    path, data),
-	delete: (path)       => request('DELETE', path),
-	patch:  (path, data) => request('PATCH',  path, data),
+	get: (path) => request('GET', path),
+	post: (path, data) => request('POST', path, data),
+	put: (path, data) => request('PUT', path, data),
+	delete: (path) => request('DELETE', path),
+	patch: (path, data) => request('PATCH', path, data),
 };
 
 export default api;

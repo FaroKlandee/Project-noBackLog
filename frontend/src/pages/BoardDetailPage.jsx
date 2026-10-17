@@ -15,6 +15,10 @@
  * Route: `/boards/:boardId`
  */
 
+import { move } from '@dnd-kit/helpers';
+import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
+import { Box, Skeleton, Typography } from '@mui/material';
+import { useEffect, useRef, useState } from 'react';
 /*
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
@@ -32,15 +36,11 @@
  * DragDropProvider– @dnd-kit/react context provider; enables drag-and-drop.
  * move            – @dnd-kit/helpers utility; reorders an array given a drag event.
  */
-import { useParams } from "react-router";
-import { useLists, Lists, ListColumnPreview, ListColumnSkeleton } from "../features/lists/";
-import { useBoardDetails } from "../features/boards";
-import { useBoardCards, generateRank, CardPreview, CardEditDialog } from "../features/cards";
-import LoadError from "../shared/components/LoadError";
-import { Box, Skeleton, Typography } from "@mui/material";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { move } from "@dnd-kit/helpers";
-import { useEffect, useRef, useState } from "react";
+import { useParams } from 'react-router';
+import { useBoardDetails } from '../features/boards';
+import { CardEditDialog, CardPreview, generateRank, useBoardCards } from '../features/cards';
+import { ListColumnPreview, ListColumnSkeleton, Lists, useLists } from '../features/lists/';
+import LoadError from '../shared/components/LoadError';
 
 /**
  * Translate between dnd-kit's registry ids and the underlying numeric
@@ -62,9 +62,15 @@ import { useEffect, useRef, useState } from "react";
  * prefixed id just for the duration of the `move()` call, then unwraps the
  * result back to the raw numeric id before it re-enters React state.
  */
-function toListDndId(listId) { return `list-${listId}`; }
-function toCardDndId(cardId) { return `card-${cardId}`; }
-function fromDndId(dndId) { return Number(dndId.slice(dndId.indexOf('-') + 1)); }
+function toListDndId(listId) {
+	return `list-${listId}`;
+}
+function toCardDndId(cardId) {
+	return `card-${cardId}`;
+}
+function fromDndId(dndId) {
+	return Number(dndId.slice(dndId.indexOf('-') + 1));
+}
 
 /**
  * Resolve a card drag event against a cardsByList record, returning a new
@@ -110,18 +116,19 @@ function moveCardsByList(cardsByList, event) {
 	const dndCardsByList = Object.fromEntries(
 		Object.entries(cardsByList).map(([listId, cards]) => [
 			listId,
-			cards.map(card => ({ ...card, id: toCardDndId(card.id) })),
+			cards.map((card) => ({ ...card, id: toCardDndId(card.id) })),
 		])
 	);
 	const movedDnd = move(dndCardsByList, event);
-	let moved = movedDnd === dndCardsByList
-		? cardsByList
-		: Object.fromEntries(
-			Object.entries(movedDnd).map(([listId, cards]) => [
-				listId,
-				cards.map(card => ({ ...card, id: fromDndId(card.id) })),
-			])
-		);
+	let moved =
+		movedDnd === dndCardsByList
+			? cardsByList
+			: Object.fromEntries(
+					Object.entries(movedDnd).map(([listId, cards]) => [
+						listId,
+						cards.map((card) => ({ ...card, id: fromDndId(card.id) })),
+					])
+				);
 
 	/*
 	 * move() only resolves a target it can locate by id among the cards
@@ -140,12 +147,17 @@ function moveCardsByList(cardsByList, event) {
 	 */
 	if (moved === cardsByList) {
 		const targetListId = event.operation.target?.data?.listId;
-		const card = Object.values(cardsByList).flat().find(c => c.id === cardId);
+		const card = Object.values(cardsByList)
+			.flat()
+			.find((c) => c.id === cardId);
 
 		if (targetListId == null || !card) return cardsByList;
 
 		const withoutCard = Object.fromEntries(
-			Object.entries(cardsByList).map(([listId, cards]) => [listId, cards.filter(c => c.id !== cardId)])
+			Object.entries(cardsByList).map(([listId, cards]) => [
+				listId,
+				cards.filter((c) => c.id !== cardId),
+			])
 		);
 
 		moved = {
@@ -161,8 +173,8 @@ function moveCardsByList(cardsByList, event) {
 	 * it stale would desync the card's group from the list it now visually
 	 * sits in for the rest of the drag, not just after drop.
 	 */
-	const destination = Object.entries(moved).find(
-		([, cards]) => cards.some(card => card.id === cardId)
+	const destination = Object.entries(moved).find(([, cards]) =>
+		cards.some((card) => card.id === cardId)
 	);
 	if (!destination) return moved;
 
@@ -171,9 +183,7 @@ function moveCardsByList(cardsByList, event) {
 
 	return {
 		...moved,
-		[listId]: cardsInList.map(card =>
-			card.id === cardId ? { ...card, listId } : card
-		),
+		[listId]: cardsInList.map((card) => (card.id === cardId ? { ...card, listId } : card)),
 	};
 }
 
@@ -268,9 +278,12 @@ export default function BoardDetailPage() {
 	 *                 moves or changes it is always reflected while open.
 	 */
 	const [editingCardId, setEditingCardId] = useState(null);
-	const editingCard = editingCardId == null
-		? null
-		: Object.values(cardsByList).flat().find(c => c.id === editingCardId) ?? null;
+	const editingCard =
+		editingCardId == null
+			? null
+			: (Object.values(cardsByList)
+					.flat()
+					.find((c) => c.id === editingCardId) ?? null);
 
 	/*
 	 * Auto-close the dialog if its card disappears out from under it (e.g.
@@ -388,8 +401,8 @@ export default function BoardDetailPage() {
 			const cardId = fromDndId(event.operation.source.id);
 			const moved = moveCardsByList(cardsByList, event);
 
-			const destination = Object.entries(moved).find(
-				([, cards]) => cards.some(card => card.id === cardId)
+			const destination = Object.entries(moved).find(([, cards]) =>
+				cards.some((card) => card.id === cardId)
 			);
 
 			/* No bucket contains the dragged card — nothing valid to persist. */
@@ -397,13 +410,16 @@ export default function BoardDetailPage() {
 
 			const [listIdKey, cardsInList] = destination;
 			const listId = Number(listIdKey);
-			const index = cardsInList.findIndex(card => card.id === cardId);
+			const index = cardsInList.findIndex((card) => card.id === cardId);
 
 			/*
 			 * Rank the card between its new neighbors (undefined at either end of
 			 * the list, which generateRank treats as "no bound on that side").
 			 */
-			const position = generateRank(cardsInList[index - 1]?.position, cardsInList[index + 1]?.position);
+			const position = generateRank(
+				cardsInList[index - 1]?.position,
+				cardsInList[index + 1]?.position
+			);
 
 			/*
 			 * A null position means the gap between the new neighbors is exhausted.
@@ -430,7 +446,11 @@ export default function BoardDetailPage() {
 			 */
 			const rollback = snapshotCards ?? cardsByList;
 			if (position === null) {
-				rebalanceList(listId, cardsInList.map(card => card.id), rollback);
+				rebalanceList(
+					listId,
+					cardsInList.map((card) => card.id),
+					rollback
+				);
 			} else {
 				persistCardPosition(cardId, listId, position, rollback);
 			}
@@ -457,9 +477,9 @@ export default function BoardDetailPage() {
 		 * array of IDs, rolling back to the pre-drag order if that fails.
 		 */
 		persistListOrder(
-			lists.map(list => list.id),
+			lists.map((list) => list.id),
 			fromDndId(event.operation.source.id),
-			snapshotLists ?? lists,
+			snapshotLists ?? lists
 		);
 	}
 
@@ -484,14 +504,16 @@ export default function BoardDetailPage() {
 
 		if (source.type === 'card') {
 			const cardId = fromDndId(source.id);
-			const card = Object.values(cardsByList).flat().find(c => c.id === cardId);
+			const card = Object.values(cardsByList)
+				.flat()
+				.find((c) => c.id === cardId);
 			if (!card) return null;
 			return <CardPreview card={card} />;
 		}
 
 		if (source.type === 'list') {
 			const listId = fromDndId(source.id);
-			const list = lists.find(l => l.id === listId);
+			const list = lists.find((l) => l.id === listId);
 			if (!list) return null;
 			return <ListColumnPreview list={list} cards={cardsByList[list.id] ?? []} />;
 		}
@@ -541,29 +563,29 @@ export default function BoardDetailPage() {
 				 * Safe to commit on every hover frame unconditionally.
 				 */
 				if (source?.type === 'list') {
-					updateListOrder(prev => {
+					updateListOrder((prev) => {
 						/*
 						 * Same id-collision concern as moveCardsByList above: move()
 						 * matches against each list's `.id` field, so lists are
 						 * temporarily given their dnd-kit registry id for this call.
 						 */
-						const dndLists = prev.map(list => ({ ...list, id: toListDndId(list.id) }));
+						const dndLists = prev.map((list) => ({ ...list, id: toListDndId(list.id) }));
 						const movedDnd = move(dndLists, event);
 						if (movedDnd === dndLists) return prev;
-						return movedDnd.map(list => ({ ...list, id: fromDndId(list.id) }));
+						return movedDnd.map((list) => ({ ...list, id: fromDndId(list.id) }));
 					});
 					return;
 				}
 
-				updateCardOrder(prev => {
+				updateCardOrder((prev) => {
 					const cardId = source.id;
-					const currentListId = Object.entries(prev).find(
-						([, cards]) => cards.some(card => card.id === cardId)
+					const currentListId = Object.entries(prev).find(([, cards]) =>
+						cards.some((card) => card.id === cardId)
 					)?.[0];
 
 					const moved = moveCardsByList(prev, event);
-					const movedListId = Object.entries(moved).find(
-						([, cards]) => cards.some(card => card.id === cardId)
+					const movedListId = Object.entries(moved).find(([, cards]) =>
+						cards.some((card) => card.id === cardId)
 					)?.[0];
 
 					/*
@@ -588,25 +610,26 @@ export default function BoardDetailPage() {
 			}}
 		>
 			{/*
-			  * Page canvas — full-viewport dark background with a subtle violet
-			  * radial gradient in the top-right corner.
-			  */}
+			 * Page canvas — full-viewport dark background with a subtle violet
+			 * radial gradient in the top-right corner.
+			 */}
 			<Box
 				sx={{
 					height: '100vh',
 					bgcolor: 'background.default',
-					backgroundImage: 'radial-gradient(ellipse at 85% 20%, rgba(109,40,217,0.35) 0%, transparent 55%)',
+					backgroundImage:
+						'radial-gradient(ellipse at 85% 20%, rgba(109,40,217,0.35) 0%, transparent 55%)',
 					color: 'text.primary',
 					display: 'flex',
 					flexDirection: 'column',
 				}}
 			>
 				{/*
-				  * Board header bar — displays the board name with a subtle
-				  * bottom border that separates it from the list columns area.
-				  */}
+				 * Board header bar — displays the board name with a subtle
+				 * bottom border that separates it from the list columns area.
+				 */}
 				<Box
-					sx={theme => ({
+					sx={(theme) => ({
 						bgcolor: 'background.default',
 						px: 3,
 						py: 1.5,
@@ -631,15 +654,17 @@ export default function BoardDetailPage() {
 								color: 'text.primary',
 								fontSize: '1.25rem',
 							}}
-						>{board.name}</Typography>
+						>
+							{board.name}
+						</Typography>
 					)}
 				</Box>
 
 				{/*
-				  * List columns area — horizontally scrollable flex container.
-				  * Fills the remaining viewport height below the header bar and
-				  * passes create/delete handlers down to Lists.
-				  */}
+				 * List columns area — horizontally scrollable flex container.
+				 * Fills the remaining viewport height below the header bar and
+				 * passes create/delete handlers down to Lists.
+				 */}
 				<Box
 					sx={{
 						px: 3,
@@ -653,10 +678,10 @@ export default function BoardDetailPage() {
 					}}
 				>
 					{/*
-					  * Card load failure — one banner for the whole board. Only
-					  * shown once the lists themselves are on screen; otherwise the
-					  * lists' own error or placeholders already cover this area.
-					  */}
+					 * Card load failure — one banner for the whole board. Only
+					 * shown once the lists themselves are on screen; otherwise the
+					 * lists' own error or placeholders already cover this area.
+					 */}
 					{errorCards && !loadingList && !errorList && (
 						<LoadError
 							title="Couldn't load cards"
@@ -668,7 +693,9 @@ export default function BoardDetailPage() {
 
 					{loadingList ? (
 						<Box aria-label="Loading lists…" sx={{ display: 'flex', flexGrow: 1, minHeight: 0 }}>
-							{[0, 1, 2].map(i => <ListColumnSkeleton key={i} />)}
+							{[0, 1, 2].map((i) => (
+								<ListColumnSkeleton key={i} />
+							))}
 						</Box>
 					) : errorList ? (
 						<LoadError

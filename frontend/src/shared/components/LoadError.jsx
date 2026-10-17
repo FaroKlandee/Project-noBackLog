@@ -30,15 +30,22 @@ export default function LoadError({ title, message, onRetry, sx }) {
 	return (
 		<Alert
 			severity="error"
-			action={onRetry && (
-				<Button color="inherit" size="small" onClick={onRetry}>
-					Retry
-				</Button>
-			)}
+			action={
+				onRetry && (
+					<Button color="inherit" size="small" onClick={onRetry}>
+						Retry
+					</Button>
+				)
+			}
 			sx={sx}
 		>
 			<strong>{title}</strong>
-			{message && <><br />{message}</>}
+			{message && (
+				<>
+					<br />
+					{message}
+				</>
+			)}
 		</Alert>
 	);
 }

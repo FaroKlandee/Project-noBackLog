@@ -5,7 +5,7 @@
  * error-envelope parsing, the status-line fallback, and the timeout abort.
  */
 
-import { delay, HttpResponse, http } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiUrl } from '../../test/apiUrl';
 import { server } from '../../test/server';
@@ -80,7 +80,9 @@ describe('api', () => {
 		});
 
 		it('falls back to the status line for a non-JSON body', async () => {
-			serve(new HttpResponse('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' }));
+			serve(
+				new HttpResponse('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' })
+			);
 
 			const error = await rejection();
 

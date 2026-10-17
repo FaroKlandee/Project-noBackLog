@@ -16,8 +16,8 @@
  * Link — React Router component; used as the CardActionArea's root element so
  *         the entire card is a client-side navigation link.
  */
-import { Typography, CardContent, Card, CardActionArea } from '@mui/material';
-import { Link } from "react-router";
+import { Card, CardActionArea, CardContent, Typography } from '@mui/material';
+import { Link } from 'react-router';
 
 /**
  * BoardCard component.
@@ -37,15 +37,17 @@ export default function BoardCard({ board }) {
 	return (
 		<Card>
 			{/*
-			  * CardActionArea makes the entire card surface clickable and provides
-			  * hover/focus ripple feedback. `component={Link}` replaces the default
-			  * root element with a React Router Link so navigation is client-side.
-			  */}
+			 * CardActionArea makes the entire card surface clickable and provides
+			 * hover/focus ripple feedback. `component={Link}` replaces the default
+			 * root element with a React Router Link so navigation is client-side.
+			 */}
 			<CardActionArea component={Link} to={`/boards/${board.id}`}>
 				<CardContent>
-					<Typography gutterBottom variant='h5'>{board.name}</Typography>
+					<Typography gutterBottom variant="h5">
+						{board.name}
+					</Typography>
 				</CardContent>
 			</CardActionArea>
 		</Card>
-	)
+	);
 }

@@ -29,16 +29,19 @@ import { useEffect, useRef, useState } from 'react';
  *   Menu, MenuItem  — floating context menu with the Delete action.
  *   Box             — generic layout wrapper (card header row).
  */
-import { ListItemText, Chip, IconButton, Menu, MenuItem, Box } from '@mui/material';
+import { Box, Chip, IconButton, ListItemText, Menu, MenuItem } from '@mui/material';
 import { priorityChipSx } from '../constants';
 
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 /*
  * Icons
  */
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 
+import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
+import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
+import { isInteractiveElement } from '@dnd-kit/dom/utilities';
 /*
  * @dnd-kit/react/sortable
  * ───────────────────────────────────────────────────────────────────────────
@@ -52,10 +55,7 @@ import EditIcon from '@mui/icons-material/Edit';
  * PointerSensor, KeyboardSensor, PointerActivationConstraints,
  * isInteractiveElement — see CARD_DRAG_SENSORS below.
  */
-import { useSortable } from "@dnd-kit/react/sortable";
-import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
-import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from "@dnd-kit/dom";
-import { isInteractiveElement } from "@dnd-kit/dom/utilities";
+import { useSortable } from '@dnd-kit/react/sortable';
 
 /*
  * Double-Press Drag
@@ -324,9 +324,7 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 		if (e.target.closest('button')) return;
 
 		const start = pointerDownPos.current;
-		const travelled = start
-			? Math.hypot(e.clientX - start.x, e.clientY - start.y)
-			: 0;
+		const travelled = start ? Math.hypot(e.clientX - start.x, e.clientY - start.y) : 0;
 		if (travelled > 5) return;
 
 		if (isSecondPress.current) {
@@ -397,9 +395,11 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 			}}
 		>
 			<Box
-				sx={theme => ({
+				sx={(theme) => ({
 					bgcolor: isDragSource ? 'transparent' : 'background.paper',
-					border: isDragSource ? `1px dashed ${theme.palette.divider}` : `1px solid ${theme.palette.divider}`,
+					border: isDragSource
+						? `1px dashed ${theme.palette.divider}`
+						: `1px solid ${theme.palette.divider}`,
 					borderRadius: '8px',
 					px: 1.5,
 					py: 1.25,
@@ -421,10 +421,19 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 					}}
 				>
 					{/* Card header row — title on the left, options button on the right. */}
-					<Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+					<Box
+						sx={{
+							width: '100%',
+							display: 'flex',
+							justifyContent: 'space-between',
+							alignItems: 'flex-start',
+						}}
+					>
 						<ListItemText
 							primary={card.title}
-							primaryTypographyProps={{ sx: { color: 'text.primary', fontWeight: 600, fontSize: '0.95rem' } }}
+							primaryTypographyProps={{
+								sx: { color: 'text.primary', fontWeight: 600, fontSize: '0.95rem' },
+							}}
 						/>
 						<IconButton
 							size="small"
@@ -436,9 +445,9 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 					</Box>
 
 					{/*
-					  * Priority chip — colour is determined by spreading the matching
-					  * priority palette tokens (low/medium/high) onto the sx object.
-					  */}
+					 * Priority chip — colour is determined by spreading the matching
+					 * priority palette tokens (low/medium/high) onto the sx object.
+					 */}
 					<Chip
 						label={card.priority}
 						size="small"
@@ -447,15 +456,14 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 				</Box>
 
 				{/* This card's context menu — opens/closes independently of other cards. */}
-				<Menu
-					anchorEl={anchorEl}
-					open={open}
-					onClose={handleMenuClose}
-				>
+				<Menu anchorEl={anchorEl} open={open} onClose={handleMenuClose}>
 					<MenuItem onClick={handleEdit} sx={{ gap: 1, fontSize: '0.875rem' }}>
 						<EditIcon fontSize="small" /> Edit
 					</MenuItem>
-					<MenuItem onClick={handleDelete} sx={{ color: 'error.main', gap: 1, fontSize: '0.875rem' }}>
+					<MenuItem
+						onClick={handleDelete}
+						sx={{ color: 'error.main', gap: 1, fontSize: '0.875rem' }}
+					>
 						<DeleteIcon fontSize="small" /> Delete
 					</MenuItem>
 				</Menu>

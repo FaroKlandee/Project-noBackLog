@@ -13,6 +13,7 @@
  * in index.html.
  */
 
+import { CssBaseline, ThemeProvider } from '@mui/material';
 /*
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
@@ -28,12 +29,11 @@
  * router          – Pre-built browser router instance (see routes.jsx).
  * theme           – Custom MUI dark theme (see theme.js).
  */
-import { StrictMode } from 'react'
-import ReactDOM from "react-dom/client"
-import { ThemeProvider, CssBaseline } from '@mui/material'
-import { RouterProvider } from 'react-router/dom'
-import { router } from './routes'
-import theme from './theme'
+import { StrictMode } from 'react';
+import ReactDOM from 'react-dom/client';
+import { RouterProvider } from 'react-router/dom';
+import { router } from './routes';
+import theme from './theme';
 
 /*
  * DOM Mount Point
@@ -42,7 +42,7 @@ import theme from './theme'
  * manage everything rendered inside this node. If the element is absent the
  * app will fail to mount.
  */
-const root = document.getElementById("root");
+const root = document.getElementById('root');
 
 /*
  * Application Render
@@ -58,24 +58,24 @@ const root = document.getElementById("root");
  *          └─ RouterProvider (renders the matched route component)
  */
 ReactDOM.createRoot(root).render(
-  <StrictMode>
-    {/*
-      * ThemeProvider makes the custom `theme` object available to every MUI
-      * component without prop-drilling. Any component can read it via useTheme().
-      */}
-    <ThemeProvider theme={theme}>
-      {/*
-        * CssBaseline must sit inside ThemeProvider so it can read the theme's
-        * background colour when applying the dark-mode body style.
-        */}
-      <CssBaseline/>
-      {/*
-        * RouterProvider is the single integration point with React Router.
-        * It receives the pre-built router and renders whichever page component
-        * matches the current URL. All navigation hooks (useNavigate, useParams)
-        * must be used within this provider.
-        */}
-      <RouterProvider router={router}/>
-    </ThemeProvider>
-  </StrictMode>,
-)
+	<StrictMode>
+		{/*
+		 * ThemeProvider makes the custom `theme` object available to every MUI
+		 * component without prop-drilling. Any component can read it via useTheme().
+		 */}
+		<ThemeProvider theme={theme}>
+			{/*
+			 * CssBaseline must sit inside ThemeProvider so it can read the theme's
+			 * background colour when applying the dark-mode body style.
+			 */}
+			<CssBaseline />
+			{/*
+			 * RouterProvider is the single integration point with React Router.
+			 * It receives the pre-built router and renders whichever page component
+			 * matches the current URL. All navigation hooks (useNavigate, useParams)
+			 * must be used within this provider.
+			 */}
+			<RouterProvider router={router} />
+		</ThemeProvider>
+	</StrictMode>
+);

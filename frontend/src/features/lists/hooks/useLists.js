@@ -34,8 +34,8 @@
  * updateList          — PUT  /api/lists/<id>
  * reorderLists        — PATCH /api/lists/reorder
  */
-import { useCallback, useEffect, useState } from "react";
-import { createList, getAllLists, deleteList, updateList, reorderLists } from "../api/listService";
+import { useCallback, useEffect, useState } from 'react';
+import { createList, deleteList, getAllLists, reorderLists, updateList } from '../api/listService';
 
 /**
  * Custom hook that fetches all lists for a given board and exposes list
@@ -94,7 +94,7 @@ export function useLists(id) {
 
 	/* Bumped by `reload` to re-run the fetch effect (see useBoards). */
 	const [reloadKey, setReloadKey] = useState(0);
-	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
 	/*
 	 * Mutation Helpers
@@ -136,7 +136,10 @@ export function useLists(id) {
 			await reorderLists(orderedIds);
 		} catch (err) {
 			setLists(previousLists);
-			setMutationError({ listId: movedListId, message: `Couldn't save the new list order: ${err.message}` });
+			setMutationError({
+				listId: movedListId,
+				message: `Couldn't save the new list order: ${err.message}`,
+			});
 		}
 	}
 
@@ -232,10 +235,16 @@ export function useLists(id) {
 		setFetchError(null);
 
 		fetchLists()
-			.catch(err => { if (!cancelled) setFetchError(err.message); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.catch((err) => {
+				if (!cancelled) setFetchError(err.message);
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
 
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [id, reloadKey]); /* Re-run whenever the board ID changes or on reload. */
 
 	return {
