@@ -53,8 +53,8 @@ function renderDialog({ onSave = vi.fn().mockResolvedValue(undefined), cardProp 
 
 /** Click the title heading to enter edit mode and return the (auto-focused) input. */
 async function startTitleEdit(user) {
-	await user.click(screen.getByText('Fix login'));
-	return screen.getByDisplayValue('Fix login');
+	await user.click(screen.getByRole('button', { name: 'Fix login' }));
+	return screen.getByRole('textbox', { name: 'Card title' });
 }
 
 describe('CardEditDialog', () => {
@@ -168,16 +168,10 @@ describe('CardEditDialog', () => {
 	 * behaviour, so one parameterized suite covers both.
 	 */
 	describe.each([
-		['time estimate', 'timeEstimate', 'e.g. 1 day, 4h', '2h', '2h, maybe 3h'],
-		[
-			'description',
-			'description',
-			'Add a detailed description, acceptance criteria, or notes…',
-			'Old notes',
-			'Old notes plus repro steps',
-		],
-	])('%s', (_name, field, placeholder, saved, edited) => {
-		const getField = () => screen.getByPlaceholderText(placeholder);
+		['time estimate', 'timeEstimate', 'Time estimate', '2h', '2h, maybe 3h'],
+		['description', 'description', 'Description', 'Old notes', 'Old notes plus repro steps'],
+	])('%s', (_name, field, label, saved, edited) => {
+		const getField = () => screen.getByLabelText(label);
 		const saveButton = () => screen.queryByRole('button', { name: /^(Save|Saving…)$/ });
 
 		it('shows Save/Discard only once the draft differs from the saved value', async () => {
@@ -252,8 +246,7 @@ describe('CardEditDialog', () => {
 	});
 
 	describe('switching cards', () => {
-		const descriptionField = () =>
-			screen.getByPlaceholderText('Add a detailed description, acceptance criteria, or notes…');
+		const descriptionField = () => screen.getByLabelText('Description');
 
 		/*
 		 * The parent re-derives `card` every render (e.g. after a drag), so a
@@ -290,6 +283,47 @@ describe('CardEditDialog', () => {
 			expect(descriptionField()).toHaveValue('');
 			expect(screen.getByRole('combobox', { name: 'Priority' })).toHaveTextContent('Low');
 			expect(screen.getByText('Time tracking for card 2')).toBeInTheDocument();
+		});
+	});
+
+	describe('accessibility', () => {
+		it('is named by the card title, while viewing and while editing it', async () => {
+			const { user } = renderDialog();
+
+			expect(screen.getByRole('dialog', { name: 'Fix login' })).toBeInTheDocument();
+
+			await startTitleEdit(user);
+
+			expect(screen.getByRole('dialog', { name: 'Fix login' })).toBeInTheDocument();
+		});
+
+		it('opens the title editor from the keyboard and returns focus on Escape', async () => {
+			const { user, onSave } = renderDialog();
+
+			await user.tab();
+			const heading = screen.getByRole('button', { name: 'Fix login' });
+			expect(heading).toHaveFocus();
+
+			await user.keyboard('{Enter}');
+			const input = screen.getByRole('textbox', { name: 'Card title' });
+			expect(input).toHaveFocus();
+			expect(input).toHaveValue('Fix login');
+
+			await user.keyboard('{Escape}');
+
+			expect(screen.getByRole('button', { name: 'Fix login' })).toHaveFocus();
+			expect(onSave).not.toHaveBeenCalled();
+		});
+
+		it('returns focus to the new title after committing with Enter', async () => {
+			const { user, onSave } = renderDialog();
+			const input = await startTitleEdit(user);
+
+			await user.clear(input);
+			await user.type(input, 'Fix login redirect{Enter}');
+
+			expect(onSave).toHaveBeenCalledWith({ title: 'Fix login redirect' });
+			expect(await screen.findByRole('button', { name: 'Fix login redirect' })).toHaveFocus();
 		});
 	});
 
