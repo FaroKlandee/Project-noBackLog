@@ -308,6 +308,25 @@ describe('TimeLogSection', () => {
 
 			expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 		});
+
+		it('shows the server’s reason when a limit rejects the start', async () => {
+			serveCard();
+			server.use(
+				http.post(apiUrl('/api/timelogs/start'), () =>
+					HttpResponse.json(
+						{ success: false, message: 'At most 2 timers can run at once.' },
+						{ status: 409, statusText: 'Conflict' }
+					)
+				)
+			);
+			const { user } = renderSection();
+
+			await user.click(await screen.findByRole('button', { name: 'Start' }));
+
+			expect(await screen.findByRole('alert')).toHaveTextContent(
+				'At most 2 timers can run at once.'
+			);
+		});
 	});
 
 	/*
