@@ -233,7 +233,7 @@ export default function BoardDetailPage() {
 	 * Card Data — Board Level
 	 * ──────────────────────────────────────────────────────────────────
 	 * useBoardCards owns the cards for EVERY list on this board in one record
-	 * keyed by list ID, chosen over each ListColumn calling useCards for itself,
+	 * keyed by list ID, chosen over each ListColumn fetching its own cards,
 	 * because per-column hooks left each column's cards in a private closure that
 	 * this drag handler could not read — and a cross-list card move needs both the
 	 * source and destination arrays in one place.

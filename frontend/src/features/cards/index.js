@@ -5,7 +5,7 @@
  * Consumers import from `features/cards` rather than reaching into internal
  * sub-folders:
  *
- *   import { useCards, Cards }              from '../../cards';
+ *   import { useBoardCards, Cards }         from '../../cards';
  *   import { getAllCards, createCard }       from '../../cards';
  *
  * Exported surface:
@@ -13,11 +13,6 @@
  *   getAllCardsByBoard,
  *   createCard, deleteCard,
  *   reorderCard              — raw async HTTP functions (cardService.js)
- *   useCards                 — hook: fetches cards for a *single* list and
- *                              exposes create/delete mutations. Currently unused
- *                              — superseded by useBoardCards when card state was
- *                              lifted to the board level for cross-list drag.
- *                              Retained for any future single-list view.
  *   useBoardCards            — hook: fetches every card on a board in one
  *                              request into a record keyed by list ID, and
  *                              exposes create/delete/reorder mutations. Required
@@ -27,6 +22,8 @@
  *   Cards                    — component: renders a list of card items
  *   CardPreview              — component: non-interactive visual clone of a
  *                              card, rendered inside the board's DragOverlay
+ *   priorityChipSx           — style: the priority chip's sx, shared by
+ *                              CardItem and CardPreview
  *   generateRank             — util: computes a card's position rank so it
  *                              sorts between two given neighbors (or past one
  *                              end, when a neighbor is omitted)
@@ -36,7 +33,6 @@
 export * from './api/cardService';
 
 /* Hooks — React hooks that wrap the service layer with local state management. */
-export * from './hooks/useCards';
 export * from './hooks/useBoardCards';
 
 /* Utils — pure helpers shared by the hooks above and by page-level drag handlers. */

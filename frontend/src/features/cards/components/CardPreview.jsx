@@ -26,6 +26,7 @@
  */
 
 import { ListItem, ListItemText, Chip, Box } from '@mui/material';
+import { priorityChipSx } from '../constants';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 /**
@@ -72,17 +73,7 @@ export default function CardPreview({ card, nested = false }) {
 			<Chip
 				label={card.priority}
 				size="small"
-				sx={theme => ({
-					mt: 0.75,
-					height: 22,
-					fontSize: '0.7rem',
-					fontWeight: 700,
-					borderRadius: '999px',
-					border: 'none',
-					...(card.priority === 'Low'    && { bgcolor: theme.palette.priority.low.bg,    color: theme.palette.priority.low.text }),
-					...(card.priority === 'Medium' && { bgcolor: theme.palette.priority.medium.bg, color: theme.palette.priority.medium.text }),
-					...(card.priority === 'High'   && { bgcolor: theme.palette.priority.high.bg,   color: theme.palette.priority.high.text }),
-				})}
+				sx={(theme) => priorityChipSx(theme, card.priority)}
 			/>
 		</ListItem>
 	);

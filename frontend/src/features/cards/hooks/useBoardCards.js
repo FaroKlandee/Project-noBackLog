@@ -5,9 +5,10 @@
  *
  * ── Architectural decisions ────────────────────────────────────────────────
  *
- * Card state is owned board-wide here, chosen over each ListColumn calling
- * useCards for itself, because per-column hooks left every column's cards in a
- * private closure that no ancestor could read — making a card move *between*
+ * Card state is owned board-wide here, chosen over each ListColumn owning its
+ * own list's cards (the since-removed per-list useCards hook), because
+ * per-column hooks left every column's cards in a private closure that no
+ * ancestor could read — making a card move *between*
  * two lists impossible to reconcile from the board-level drag handler, which
  * needs to see both the source and destination arrays at once.
  *

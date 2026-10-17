@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from 'react';
  *   Box             — generic layout wrapper (card header row).
  */
 import { ListItemText, Chip, IconButton, Menu, MenuItem, Box } from '@mui/material';
+import { priorityChipSx } from '../constants';
 
 /*
  * Icons
@@ -441,17 +442,7 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 					<Chip
 						label={card.priority}
 						size="small"
-						sx={theme => ({
-							mt: 0.75,
-							height: 22,
-							fontSize: '0.7rem',
-							fontWeight: 700,
-							borderRadius: '999px',
-							border: 'none',
-							...(card.priority === 'Low'    && { bgcolor: theme.palette.priority.low.bg,    color: theme.palette.priority.low.text }),
-							...(card.priority === 'Medium' && { bgcolor: theme.palette.priority.medium.bg, color: theme.palette.priority.medium.text }),
-							...(card.priority === 'High'   && { bgcolor: theme.palette.priority.high.bg,   color: theme.palette.priority.high.text }),
-						})}
+						sx={(theme) => priorityChipSx(theme, card.priority)}
 					/>
 				</Box>
 
