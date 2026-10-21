@@ -22,7 +22,7 @@ NoBacklog is a modern task management system that combines:
 ## Development Milestones
 
 ### Phase 1: Backend API Development (COMPLETE)
-**Status:** 26 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
+**Status:** 27 endpoints operational across Board, List, Card, and TimeLog resources, including dedicated reorder endpoints for Lists and Cards and a card-rank rebalance endpoint.
 
 **Achievement Summary:**
 - Built a production-ready 4-tier hierarchical REST API on ASP.NET Core
@@ -36,7 +36,7 @@ NoBacklog is a modern task management system that combines:
 **Completed APIs:**
 1. **Board API** - Dashboard/workspace management (5 endpoints)
 2. **List API** - Column/status management (5 endpoints + reorder)
-3. **Card API** - Task/item management (5 endpoints + reposition)
+3. **Card API** - Task/item management (5 endpoints + reposition + rebalance)
 4. **TimeLog API** - Time tracking functionality (5 CRUD endpoints + start/finish/running/settings)
 
 **Total Backend Deliverables:**
@@ -75,7 +75,7 @@ NoBacklog is a modern task management system that combines:
 
 ### Phase 4: Deployment (FUTURE)
 **Target Platform:** TBD  
-**Database:** PostgreSQL (local for dev/staging; hosting TBD)
+**Database:** PostgreSQL (local for dev; hosting TBD)
 
 ---
 
@@ -109,7 +109,7 @@ NoBacklog is a modern task management system that combines:
 ### Future Integrations
 - **AI:** Anthropic Claude API
 - **Deployment:** TBD
-- **CI/CD:** GitHub Actions — CI in place (both test suites + frontend build on every push); deployment pipeline planned
+- **CI/CD:** GitHub Actions — CI in place (frontend lint, both test suites and the frontend build on every push); deployment pipeline planned
 
 ---
 
@@ -164,7 +164,7 @@ nobacklog/
         │   ├── cards/               # api, components (incl. CardEditDialog), hooks, constants, rank.js
         │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
-            ├── api/                 # shared axios/fetch client (api.js)
+            ├── api/                 # shared fetch client (api.js): timeout, error envelope → Error
             └── components/          # shared UI (FieldLabel, LoadError)
 ```
 
@@ -235,8 +235,7 @@ Lists and Cards both carry a string `Position` field. The backend orders by a pl
 
 ### Base URL
 ```
-Dev:      http://localhost:5000/api
-Staging:  http://localhost:5001/api
+Dev:        http://localhost:5000/api
 Production: TBD
 ```
 
@@ -411,7 +410,7 @@ public async Task<IActionResult> Create([FromBody] Resource resource)
 
 ### Prerequisites
 - .NET SDK 10.0+
-- Node.js (v18+) and pnpm
+- Node.js 22.12+ (Vitest 5 requirement; CI uses Node 24) and pnpm 9 (pinned via `packageManager`; `npm install` is blocked)
 - PostgreSQL (local instance, or a hosted connection string)
 - Git
 - Code editor (VS Code / Rider recommended)
@@ -451,14 +450,9 @@ curl http://localhost:5000/
 
 ## Running the App
 
-The project has two environments — **dev** and **staging** — designed to run simultaneously, each on its own port pair. This supports having both branches open in the same Zed window.
-
 | | Frontend | Backend | Database |
 |---|---|---|---|
 | **Dev** | `http://localhost:5173` | `http://localhost:5000` | `nobacklog` |
-| **Staging** | `http://localhost:5174` | `http://localhost:5001` | `nobacklog_staging` |
-
-### Dev
 
 ```bash
 # Terminal 1 — backend (from backend-dotnet/)
@@ -468,19 +462,7 @@ dotnet run --launch-profile http
 pnpm dev
 ```
 
-### Staging
-
-```bash
-# Terminal 1 — backend (from backend-dotnet/)
-dotnet run --launch-profile staging
-
-# Terminal 2 — frontend (from frontend/)
-pnpm dev:staging
-```
-
-### Running both simultaneously
-
-Open four terminals — one per process — and run all four commands above at the same time. Dev and staging use separate ports and separate databases so they won't interfere with each other.
+`.claude/launch.json` defines the same two servers (`frontend`, `backend`) for Claude Code's preview tools.
 
 ---
 
