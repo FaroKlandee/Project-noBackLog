@@ -19,8 +19,8 @@
  * BoardsPage          – Page component rendered at /boards.
  * BoardDetailPage     – Page component rendered at /boards/:boardId.
  */
-import { createBrowserRouter } from "react-router";
-import { BoardDetailPage, BoardsPage } from "../pages/index";
+import { createBrowserRouter } from 'react-router';
+import { BoardDetailPage, BoardsPage } from '../pages/index';
 
 /**
  * @constant {import('react-router').Router} router
@@ -38,8 +38,8 @@ const router = createBrowserRouter([
 		 * Route 1 — Boards list page.
 		 * Matches the exact path "/boards" and renders the full board grid.
 		 */
-		path: "/boards",
-		element: <BoardsPage/>,
+		path: '/boards',
+		element: <BoardsPage />,
 	},
 	{
 		/*
@@ -47,9 +47,9 @@ const router = createBrowserRouter([
 		 * Matches "/boards/<id>" where `:boardId` is a named dynamic segment.
 		 * Example: "/boards/7" → boardId = "7" (string) inside BoardDetailPage.
 		 */
-		path: "/boards/:boardId",
-		element: <BoardDetailPage/>,
-	}
+		path: '/boards/:boardId',
+		element: <BoardDetailPage />,
+	},
 ]);
 
 /*
@@ -58,4 +58,4 @@ const router = createBrowserRouter([
  * Named export so the consumer (main.jsx) imports with an explicit,
  * self-documenting name: `import { router } from './routes'`.
  */
-export {router};
+export { router };

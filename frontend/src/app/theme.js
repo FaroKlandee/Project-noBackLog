@@ -59,29 +59,29 @@ const theme = createTheme({
 		mode: 'dark',
 
 		background: {
-			default:  '#0D0B1E',   // page canvas
-			paper:    '#1C1A2E',   // elevated surfaces: columns, menus, cards
-			surface:  '#12101F',   // deepest inset surfaces: column bg, text inputs
+			default: '#0D0B1E', // page canvas
+			paper: '#1C1A2E', // elevated surfaces: columns, menus, cards
+			surface: '#12101F', // deepest inset surfaces: column bg, text inputs
 		},
 
 		primary: {
-			main: '#7C3AED',       // brand violet — buttons, focus rings
-			dark: '#6D28D9',       // button hover
+			main: '#7C3AED', // brand violet — buttons, focus rings
+			dark: '#6D28D9', // button hover
 		},
 
 		secondary: {
-			main: '#7C6BAE',       // muted lavender — icons, secondary text
+			main: '#7C6BAE', // muted lavender — icons, secondary text
 		},
 
 		text: {
-			primary:   '#ffffff',
-			secondary: '#8B5CF6',  // empty-state labels
+			primary: '#ffffff',
+			secondary: '#8B5CF6', // empty-state labels
 		},
 
-		divider: '#2A2545',        // borders on columns, cards, menus
+		divider: '#2A2545', // borders on columns, cards, menus
 
 		error: {
-			main: '#F87171',       // destructive actions, high-priority text
+			main: '#F87171', // destructive actions, high-priority text
 		},
 
 		/*
@@ -90,9 +90,9 @@ const theme = createTheme({
 		 * supports nested palette keys.
 		 */
 		border: {
-			focus:  '#3D3560',     // input fieldset default
-			hover:  '#4B3F8A',     // input/card hover border
-			active: '#7C3AED',     // input hover fieldset (matches primary.main)
+			focus: '#3D3560', // input fieldset default
+			hover: '#4B3F8A', // input/card hover border
+			active: '#7C3AED', // input hover fieldset (matches primary.main)
 		},
 
 		/*
@@ -100,15 +100,15 @@ const theme = createTheme({
 		 * background and text colour pair used by the Chip component in Cards.jsx.
 		 */
 		priority: {
-			low:    { bg: '#0D2420', text: '#34D399' },
+			low: { bg: '#0D2420', text: '#34D399' },
 			medium: { bg: '#2D2210', text: '#FBBF24' },
-			high:   { bg: '#3B1219', text: '#F87171' },
+			high: { bg: '#3B1219', text: '#F87171' },
 		},
 
 		action: {
-			selected:      '#3D2F6B',              // selected MenuItem
-			selectedHover: '#4A3880',              // selected MenuItem on hover
-			hover:         'rgba(124,107,174,0.08)', // transparent button hover
+			selected: '#3D2F6B', // selected MenuItem
+			selectedHover: '#4A3880', // selected MenuItem on hover
+			hover: 'rgba(124,107,174,0.08)', // transparent button hover
 		},
 
 		/*
@@ -116,7 +116,7 @@ const theme = createTheme({
 		 * column header.
 		 */
 		badge: {
-			bg:   '#1E1B3A',
+			bg: '#1E1B3A',
 			text: '#7C6BAE',
 		},
 	},

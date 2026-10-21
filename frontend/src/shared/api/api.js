@@ -33,6 +33,38 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000';
 const TIMEOUT_MS = 5000;
 
 /**
+ * Builds the Error thrown for a non-2xx response.
+ *
+ * The backend's error envelope (`{ success: false, message }`) carries a
+ * human-readable reason — e.g. which time-tracking limit a 409 hit — so its
+ * `message` becomes the Error's message when present. Responses without one
+ * (empty bodies, non-JSON bodies, an envelope with no message) fall back to
+ * `HTTP error: <status> <statusText>`; a body that fails to parse must not
+ * mask the HTTP error itself.
+ *
+ * @async
+ * @param {Response} response - A fetch Response with `ok === false`.
+ * @returns {Promise<Error>} The Error, with `status` set to the HTTP status
+ *   code so callers can branch on it (e.g. 409) without parsing the text.
+ */
+async function toHttpError(response) {
+	let message = `HTTP error: ${response.status} ${response.statusText}`;
+
+	try {
+		const body = await response.json();
+		if (typeof body?.message === 'string' && body.message.trim() !== '') {
+			message = body.message;
+		}
+	} catch {
+		/* Empty or non-JSON body — keep the status-line fallback. */
+	}
+
+	const error = new Error(message);
+	error.status = response.status;
+	return error;
+}
+
+/**
  * Core HTTP request helper — the single function all public API methods
  * delegate to.
  *
@@ -41,7 +73,8 @@ const TIMEOUT_MS = 5000;
  *   2. Fetch options are assembled (method, signal, Content-Type header).
  *   3. When `data` is provided it is JSON-serialised and attached as the body.
  *   4. fetch() is awaited. On success the timeout is cleared immediately.
- *   5. Non-2xx responses throw an Error with the HTTP status and status text.
+ *   5. Non-2xx responses throw an Error carrying the server's message (or the
+ *      HTTP status line when there is none) and the status code.
  *   6. The parsed JSON body of a successful response is returned to the caller.
  *   7. Any error (network failure, abort, non-2xx) is caught, the timeout is
  *      cleared, and the error is re-thrown — AbortErrors become a friendly
@@ -99,7 +132,7 @@ async function request(method, path, data = null) {
 		 * single catch branch for all error conditions.
 		 */
 		if (!response.ok) {
-			throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+			throw await toHttpError(response);
 		}
 
 		return response.json();
@@ -139,11 +172,11 @@ async function request(method, path, data = null) {
  * @property {Function} patch  - Send a PATCH request with a JSON body.
  */
 const api = {
-	get:    (path)       => request('GET',    path),
-	post:   (path, data) => request('POST',   path, data),
-	put:    (path, data) => request('PUT',    path, data),
-	delete: (path)       => request('DELETE', path),
-	patch:  (path, data) => request('PATCH',  path, data),
+	get: (path) => request('GET', path),
+	post: (path, data) => request('POST', path, data),
+	put: (path, data) => request('PUT', path, data),
+	delete: (path) => request('DELETE', path),
+	patch: (path, data) => request('PATCH', path, data),
 };
 
 export default api;

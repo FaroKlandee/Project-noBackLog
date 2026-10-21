@@ -27,7 +27,7 @@
  *          └─ TimeLogSection (features/timeLogs)
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import {
 	Alert,
@@ -141,6 +141,33 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 		setTimeEstimateError(null);
 	}, [open, card?.id]);
 
+	/*
+	 * Accessibility wiring
+	 * ─────────────────────────────────────────────────────────────────────
+	 * titleId names the dialog (aria-labelledby). It sits on a wrapper around
+	 * the title rather than on the button or input themselves, so the name is
+	 * computed from content in both modes: the button's text, or the input's
+	 * value while editing (pointing at the input directly would yield its
+	 * aria-label, "Card title", instead).
+	 * estimateId / descriptionId tie each FieldLabel <label> to its input.
+	 * restoreTitleFocus — set when an edit ends from the keyboard (Enter /
+	 * Escape), so focus returns to the heading button instead of falling to
+	 * the dialog root when the input unmounts. Not set on blur: the user has
+	 * already moved focus elsewhere, and pulling it back would fight them.
+	 */
+	const titleId = useId();
+	const estimateId = useId();
+	const descriptionId = useId();
+	const titleButtonRef = useRef(null);
+	const restoreTitleFocus = useRef(false);
+
+	useEffect(() => {
+		if (!isEditingTitle && restoreTitleFocus.current) {
+			restoreTitleFocus.current = false;
+			titleButtonRef.current?.focus();
+		}
+	}, [isEditingTitle]);
+
 	const isDescriptionDirty = description !== (card?.description ?? '');
 	const isTimeEstimateDirty = timeEstimate !== (card?.timeEstimate ?? '');
 
@@ -187,11 +214,13 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			e.stopPropagation();
+			restoreTitleFocus.current = true;
 			commitTitle();
 		}
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			e.stopPropagation();
+			restoreTitleFocus.current = true;
 			setIsEditingTitle(false);
 		}
 	}
@@ -250,6 +279,7 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 		<Dialog
 			open={open}
 			onClose={onClose}
+			aria-labelledby={titleId}
 			maxWidth={false}
 			slotProps={{
 				paper: {
@@ -269,42 +299,68 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 			<Box sx={{ px: 4, pt: 3.5, pb: 2.5 }}>
 				<Stack direction="row" alignItems="flex-start" spacing={2}>
 					<Box sx={{ flexGrow: 1, minWidth: 0 }}>
-						{isEditingTitle ? (
-							<TextField
-								autoFocus
-								fullWidth
-								value={titleDraft}
-								onChange={(e) => setTitleDraft(e.target.value)}
-								onKeyDown={handleTitleKeyDown}
-								onBlur={commitTitle}
-								onFocus={(e) => e.currentTarget.select()}
-								size="small"
-								slotProps={{ htmlInput: { maxLength: TITLE_MAX_LENGTH } }}
-								sx={(theme) => ({
-									'& .MuiOutlinedInput-root': {
-										bgcolor: theme.palette.background.surface,
+						<Box id={titleId}>
+							{isEditingTitle ? (
+								<TextField
+									autoFocus
+									fullWidth
+									value={titleDraft}
+									onChange={(e) => setTitleDraft(e.target.value)}
+									onKeyDown={handleTitleKeyDown}
+									onBlur={commitTitle}
+									onFocus={(e) => e.currentTarget.select()}
+									size="small"
+									slotProps={{
+										htmlInput: {
+											'aria-label': 'Card title',
+											maxLength: TITLE_MAX_LENGTH,
+										},
+									}}
+									sx={(theme) => ({
+										'& .MuiOutlinedInput-root': {
+											bgcolor: theme.palette.background.surface,
+											fontSize: '1.75rem',
+											fontWeight: 700,
+										},
+									})}
+								/>
+							) : (
+								/*
+								 * A real <button> (not a clickable Typography) so the title is
+								 * reachable with Tab and opens the editor with Enter/Space.
+								 * The sx resets the browser's button chrome so it still
+								 * reads as a heading.
+								 */
+								<Typography
+									component="button"
+									type="button"
+									ref={titleButtonRef}
+									onClick={handleTitleClick}
+									sx={{
+										display: 'block',
+										width: '100%',
+										textAlign: 'left',
+										font: 'inherit',
+										background: 'none',
+										border: 0,
 										fontSize: '1.75rem',
 										fontWeight: 700,
-									},
-								})}
-							/>
-						) : (
-							<Typography
-								onClick={handleTitleClick}
-								sx={{
-									fontSize: '1.75rem',
-									fontWeight: 700,
-									color: 'text.primary',
-									cursor: 'pointer',
-									borderRadius: 1,
-									px: 0.5,
-									mx: -0.5,
-									'&:hover': { bgcolor: 'action.hover' },
-								}}
-							>
-								{title}
-							</Typography>
-						)}
+										color: 'text.primary',
+										cursor: 'pointer',
+										borderRadius: 1,
+										px: 0.5,
+										mx: -0.5,
+										'&:hover': { bgcolor: 'action.hover' },
+										'&:focus-visible': {
+											outline: '2px solid',
+											outlineColor: 'primary.main',
+										},
+									}}
+								>
+									{title}
+								</Typography>
+							)}
+						</Box>
 						{(titleSaving || isEditingTitle) && (
 							<Typography variant="caption" sx={{ color: 'text.secondary', pl: 0.5 }}>
 								{titleSaving ? 'Saving…' : 'Enter to save, Esc to cancel'}
@@ -316,7 +372,12 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							</Alert>
 						)}
 					</Box>
-					<IconButton onClick={onClose} size="small" sx={{ color: 'secondary.main', mt: -0.5 }}>
+					<IconButton
+						aria-label="Close"
+						onClick={onClose}
+						size="small"
+						sx={{ color: 'secondary.main', mt: -0.5 }}
+					>
 						<CloseIcon />
 					</IconButton>
 				</Stack>
@@ -334,7 +395,9 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							onChange={handlePriorityChange}
 						>
 							{PRIORITIES.map((p) => (
-								<MenuItem key={p} value={p}>{p}</MenuItem>
+								<MenuItem key={p} value={p}>
+									{p}
+								</MenuItem>
 							))}
 						</Select>
 						{priorityError && (
@@ -346,10 +409,11 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 
 					{/* Time estimate — free text (e.g. "1 day", "4h"); saves independently. */}
 					<Box>
-						<FieldLabel icon={<AccessTimeIcon sx={{ fontSize: '1rem' }} />}>
+						<FieldLabel htmlFor={estimateId} icon={<AccessTimeIcon sx={{ fontSize: '1rem' }} />}>
 							Time estimate
 						</FieldLabel>
 						<TextField
+							id={estimateId}
 							fullWidth
 							size="small"
 							placeholder="e.g. 1 day, 4h"
@@ -369,7 +433,11 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 								>
 									{timeEstimateSaving ? 'Saving…' : 'Save'}
 								</Button>
-								<Button size="small" onClick={handleDiscardTimeEstimate} disabled={timeEstimateSaving}>
+								<Button
+									size="small"
+									onClick={handleDiscardTimeEstimate}
+									disabled={timeEstimateSaving}
+								>
 									Discard
 								</Button>
 							</Stack>
@@ -386,10 +454,11 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 
 					{/* Description — free text; saves independently. */}
 					<Box>
-						<FieldLabel icon={<SubjectIcon sx={{ fontSize: '1rem' }} />}>
+						<FieldLabel htmlFor={descriptionId} icon={<SubjectIcon sx={{ fontSize: '1rem' }} />}>
 							Description
 						</FieldLabel>
 						<TextField
+							id={descriptionId}
 							fullWidth
 							multiline
 							minRows={6}
@@ -411,7 +480,11 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 								>
 									{descriptionSaving ? 'Saving…' : 'Save'}
 								</Button>
-								<Button size="small" onClick={handleDiscardDescription} disabled={descriptionSaving}>
+								<Button
+									size="small"
+									onClick={handleDiscardDescription}
+									disabled={descriptionSaving}
+								>
 									Discard
 								</Button>
 							</Stack>

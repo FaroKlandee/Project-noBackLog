@@ -4,7 +4,7 @@ AI-powered task management application with natural language command interface. 
 
 **Developer:** Patiphak Klandee (Faro)  
 **Technical Background:** ISTQB Certified | 3+ Years QA/Development Experience  
-**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook Tests | Hardening Sprint Complete
+**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook/Component Tests | Hardening Sprint Complete | Phase 2 Close-out Complete
 
 ---
 
@@ -22,7 +22,7 @@ NoBacklog is a modern task management system that combines:
 ## Development Milestones
 
 ### Phase 1: Backend API Development (COMPLETE)
-**Status:** 26 endpoints operational across Board, List, Card, and TimeLog resources, plus dedicated reorder endpoints for Lists and Cards.
+**Status:** 27 endpoints operational across Board, List, Card, and TimeLog resources, including dedicated reorder endpoints for Lists and Cards and a card-rank rebalance endpoint.
 
 **Achievement Summary:**
 - Built a production-ready 4-tier hierarchical REST API on ASP.NET Core
@@ -36,7 +36,7 @@ NoBacklog is a modern task management system that combines:
 **Completed APIs:**
 1. **Board API** - Dashboard/workspace management (5 endpoints)
 2. **List API** - Column/status management (5 endpoints + reorder)
-3. **Card API** - Task/item management (5 endpoints + reposition)
+3. **Card API** - Task/item management (5 endpoints + reposition + rebalance)
 4. **TimeLog API** - Time tracking functionality (5 CRUD endpoints + start/finish/running/settings)
 
 **Total Backend Deliverables:**
@@ -61,11 +61,13 @@ NoBacklog is a modern task management system that combines:
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
 - Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
-- Vitest test suite for the pure utils (`generateRank`, `formatDuration`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend
+- Server error messages reach the UI: `api.js` throws the backend envelope's `message` (e.g. which time-tracking limit a `409` hit), falling back to the HTTP status line, with the status code on `error.status`
+- `CardEditDialog` is fully labelled and keyboard-reachable: the title is a real button (Tab, then Enter/Space opens the editor; focus returns after Enter/Escape), the dialog is named by the card title, and every field has an accessible name
+- Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and the `LoadError`, `CardEditDialog` and `TimeLogSection` components (React Testing Library)
 
 **Not yet built:**
 - Manual editing of time entries
-- Component-level frontend tests (React Testing Library)
+- Tests for pages and the drag-and-drop components
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -73,7 +75,7 @@ NoBacklog is a modern task management system that combines:
 
 ### Phase 4: Deployment (FUTURE)
 **Target Platform:** TBD  
-**Database:** PostgreSQL (local for dev/staging; hosting TBD)
+**Database:** PostgreSQL (local for dev; hosting TBD)
 
 ---
 
@@ -102,11 +104,12 @@ NoBacklog is a modern task management system that combines:
 | Lint/Format | Biome | ^1.9.4 |
 | Unit Testing | Vitest + jsdom + React Testing Library | ^5.0.3 / ^30.1.2 / ^16.3.3 |
 | API Mocking | MSW (Mock Service Worker) | ^3.0.2 |
+| Component Testing | `@testing-library/user-event` + `@testing-library/jest-dom` | ^14.6.7 / ^7.0.1 |
 
 ### Future Integrations
 - **AI:** Anthropic Claude API
 - **Deployment:** TBD
-- **CI/CD:** GitHub Actions — CI in place (both test suites + frontend build on every push); deployment pipeline planned
+- **CI/CD:** GitHub Actions — CI in place (frontend lint, both test suites and the frontend build on every push); deployment pipeline planned
 
 ---
 
@@ -153,7 +156,7 @@ nobacklog/
 └── frontend/
     └── src/
         ├── app/                    # main.jsx, routes.jsx, theme.js
-        ├── test/                   # Vitest setup, MSW server, apiUrl helper
+        ├── test/                   # Vitest setup, MSW server, apiUrl + renderWithTheme helpers
         ├── pages/                  # BoardsPage, BoardDetailPage
         ├── features/
         │   ├── boards/              # api, components, hooks
@@ -161,7 +164,7 @@ nobacklog/
         │   ├── cards/               # api, components (incl. CardEditDialog), hooks, constants, rank.js
         │   └── timeLogs/            # api, components, hooks, utils
         └── shared/
-            ├── api/                 # shared axios/fetch client (api.js)
+            ├── api/                 # shared fetch client (api.js): timeout, error envelope → Error
             └── components/          # shared UI (FieldLabel, LoadError)
 ```
 
@@ -232,8 +235,7 @@ Lists and Cards both carry a string `Position` field. The backend orders by a pl
 
 ### Base URL
 ```
-Dev:      http://localhost:5000/api
-Staging:  http://localhost:5001/api
+Dev:        http://localhost:5000/api
 Production: TBD
 ```
 
@@ -350,18 +352,20 @@ pnpm test:coverage   # coverage report (text + coverage/index.html)
 
 - **Runner:** Vitest, configured in `vite.config.js` so tests go through the same transform pipeline as the app. `globals` is off — tests import `describe`/`it`/`expect` explicitly, so `src/test/setup.js` calls Testing Library's `cleanup()` itself.
 - **Backend stand-in:** MSW (`src/test/server.js`) intercepts `fetch`, so the real `api.js` and service modules run in every hook test: URLs, verbs, request bodies and error conversion are all exercised. The server starts with no handlers; each test declares exactly the endpoints it expects with `server.use(...)`, and any undeclared request fails the test (`onUnhandledRequest: 'error'`).
+- **Components** render through `renderWithTheme` (`src/test/render.jsx`), which wraps them in the app's `ThemeProvider` (their `sx` callbacks read custom palette tokens MUI's default theme lacks) and returns a `user-event` session (`delay: null`, so typing doesn't wait a timer tick per keystroke). Elements are queried role-first (`getByRole('button', { name: 'Save' })`), then label/placeholder/text — never MUI class names. `jest-dom` matchers (`toBeDisabled`, `toHaveValue`, …) are registered in `setup.js`.
 - **Hooks** are driven with `renderHook` / `waitFor` / `act`. Error assertions match the exact message (e.g. `HTTP error: 500 Internal Server Error`), because an unmatched handler also produces an error (`TypeError: fetch failed`) and a vague assertion would pass for the wrong reason.
-- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit without closing the dialog, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **HTTP client:** `api.test.js` covers the error envelope's `message`, the status-line fallback for empty, non-JSON and blank-message bodies, and the 5000 ms timeout. For the timeout, MSW holds the response with `delay('infinite')` while only `setTimeout`/`clearTimeout` are faked.
 - **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
-- **Not covered yet:** components and pages (the coverage report lists them at 0%), and `api.js`'s timeout path.
+- **Not covered yet:** pages and the drag-and-drop components (the coverage report lists them at 0%).
 
 ### Continuous Integration
 `.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
 
 - **Backend:** `dotnet test backend-tests` on .NET 10.
-- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm test`, then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
+- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test`, then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
 
-A newer push to the same branch cancels the run it supersedes. `pnpm lint` isn't run yet; see the Biome-cleanup follow-up.
+A newer push to the same branch cancels the run it supersedes. `frontend/.gitattributes` checks the frontend out with LF line endings, so `pnpm lint` passes on Windows exactly as it does in CI; run `pnpm format` (or `pnpm biome check --write .`) to fix formatting locally.
 
 ---
 
@@ -406,7 +410,7 @@ public async Task<IActionResult> Create([FromBody] Resource resource)
 
 ### Prerequisites
 - .NET SDK 10.0+
-- Node.js (v18+) and pnpm
+- Node.js 22.12+ (Vitest 5 requirement; CI uses Node 24) and pnpm 9 (pinned via `packageManager`; `npm install` is blocked)
 - PostgreSQL (local instance, or a hosted connection string)
 - Git
 - Code editor (VS Code / Rider recommended)
@@ -446,14 +450,9 @@ curl http://localhost:5000/
 
 ## Running the App
 
-The project has two environments — **dev** and **staging** — designed to run simultaneously, each on its own port pair. This supports having both branches open in the same Zed window.
-
 | | Frontend | Backend | Database |
 |---|---|---|---|
 | **Dev** | `http://localhost:5173` | `http://localhost:5000` | `nobacklog` |
-| **Staging** | `http://localhost:5174` | `http://localhost:5001` | `nobacklog_staging` |
-
-### Dev
 
 ```bash
 # Terminal 1 — backend (from backend-dotnet/)
@@ -463,19 +462,7 @@ dotnet run --launch-profile http
 pnpm dev
 ```
 
-### Staging
-
-```bash
-# Terminal 1 — backend (from backend-dotnet/)
-dotnet run --launch-profile staging
-
-# Terminal 2 — frontend (from frontend/)
-pnpm dev:staging
-```
-
-### Running both simultaneously
-
-Open four terminals — one per process — and run all four commands above at the same time. Dev and staging use separate ports and separate databases so they won't interfere with each other.
+`.claude/launch.json` defines the same two servers (`frontend`, `backend`) for Claude Code's preview tools.
 
 ---
 
@@ -525,7 +512,7 @@ Open four terminals — one per process — and run all four commands above at t
 
 ### Follow-ups from card editing
 - [ ] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
-- [ ] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview`
+- [x] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview` (`priorityChipSx`)
 - [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
 
 ### Follow-ups from time tracking
@@ -533,7 +520,7 @@ Open four terminals — one per process — and run all four commands above at t
 - [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
 - [ ] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`)
 - [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
-- [ ] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
+- [x] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Follow-ups from backend tests
 - [ ] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
@@ -546,12 +533,14 @@ Open four terminals — one per process — and run all four commands above at t
 - [x] Frontend test coverage (Vitest + MSW: rank/duration utils and the `useLists`, `useBoardCards`, `useCardTimeLogs` hooks)
 
 ### Follow-ups from frontend tests
-- [ ] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`), then pages
-- [ ] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
-- [ ] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
-- [ ] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null (it currently keeps the last card's data)
+- [x] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`)
+- [ ] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [x] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
+- [x] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
+- [x] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
+- [x] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null. Not needed: `TimeLogSection` only mounts while the dialog has a card, so closing it unmounts the hook
 - [x] Run `pnpm test` in CI alongside `dotnet test`
-- [ ] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
+- [x] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
 - [ ] Add coverage thresholds once components are tested
 
 ### Future Features
@@ -609,5 +598,5 @@ LinkedIn: [linkedin.com/in/patiphak-klandee](https://linkedin.com/in/patiphak-kl
 Portfolio: [faroklandee.in](https://faroklandee.in/)
 
  
-**Current Phase:** Frontend Development - Core Kanban UI complete (boards, lists, cards, drag-and-drop, card editing, time tracking); hardening sprint complete (incl. Vitest util/hook tests)  
+**Current Phase:** Frontend Development - Core Kanban UI complete (boards, lists, cards, drag-and-drop, card editing, time tracking); hardening sprint and Phase 2 close-out complete (server error messages, dialog accessibility, Biome lint in CI)  
 **Backend Status:** CRUD, reordering and timer endpoints complete across Board, List, Card, TimeLog resources | xUnit service-layer tests in place; controller integration tests pending

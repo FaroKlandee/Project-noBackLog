@@ -60,6 +60,11 @@ export function useCardTimeLogs(cardId) {
 	/*
 	 * Reload whenever a different card opens. The `ignore` flag drops a slow
 	 * response for a previous card so it can't overwrite the current one.
+	 *
+	 * A null cardId leaves the previous card's state in place rather than
+	 * clearing it, because no caller can show it: TimeLogSection is only
+	 * mounted while CardEditDialog has a card, so closing the dialog unmounts
+	 * this hook and reopening starts from fresh state.
 	 */
 	useEffect(() => {
 		if (cardId == null) return;

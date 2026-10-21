@@ -25,8 +25,9 @@
  *          └─ CardPreview  ← YOU ARE HERE
  */
 
-import { ListItem, ListItemText, Chip, Box } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { Box, Chip, ListItem, ListItemText } from '@mui/material';
+import { priorityChipSx } from '../constants';
 
 /**
  * CardPreview component.
@@ -47,7 +48,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 export default function CardPreview({ card, nested = false }) {
 	return (
 		<ListItem
-			sx={theme => ({
+			sx={(theme) => ({
 				bgcolor: 'background.paper',
 				border: `1px solid ${theme.palette.divider}`,
 				borderRadius: '8px',
@@ -61,10 +62,19 @@ export default function CardPreview({ card, nested = false }) {
 			})}
 			disablePadding={false}
 		>
-			<Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+			<Box
+				sx={{
+					width: '100%',
+					display: 'flex',
+					justifyContent: 'space-between',
+					alignItems: 'flex-start',
+				}}
+			>
 				<ListItemText
 					primary={card.title}
-					primaryTypographyProps={{ sx: { color: 'text.primary', fontWeight: 600, fontSize: '0.95rem' } }}
+					primaryTypographyProps={{
+						sx: { color: 'text.primary', fontWeight: 600, fontSize: '0.95rem' },
+					}}
 				/>
 				<MoreVertIcon fontSize="small" sx={{ color: 'secondary.main', ml: 1, flexShrink: 0 }} />
 			</Box>
@@ -72,17 +82,7 @@ export default function CardPreview({ card, nested = false }) {
 			<Chip
 				label={card.priority}
 				size="small"
-				sx={theme => ({
-					mt: 0.75,
-					height: 22,
-					fontSize: '0.7rem',
-					fontWeight: 700,
-					borderRadius: '999px',
-					border: 'none',
-					...(card.priority === 'Low'    && { bgcolor: theme.palette.priority.low.bg,    color: theme.palette.priority.low.text }),
-					...(card.priority === 'Medium' && { bgcolor: theme.palette.priority.medium.bg, color: theme.palette.priority.medium.text }),
-					...(card.priority === 'High'   && { bgcolor: theme.palette.priority.high.bg,   color: theme.palette.priority.high.text }),
-				})}
+				sx={(theme) => priorityChipSx(theme, card.priority)}
 			/>
 		</ListItem>
 	);

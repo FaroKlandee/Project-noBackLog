@@ -21,16 +21,20 @@
  * BoardCard  — presentational card component for a single board.
  * LoadError  — shared error banner with a Retry action.
  */
-import { Box, Skeleton } from "@mui/material";
-import { useBoards } from "../hooks/useBoards";
-import BoardCard from "./BoardCard";
-import LoadError from "../../../shared/components/LoadError";
+import { Box, Skeleton } from '@mui/material';
+import LoadError from '../../../shared/components/LoadError';
+import { useBoards } from '../hooks/useBoards';
+import BoardCard from './BoardCard';
 
 /*
  * Shared grid layout, so the loading placeholders occupy exactly the cells
  * the real BoardCards will.
  */
-const GRID_SX = { display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' };
+const GRID_SX = {
+	display: 'grid',
+	gap: 1,
+	gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+};
 
 /**
  * Boards component.
@@ -61,7 +65,9 @@ export default function Boards() {
 	if (loading === true) {
 		return (
 			<Box sx={GRID_SX} aria-label="Loading boards…">
-				{[0, 1, 2].map(i => <Skeleton key={i} variant="rounded" height={72} />)}
+				{[0, 1, 2].map((i) => (
+					<Skeleton key={i} variant="rounded" height={72} />
+				))}
 			</Box>
 		);
 	}
@@ -84,9 +90,9 @@ export default function Boards() {
 	 */
 	return (
 		<Box sx={GRID_SX}>
-			{boards.length === 0 ? "No boards yet" : boards.map((board) => (
-				<BoardCard key={board.id} board={board} />
-			))}
+			{boards.length === 0
+				? 'No boards yet'
+				: boards.map((board) => <BoardCard key={board.id} board={board} />)}
 		</Box>
-	)
+	);
 }

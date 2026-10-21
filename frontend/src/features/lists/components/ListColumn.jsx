@@ -35,16 +35,16 @@
  * Cards — card list presenter, imported from the cards feature barrel so this
  *         file never reaches into the cards feature's internal folder structure.
  */
-import { Cards, PRIORITIES, DEFAULT_PRIORITY } from '../../cards';
+import { Cards, DEFAULT_PRIORITY, PRIORITIES } from '../../cards';
 import { LIST_NAME_MAX_LENGTH } from '../constants';
 
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
 /*
  * Icons
  */
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
 
 /*
  * React
@@ -58,8 +58,11 @@ import CloseIcon from '@mui/icons-material/Close';
  * useTransition — setOptimisticName must be called inside a transition; this
  *                 is the manual (non-form-action) way to open one.
  */
-import { useState, useRef, useOptimistic, useTransition } from 'react';
+import { useOptimistic, useRef, useState, useTransition } from 'react';
 
+import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
+import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
+import { isInteractiveElement } from '@dnd-kit/dom/utilities';
 /*
  * @dnd-kit/react/sortable
  * ───────────────────────────────────────────────────────────────────────────
@@ -74,10 +77,8 @@ import { useState, useRef, useOptimistic, useTransition } from 'react';
  * isInteractiveElement — see LIST_DRAG_SENSORS below.
  */
 import { useSortable } from '@dnd-kit/react/sortable';
-import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
-import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dnd-kit/dom';
-import { isInteractiveElement } from '@dnd-kit/dom/utilities';
 
+import { CollisionPriority } from '@dnd-kit/abstract';
 /*
  * @dnd-kit/react / @dnd-kit/abstract
  * ───────────────────────────────────────────────────────────────────────────
@@ -88,7 +89,6 @@ import { isInteractiveElement } from '@dnd-kit/dom/utilities';
  *                      this needs to be explicitly set to `Low`.
  */
 import { useDroppable } from '@dnd-kit/react';
-import { CollisionPriority } from '@dnd-kit/abstract';
 
 /*
  * MUI components
@@ -104,15 +104,15 @@ import { CollisionPriority } from '@dnd-kit/abstract';
  */
 import {
 	Alert,
-	Typography,
 	Box,
+	FormControl,
 	IconButton,
 	Menu,
 	MenuItem,
+	Select,
 	Stack,
 	TextField,
-	Select,
-	FormControl,
+	Typography,
 } from '@mui/material';
 
 /*
@@ -542,7 +542,7 @@ export default function ListColumn({
 	 *               │    ├─ IconButton (options menu trigger)
 	 *               │    └─ Menu > MenuItem (Delete list)
 	 *               ├─ Alert (list rename/delete error banner, shown conditionally)
- *               ├─ Alert (scoped card mutation error banner, shown conditionally)
+	 *               ├─ Alert (scoped card mutation error banner, shown conditionally)
 	 *               ├─ Cards (card list presenter)
 	 *               └─ Box (add-card form, shown conditionally when isAddingCard is true)
 	 *
@@ -637,20 +637,22 @@ export default function ListColumn({
 						)}
 
 						{/* Card count badge — pill showing total cards in this column. */}
-						{cardsReady && <Box
-							component="span"
-							sx={(theme) => ({
-								ml: 1,
-								px: 1,
-								py: 0.25,
-								bgcolor: theme.palette.badge.bg,
-								borderRadius: '999px',
-								fontSize: '0.75rem',
-								color: theme.palette.badge.text,
-							})}
-						>
-							{cards.length}
-						</Box>}
+						{cardsReady && (
+							<Box
+								component="span"
+								sx={(theme) => ({
+									ml: 1,
+									px: 1,
+									py: 0.25,
+									bgcolor: theme.palette.badge.bg,
+									borderRadius: '999px',
+									fontSize: '0.75rem',
+									color: theme.palette.badge.text,
+								})}
+							>
+								{cards.length}
+							</Box>
+						)}
 
 						{/* Add card button — opens the inline add-card form. */}
 						{cardsReady && (
@@ -688,11 +690,7 @@ export default function ListColumn({
 					 * the useOptimistic import comment), so this is the only sign of it.
 					 */}
 					{listError && (
-						<Alert
-							severity="error"
-							onClose={onDismissListError}
-							sx={{ mb: 1, fontSize: '0.8rem' }}
-						>
+						<Alert severity="error" onClose={onDismissListError} sx={{ mb: 1, fontSize: '0.8rem' }}>
 							{listError}
 						</Alert>
 					)}
@@ -803,7 +801,9 @@ export default function ListColumn({
 										})}
 									>
 										{PRIORITIES.map((p) => (
-											<MenuItem key={p} value={p}>{p}</MenuItem>
+											<MenuItem key={p} value={p}>
+												{p}
+											</MenuItem>
 										))}
 									</Select>
 								</FormControl>

@@ -54,7 +54,7 @@ export function useBoards() {
 	 * owner of the request and its cancellation.
 	 */
 	const [reloadKey, setReloadKey] = useState(0);
-	const reload = useCallback(() => setReloadKey(key => key + 1), []);
+	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is read only as a trigger — bumping it via `reload` re-runs the fetch.
 	useEffect(() => {
@@ -77,10 +77,16 @@ export function useBoards() {
 		setError(null);
 
 		fetchBoards()
-			.catch(err => { if (!cancelled) setError(err.message); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.catch((err) => {
+				if (!cancelled) setError(err.message);
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
 
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [reloadKey]); /* Runs on mount and again on every reload. */
 
 	return { boards, loading, error, reload };

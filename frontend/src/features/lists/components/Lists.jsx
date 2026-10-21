@@ -22,6 +22,11 @@
  *          └─ ListColumn (one per list)
  */
 
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import { Alert, Box, Button, IconButton, TextField } from '@mui/material';
+import { useState } from 'react';
+import { LIST_NAME_MAX_LENGTH } from '../constants';
 /*
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
@@ -33,11 +38,6 @@
  * useState                — React hook for local form state.
  */
 import ListColumn from './ListColumn';
-import { LIST_NAME_MAX_LENGTH } from '../constants';
-import { Alert, Box, Button, IconButton, TextField } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
-import { useState } from 'react';
 
 /**
  * Lists component.
@@ -224,7 +224,11 @@ export default function Lists({
 						})}
 					>
 						{createError && (
-							<Alert severity="error" onClose={onDismissListMutationError} sx={{ fontSize: '0.8rem' }}>
+							<Alert
+								severity="error"
+								onClose={onDismissListMutationError}
+								sx={{ fontSize: '0.8rem' }}
+							>
 								{createError}
 							</Alert>
 						)}

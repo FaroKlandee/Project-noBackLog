@@ -116,7 +116,7 @@ async function deleteList(id) {
  * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function reorderLists(data) {
-	return await api.patch(`/api/lists/reorder`, data);
+	return await api.patch('/api/lists/reorder', data);
 }
 
 /* Exports */

@@ -109,7 +109,13 @@ export default function Cards({ cards, loading = false, error = null, onDeleteCa
 	return (
 		<List sx={{ p: 0, m: 0 }}>
 			{cards.map((card, index) => (
-				<CardItem key={card.id} card={card} index={index} onDeleteCard={onDeleteCard} onEditCard={onEditCard} />
+				<CardItem
+					key={card.id}
+					card={card}
+					index={index}
+					onDeleteCard={onDeleteCard}
+					onEditCard={onEditCard}
+				/>
 			))}
 		</List>
 	);

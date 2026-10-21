@@ -72,7 +72,7 @@ async function getAllCardsByBoard(boardId) {
  * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
  */
 async function createCard(data) {
-	return await api.post(`/api/cards/`, data);
+	return await api.post('/api/cards/', data);
 }
 
 /**
@@ -154,4 +154,12 @@ async function rebalanceListCards(listId, orderedCardIds) {
 }
 
 /* Exports */
-export { getAllCards, getAllCardsByBoard, createCard, updateCard, deleteCard, reorderCard, rebalanceListCards };
+export {
+	getAllCards,
+	getAllCardsByBoard,
+	createCard,
+	updateCard,
+	deleteCard,
+	reorderCard,
+	rebalanceListCards,
+};

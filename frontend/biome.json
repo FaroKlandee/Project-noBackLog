@@ -20,7 +20,13 @@
       "trailingCommas": "es5"
     }
   },
+  "json": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
   "files": {
-    "ignore": ["node_modules", "dist"]
+    "ignore": ["node_modules", "dist", "coverage"]
   }
 }

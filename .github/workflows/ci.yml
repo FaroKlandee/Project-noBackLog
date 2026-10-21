@@ -1,14 +1,11 @@
-# CI — runs both test suites on every push.
+# CI — lints the frontend and runs both test suites on every push.
 #
 # Two independent jobs, run in parallel on separate runners:
 #   - backend:  `dotnet test` over backend-tests/ (xUnit, in-memory SQLite —
 #               no Postgres service needed).
-#   - frontend: `pnpm test` (Vitest + MSW — no backend needed), then
-#               `pnpm build` to catch anything that only breaks the bundle.
-#
-# `pnpm lint` is deliberately not run yet: the project has pre-existing Biome
-# errors outside the test suite (see the README's frontend-test follow-ups),
-# so it would fail every run until that cleanup lands.
+#   - frontend: `pnpm lint` (Biome format + lint), `pnpm test` (Vitest +
+#               MSW — no backend needed), then `pnpm build` to catch anything
+#               that only breaks the bundle.
 
 name: CI
 
@@ -43,7 +40,7 @@ jobs:
         run: dotnet test backend-tests --logger "console;verbosity=normal"
 
   frontend:
-    name: Frontend tests (Vitest) + build
+    name: Frontend lint (Biome) + tests (Vitest) + build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -68,6 +65,10 @@ jobs:
       # is out of sync with package.json.
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      # Fails on formatting drift as well as lint rules (`biome check`).
+      - name: Lint
+        run: pnpm lint
 
       - name: Test
         run: pnpm test
