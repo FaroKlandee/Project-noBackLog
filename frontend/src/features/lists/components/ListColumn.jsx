@@ -569,7 +569,12 @@ export default function ListColumn({
 	 * real column.
 	 */
 	return (
-		<Box ref={ref} component="section" sx={{ flexGrow: 0, flexShrink: 0, height: '100%', pr: 2 }}>
+		<Box
+			ref={ref}
+			component="section"
+			aria-label={optimisticName}
+			sx={{ flexGrow: 0, flexShrink: 0, height: '100%', pr: 2 }}
+		>
 			<Box
 				ref={cardDropRef}
 				sx={(theme) => ({
@@ -605,7 +610,7 @@ export default function ListColumn({
 								fullWidth
 								sx={{ flexGrow: 1 }}
 								slotProps={{
-									htmlInput: { maxLength: LIST_NAME_MAX_LENGTH },
+									htmlInput: { maxLength: LIST_NAME_MAX_LENGTH, 'aria-label': 'List name' },
 									input: {
 										sx: (theme) => ({
 											color: 'text.primary',
@@ -658,6 +663,7 @@ export default function ListColumn({
 						{cardsReady && (
 							<IconButton
 								size="small"
+								aria-label="Add card"
 								onClick={() => setIsAddingCard(true)}
 								sx={{ color: 'secondary.main', p: 0.5 }}
 							>
@@ -666,7 +672,12 @@ export default function ListColumn({
 						)}
 
 						{/* Options menu trigger — opens the MoreVert dropdown. */}
-						<IconButton size="small" onClick={handleClick} sx={{ color: 'secondary.main', p: 0.5 }}>
+						<IconButton
+							size="small"
+							aria-label="List options"
+							onClick={handleClick}
+							sx={{ color: 'secondary.main', p: 0.5 }}
+						>
 							<MoreVertIcon fontSize="small" />
 						</IconButton>
 
@@ -776,6 +787,7 @@ export default function ListColumn({
 								size="small"
 								fullWidth
 								slotProps={{
+									htmlInput: { 'aria-label': 'Card title' },
 									input: {
 										sx: (theme) => ({
 											color: 'text.primary',
@@ -793,6 +805,7 @@ export default function ListColumn({
 									<Select
 										value={newCardPriority}
 										onChange={(e) => setNewCardPriority(e.target.value)}
+										inputProps={{ 'aria-label': 'Priority' }}
 										sx={(theme) => ({
 											color: 'text.primary',
 											bgcolor: theme.palette.background.surface,
@@ -828,6 +841,7 @@ export default function ListColumn({
 								</Box>
 								<IconButton
 									size="small"
+									aria-label="Cancel"
 									onClick={handleCancelCard}
 									sx={{ color: 'secondary.main', p: 0.5 }}
 								>

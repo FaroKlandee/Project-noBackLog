@@ -437,6 +437,7 @@ export default function CardItem({ card, index, onDeleteCard, onEditCard }) {
 						/>
 						<IconButton
 							size="small"
+							aria-label="Card options"
 							onClick={handleMenuOpen}
 							sx={{ color: 'secondary.main', p: 0.25, ml: 1, flexShrink: 0 }}
 						>

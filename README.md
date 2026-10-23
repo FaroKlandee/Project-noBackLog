@@ -4,7 +4,7 @@ AI-powered task management application with natural language command interface. 
 
 **Developer:** Patiphak Klandee (Faro)  
 **Technical Background:** ISTQB Certified | 3+ Years QA/Development Experience  
-**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook/Component Tests | Hardening Sprint Complete | Phase 2 Close-out Complete
+**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook/Component/Page Tests | Hardening Sprint Complete | Phase 2 Close-out Complete
 
 ---
 
@@ -63,11 +63,11 @@ NoBacklog is a modern task management system that combines:
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
 - Server error messages reach the UI: `api.js` throws the backend envelope's `message` (e.g. which time-tracking limit a `409` hit), falling back to the HTTP status line, with the status code on `error.status`
 - `CardEditDialog` is fully labelled and keyboard-reachable: the title is a real button (Tab, then Enter/Space opens the editor; focus returns after Enter/Escape), the dialog is named by the card title, and every field has an accessible name
-- Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and the `LoadError`, `CardEditDialog` and `TimeLogSection` components (React Testing Library)
+- Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and every component and page: `BoardsPage`, `BoardDetailPage`, the drag-and-drop columns and cards (`Lists`, `ListColumn`, `Cards`, `CardItem`), `LoadError`, `CardEditDialog` and `TimeLogSection` (React Testing Library)
+- The board's icon buttons and inputs (`Add card`, `List options`, `Card options`, `Cancel`, `List name`, `Card title`, `Priority`) have accessible names, and each column is named by its list
 
 **Not yet built:**
 - Manual editing of time entries
-- Tests for pages and the drag-and-drop components
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -354,10 +354,12 @@ pnpm test:coverage   # coverage report (text + coverage/index.html)
 - **Backend stand-in:** MSW (`src/test/server.js`) intercepts `fetch`, so the real `api.js` and service modules run in every hook test: URLs, verbs, request bodies and error conversion are all exercised. The server starts with no handlers; each test declares exactly the endpoints it expects with `server.use(...)`, and any undeclared request fails the test (`onUnhandledRequest: 'error'`).
 - **Components** render through `renderWithTheme` (`src/test/render.jsx`), which wraps them in the app's `ThemeProvider` (their `sx` callbacks read custom palette tokens MUI's default theme lacks) and returns a `user-event` session (`delay: null`, so typing doesn't wait a timer tick per keystroke). Elements are queried role-first (`getByRole('button', { name: 'Save' })`), then label/placeholder/text — never MUI class names. `jest-dom` matchers (`toBeDisabled`, `toHaveValue`, …) are registered in `setup.js`.
 - **Hooks** are driven with `renderHook` / `waitFor` / `act`. Error assertions match the exact message (e.g. `HTTP error: 500 Internal Server Error`), because an unmatched handler also produces an error (`TypeError: fetch failed`) and a vague assertion would pass for the wrong reason.
-- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit without closing the dialog, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit without closing the dialog, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). For pages and the drag-and-drop components: `BoardsPage`'s links resolve through a memory router; `BoardDetailPage` loads the board name, lists and cards independently (each with its own error and Retry, and no cards banner until the lists are on screen) and merges the card's priority into every dialog save; `ListColumn`'s rename (Enter, blur, Escape, blank/unchanged, optimistic name settling) and add-card form (Shift+Enter, L/M/H outside the title, focus-leave closing that ignores the priority dropdown); `Lists`' per-column slicing and error scoping; `CardItem`'s delayed single-click open, double click, and moved-press rejection.
+- **Drag-and-drop:** jsdom has no layout, so dnd-kit can't resolve a real pointer drag. `BoardDetailPage.test.jsx` wraps `DragDropProvider` to reach the handlers the page passes it, and calls `onDragStart`/`onDragOver`/`onDragEnd` with synthetic events shaped like dnd-kit's. It asserts on the rendered order and on the request each drop sends: list reorder and its rollback, same-list and cross-list card moves (onto a card, into an empty column, below the last card), the rebalance when ranks are exhausted, the rejected-move rollback, and cancelled drags. The real provider still renders, so every `useSortable`/`useDroppable` registration runs. `setup.js` stubs `ResizeObserver`, which `@dnd-kit/dom` constructs on import.
+- **Queries on the board:** dnd-kit gives each draggable `role="button"` with `aria-roledescription="draggable"`, so a column isn't a `region` and a card isn't a `listitem`. Columns are found by their name (`getByLabelText('To Do', { selector: 'section' })`) and cards by their title text.
 - **HTTP client:** `api.test.js` covers the error envelope's `message`, the status-line fallback for empty, non-JSON and blank-message bodies, and the 5000 ms timeout. For the timeout, MSW holds the response with `delay('infinite')` while only `setTimeout`/`clearTimeout` are faked.
-- **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
-- **Not covered yet:** pages and the drag-and-drop components (the coverage report lists them at 0%).
+- **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one. One known exception: `ListColumn`'s Escape resets the title draft in case the field's unmount also fires a `blur`, which jsdom never does.
+- **Not covered:** `main.jsx` and `routes.jsx` (app bootstrap), and real pointer/keyboard drags, which need a browser (Playwright).
 
 ### Continuous Integration
 `.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
@@ -534,7 +536,11 @@ pnpm dev
 
 ### Follow-ups from frontend tests
 - [x] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`)
-- [ ] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [x] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [ ] `BoardDetailPage`'s `onDragOver` looks the dragged card up by its dnd-kit id (`card-3`) instead of its numeric id, so its "only commit same-list hovers" guard never fires and cross-list hovers are applied live too (see its comment for the ghost-card bug the guard was meant to prevent)
+- [ ] A failed card create clears the add-card title (`submitCreateCard` resolves after recording the error), unlike the add-list form, which keeps the name for a retry
+- [ ] The list title is click-only: make it keyboard-reachable like `CardEditDialog`'s title
+- [ ] Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags
 - [x] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
 - [x] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
 - [x] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)

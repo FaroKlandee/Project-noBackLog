@@ -37,3 +37,15 @@ afterEach(() => {
 afterAll(() => {
 	server.close();
 });
+
+/*
+ * jsdom has no ResizeObserver, and @dnd-kit/dom constructs one as soon as it's
+ * imported. A no-op stand-in lets the drag-and-drop components render. Tests
+ * never rely on layout: jsdom reports every element as 0×0 anyway, which is
+ * why drop handlers are driven with synthetic drag events instead.
+ */
+globalThis.ResizeObserver ??= class {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+};
