@@ -611,15 +611,7 @@ export default function ListColumn({
 								sx={{ flexGrow: 1 }}
 								slotProps={{
 									htmlInput: { maxLength: LIST_NAME_MAX_LENGTH, 'aria-label': 'List name' },
-									input: {
-										sx: (theme) => ({
-											color: 'text.primary',
-											bgcolor: theme.palette.background.surface,
-											borderRadius: 1,
-											fontSize: '0.95rem',
-											fontWeight: 700,
-										}),
-									},
+									input: { sx: { fontSize: '0.95rem', fontWeight: 700 } },
 								}}
 							/>
 						) : (
@@ -788,14 +780,7 @@ export default function ListColumn({
 								fullWidth
 								slotProps={{
 									htmlInput: { 'aria-label': 'Card title' },
-									input: {
-										sx: (theme) => ({
-											color: 'text.primary',
-											bgcolor: theme.palette.background.surface,
-											borderRadius: 1,
-											fontSize: '0.9rem',
-										}),
-									},
+									input: { sx: { fontSize: '0.9rem' } },
 								}}
 							/>
 
@@ -806,12 +791,7 @@ export default function ListColumn({
 										value={newCardPriority}
 										onChange={(e) => setNewCardPriority(e.target.value)}
 										inputProps={{ 'aria-label': 'Priority' }}
-										sx={(theme) => ({
-											color: 'text.primary',
-											bgcolor: theme.palette.background.surface,
-											fontSize: '0.9rem',
-											'& .MuiSelect-icon': { color: theme.palette.secondary.main },
-										})}
+										sx={{ fontSize: '0.9rem' }}
 									>
 										{PRIORITIES.map((p) => (
 											<MenuItem key={p} value={p}>

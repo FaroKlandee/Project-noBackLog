@@ -59,6 +59,7 @@ NoBacklog is a modern task management system that combines:
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` (dragged lists render a clone of their cards) to avoid DOM-relocation conflicts with React's reconciliation
 - Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers, and manual correction of an entry's start/finish times (inline `datetime-local` editor; finish after start, nothing in the future)
+- Shared Dialog, outlined-input and Select styling lives in `theme.js` component overrides rather than per-component `sx`
 - Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
 - Server error messages reach the UI: `api.js` throws the backend envelope's `message` (e.g. which time-tracking limit a `409` hit), falling back to the HTTP status line, with the status code on `error.status`
@@ -513,7 +514,7 @@ pnpm dev
 ### Follow-ups from card editing
 - [x] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
 - [x] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview` (`priorityChipSx`)
-- [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
+- [x] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
 
 ### Follow-ups from time tracking
 - [x] Manual editing of a time entry's start/finish times

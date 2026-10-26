@@ -244,15 +244,12 @@ export default function Lists({
 							placeholder="Enter list name…"
 							color="secondary"
 							size="small"
-							sx={(theme) => ({
-								'& .MuiOutlinedInput-root': {
-									bgcolor: 'background.paper',
-									borderRadius: 1,
-									color: 'text.primary',
-									'& fieldset': { borderColor: theme.palette.border.focus },
-									'&:hover fieldset': { borderColor: theme.palette.primary.main },
-								},
-							})}
+							/*
+							 * Paper rather than the theme's surface fill: this form's own
+							 * panel is already `background.surface`, so the input needs
+							 * the lighter layer to stand out from it.
+							 */
+							sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
 						/>
 						<Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
 							<Button
