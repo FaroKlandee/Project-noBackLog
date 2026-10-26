@@ -12,17 +12,19 @@
  * Sits in the `pages/` layer — acts as a composition root and delegates all
  * data-fetching and UI to feature-level hooks and components.
  *
- * Route: `/boards/:boardId`
+ * Route: `/boards/:boardId` (optionally `?card=<id>` to open a card's editor)
  */
 
 import { move } from '@dnd-kit/helpers';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
 import { Box, Skeleton, Typography } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 /*
  * Imports
  * ───────────────────────────────────────────────────────────────────────────
  * useParams       – React Router hook; extracts dynamic URL segments.
+ * useSearchParams – React Router hook; reads/writes `?card=<id>`, the card
+ *                   open in the edit dialog.
  * useLists        – Custom hook; fetches lists for a board and exposes
  *                   create/delete/reorder mutations.
  * Lists           – Presentational component; renders list columns and the
@@ -36,7 +38,7 @@ import { useEffect, useRef, useState } from 'react';
  * DragDropProvider– @dnd-kit/react context provider; enables drag-and-drop.
  * move            – @dnd-kit/helpers utility; reorders an array given a drag event.
  */
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { useBoardDetails } from '../features/boards';
 import { CardEditDialog, CardPreview, generateRank, useBoardCards } from '../features/cards';
 import { ListColumnPreview, ListColumnSkeleton, Lists, useLists } from '../features/lists/';
@@ -272,12 +274,21 @@ export default function BoardDetailPage() {
 	 * Card Edit Dialog State
 	 * ──────────────────────────────────────────────────────────────────
 	 * editingCardId — id of the card currently open in CardEditDialog, or
-	 *                 null when the dialog is closed. Only the id is held in
-	 *                 state; the live card object is derived below on every
-	 *                 render so a background drag or cardsByList update that
-	 *                 moves or changes it is always reflected while open.
+	 *                 null when the dialog is closed. It lives in the URL as
+	 *                 `?card=<id>` rather than in component state, so an open
+	 *                 card can be linked to and survives a refresh. Only the
+	 *                 id is held there; the live card object is derived below
+	 *                 on every render so a background drag or cardsByList
+	 *                 update that moves or changes it is always reflected
+	 *                 while open.
+	 *
+	 * Opening and closing replace the current history entry instead of pushing
+	 * a new one, so Back still leaves the board rather than stepping through
+	 * every card that was opened on it.
 	 */
-	const [editingCardId, setEditingCardId] = useState(null);
+	const [searchParams, setSearchParams] = useSearchParams();
+	const cardParam = searchParams.get('card');
+	const editingCardId = cardParam == null ? null : Number(cardParam);
 	const editingCard =
 		editingCardId == null
 			? null
@@ -285,15 +296,33 @@ export default function BoardDetailPage() {
 					.flat()
 					.find((c) => c.id === editingCardId) ?? null);
 
+	const setEditingCardId = useCallback(
+		(cardId) => {
+			setSearchParams(
+				(prev) => {
+					const next = new URLSearchParams(prev);
+					if (cardId == null) next.delete('card');
+					else next.set('card', String(cardId));
+					return next;
+				},
+				{ replace: true }
+			);
+		},
+		[setSearchParams]
+	);
+
 	/*
-	 * Auto-close the dialog if its card disappears out from under it (e.g.
-	 * deleted here or in another tab) while open.
+	 * Drop `?card=` once the cards have loaded if it doesn't name a card on
+	 * this board — a deleted card (here or in another tab, while open), a
+	 * stale link, or a malformed id. Waits for the load, since on a refresh
+	 * the card isn't in cardsByList yet; and keeps the param after a failed
+	 * load, so the cards banner's Retry can still reopen it.
 	 */
 	useEffect(() => {
-		if (editingCardId != null && editingCard == null) {
+		if (editingCardId != null && editingCard == null && !loadingCards && !errorCards) {
 			setEditingCardId(null);
 		}
-	}, [editingCardId, editingCard]);
+	}, [editingCardId, editingCard, loadingCards, errorCards, setEditingCardId]);
 
 	/**
 	 * Open the edit dialog for a card. `listId` isn't needed here — the dialog

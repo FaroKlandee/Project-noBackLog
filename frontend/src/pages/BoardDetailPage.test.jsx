@@ -83,18 +83,21 @@ function serveBoard({ board = { id: 7, name: 'Roadmap' }, lists = LISTS, cards =
 	);
 }
 
-/** Render the page at `/boards/7`. */
-function renderPage() {
+/**
+ * Render the page at `url` (default `/boards/7`). The router comes back with
+ * the render result, so tests can read the URL the page leaves behind.
+ */
+function renderPage(url = '/boards/7') {
 	const router = createMemoryRouter([{ path: '/boards/:boardId', element: <BoardDetailPage /> }], {
-		initialEntries: ['/boards/7'],
+		initialEntries: [url],
 	});
-	return renderWithTheme(<RouterProvider router={router} />);
+	return { router, ...renderWithTheme(<RouterProvider router={router} />) };
 }
 
 /** Render the page and wait until the lists and cards have loaded. */
-async function renderLoaded(data) {
+async function renderLoaded(data, url) {
 	serveBoard(data);
-	const view = renderPage();
+	const view = renderPage(url);
 	await screen.findByLabelText('To Do', { selector: 'section' });
 	await waitFor(() => expect(screen.queryByLabelText('Loading cards…')).not.toBeInTheDocument());
 	return view;
@@ -298,6 +301,81 @@ describe('BoardDetailPage', () => {
 			await user.click(within(dialog).getByRole('button', { name: 'Close' }));
 
 			await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		});
+	});
+
+	describe('card link (?card=<id>)', () => {
+		it('puts the open card in the URL, and takes it out again on close', async () => {
+			const { user, router } = await renderLoaded({ cards: [makeCard(1, 3, '00001000')] });
+
+			await user.click(within(column('To Do')).getByText('Card 1'));
+			const dialog = await screen.findByRole('dialog', { name: 'Card 1' });
+
+			expect(router.state.location.search).toBe('?card=1');
+
+			await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+			await waitFor(() => expect(router.state.location.search).toBe(''));
+		});
+
+		/*
+		 * Replacing the entry, not pushing one, so Back leaves the board
+		 * instead of stepping through every card opened on it.
+		 */
+		it('replaces the history entry rather than adding one', async () => {
+			const { user, router } = await renderLoaded({ cards: [makeCard(1, 3, '00001000')] });
+
+			await user.click(within(column('To Do')).getByText('Card 1'));
+			await screen.findByRole('dialog', { name: 'Card 1' });
+
+			expect(router.state.historyAction).toBe('REPLACE');
+		});
+
+		it('opens the linked card once the cards load, as after a refresh', async () => {
+			const { router } = await renderLoaded(
+				{ cards: [makeCard(1, 3, '00001000'), makeCard(2, 4, '00001000')] },
+				'/boards/7?card=2'
+			);
+
+			expect(await screen.findByRole('dialog', { name: 'Card 2' })).toBeInTheDocument();
+			expect(router.state.location.search).toBe('?card=2');
+		});
+
+		it('drops a link to a card that isn’t on this board', async () => {
+			const { router } = await renderLoaded(
+				{ cards: [makeCard(1, 3, '00001000')] },
+				'/boards/7?card=99'
+			);
+
+			await waitFor(() => expect(router.state.location.search).toBe(''));
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		it('drops a malformed card id', async () => {
+			const { router } = await renderLoaded(
+				{ cards: [makeCard(1, 3, '00001000')] },
+				'/boards/7?card=abc'
+			);
+
+			await waitFor(() => expect(router.state.location.search).toBe(''));
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		it('keeps the link through a failed card load, and opens it on Retry', async () => {
+			let failing = true;
+			serveBoard({
+				cards: () =>
+					failing ? serverError() : HttpResponse.json({ data: [makeCard(1, 3, '00001000')] }),
+			});
+			const { user, router } = renderPage('/boards/7?card=1');
+
+			const retry = await screen.findByRole('button', { name: 'Retry' });
+			expect(router.state.location.search).toBe('?card=1');
+
+			failing = false;
+			await user.click(retry);
+
+			expect(await screen.findByRole('dialog', { name: 'Card 1' })).toBeInTheDocument();
 		});
 	});
 
