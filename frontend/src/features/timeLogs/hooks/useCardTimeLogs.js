@@ -3,7 +3,7 @@
  *
  * Fetches a card's time logs, the server's time-tracking settings, and every
  * timer running app-wide whenever `cardId` changes, and exposes start /
- * finish / remove mutations. The app-wide running list is refetched after each
+ * finish / update / remove mutations. The app-wide running list is refetched after each
  * mutation, since the global running-timer cap depends on every card. Mutations
  * are pessimistic (mirroring useBoardCards' submitUpdateCard): each awaits the
  * server, merges the canonical response into local state, and rethrows on
@@ -21,6 +21,7 @@ import {
 	getTimeLogSettings,
 	getTimeLogsByCard,
 	startTimeLog,
+	updateTimeLog,
 } from '../api/timeLogService';
 
 /**
@@ -38,6 +39,7 @@ import {
  *   totalMs: number,
  *   start: () => Promise<void>,
  *   finish: (id: number) => Promise<void>,
+ *   update: (id: number, fields: { startTime?: string, endTime?: string }) => Promise<void>,
  *   remove: (id: number) => Promise<void>,
  * }}
  *   logs       — the card's time logs, oldest first.
@@ -125,6 +127,20 @@ export function useCardTimeLogs(cardId) {
 		await refreshRunning();
 	}
 
+	/*
+	 * Re-sorted by start time afterwards, matching the server's order, since
+	 * moving an entry's start can move it past its neighbours. The running
+	 * list isn't refreshed: an edit never starts or stops a timer.
+	 */
+	async function update(id, fields) {
+		const response = await updateTimeLog(id, fields);
+		setLogs((prev) =>
+			prev
+				.map((log) => (log.id === id ? response.data : log))
+				.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+		);
+	}
+
 	async function remove(id) {
 		await deleteTimeLog(id);
 		setLogs((prev) => prev.filter((log) => log.id !== id));
@@ -144,6 +160,7 @@ export function useCardTimeLogs(cardId) {
 		totalMs,
 		start,
 		finish,
+		update,
 		remove,
 	};
 }

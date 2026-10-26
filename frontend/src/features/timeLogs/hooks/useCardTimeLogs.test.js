@@ -252,6 +252,44 @@ describe('useCardTimeLogs', () => {
 			expect(runningCalls.count).toBe(2);
 		});
 
+		it('update: sends the fields, swaps in the server’s copy and re-sorts by start', async () => {
+			const runningCalls = serveCard({
+				logs: [
+					finishedLog(1, 60_000),
+					{ ...finishedLog(2, 60_000), startTime: '2026-10-05T09:30:00Z' },
+				],
+			});
+			const { result } = await renderLoaded();
+			const fields = { startTime: '2026-10-05T08:00:00Z' };
+			const updated = { ...finishedLog(2, 7_200_000), startTime: '2026-10-05T08:00:00Z' };
+			let body;
+			server.use(
+				http.put(apiUrl('/api/timelogs/2'), async ({ request }) => {
+					body = await request.json();
+					return HttpResponse.json({ data: updated });
+				})
+			);
+
+			await act(() => result.current.update(2, fields));
+
+			expect(body).toEqual(fields);
+			expect(result.current.logs).toEqual([updated, finishedLog(1, 60_000)]);
+			expect(result.current.totalMs).toBe(7_260_000);
+			/* An edit never starts or stops a timer, so the running list isn't refetched. */
+			expect(runningCalls.count).toBe(1);
+		});
+
+		it('update: rethrows a rejection and leaves the entry untouched', async () => {
+			serveCard({ logs: [finishedLog(1, 60_000)] });
+			const { result } = await renderLoaded();
+			server.use(http.put(apiUrl('/api/timelogs/1'), () => serverError(400, 'Bad Request')));
+
+			await expect(
+				act(() => result.current.update(1, { endTime: '2026-10-05T08:00:00Z' }))
+			).rejects.toThrow('HTTP error: 400 Bad Request');
+			expect(result.current.logs).toEqual([finishedLog(1, 60_000)]);
+		});
+
 		it('remove: drops the entry from the list and the total', async () => {
 			const runningCalls = serveCard({ logs: [finishedLog(1, 60_000), finishedLog(2, 30_000)] });
 			const { result } = await renderLoaded();

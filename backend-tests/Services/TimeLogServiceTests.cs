@@ -282,9 +282,39 @@ public class TimeLogServiceTests : IDisposable
         var card = _db.AddCardWithParents();
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
-        var updated = await CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { EndTime = Start.AddHours(2) });
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { EndTime = Start.AddHours(2) });
 
         Assert.Equal(Start, updated!.StartTime);
+        Assert.Equal(2 * 3_600_000, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_BothTimes_ReplacesBothAndRecomputesDuration()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { StartTime = Start.AddMinutes(30), EndTime = Start.AddMinutes(45) });
+
+        Assert.Equal(Start.AddMinutes(30), updated!.StartTime);
+        Assert.Equal(Start.AddMinutes(45), updated.EndTime);
+        Assert.Equal(15 * 60_000, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_OffsetTime_IsStoredAsUtc()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        var local = Start.AddHours(2).ToLocalTime();
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { EndTime = local });
+
+        Assert.Equal(DateTimeKind.Utc, updated!.EndTime!.Value.Kind);
+        Assert.Equal(Start.AddHours(2), updated.EndTime.Value);
         Assert.Equal(2 * 3_600_000, updated.Duration);
     }
 
@@ -295,23 +325,70 @@ public class TimeLogServiceTests : IDisposable
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { StartTime = Start.AddHours(2) }));
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { StartTime = Start.AddHours(2) }));
     }
 
     [Fact]
-    public async Task UpdateTimeLog_UnknownTargetCard_Throws()
+    public async Task UpdateTimeLog_EndEqualToStart_Throws()
     {
         var card = _db.AddCardWithParents();
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { CardId = 999 }));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = Start }));
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_EndInTheFuture_Throws()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id,
+                new TimeLogUpdateRequest { EndTime = DateTime.UtcNow.AddMinutes(5) }));
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_EndWithinClockSkew_IsAccepted()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        var end = DateTime.UtcNow.AddSeconds(30);
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = end });
+
+        Assert.Equal(end, updated!.EndTime);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_RunningEntryStart_KeepsItRunning()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start);
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { StartTime = Start.AddMinutes(-10) });
+
+        Assert.Equal(Start.AddMinutes(-10), updated!.StartTime);
+        Assert.Null(updated.EndTime);
+        Assert.Equal(0, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_RunningEntryEnd_Throws()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = Start.AddHours(1) }));
     }
 
     [Fact]
     public async Task UpdateTimeLog_UnknownId_ReturnsNull()
     {
-        Assert.Null(await CreateService().UpdateTimeLogAsync(999, new TimeLog()));
+        Assert.Null(await CreateService().UpdateTimeLogAsync(999, new TimeLogUpdateRequest()));
     }
 
     /* ---- Delete ---- */
