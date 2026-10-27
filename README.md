@@ -66,6 +66,7 @@ NoBacklog is a modern task management system that combines:
 - `CardEditDialog` is fully labelled and keyboard-reachable: the title is a real button (Tab, then Enter/Space opens the editor; focus returns after Enter/Escape), the dialog is named by the card title, and every field has an accessible name
 - Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and every component and page: `BoardsPage`, `BoardDetailPage`, the drag-and-drop columns and cards (`Lists`, `ListColumn`, `Cards`, `CardItem`), `LoadError`, `CardEditDialog` and `TimeLogSection` (React Testing Library)
 - The board's icon buttons and inputs (`Add card`, `List options`, `Card options`, `Cancel`, `List name`, `Card title`, `Priority`) have accessible names, and each column is named by its list
+- A list's title is keyboard-reachable (Tab, then Enter/Space to rename), and a failed card create keeps the typed title and priority for a retry
 
 
 ### Phase 3: AI Integration (FUTURE)
@@ -537,8 +538,8 @@ pnpm dev
 - [x] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`)
 - [x] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
 - [x] `BoardDetailPage`'s `onDragOver` looked the dragged card up by its dnd-kit id (`card-3`) instead of its numeric id, so its "only commit same-list hovers" guard never fired and cross-list hovers were applied live too (see its comment for the ghost-card bug the guard prevents)
-- [ ] A failed card create clears the add-card title (`submitCreateCard` resolves after recording the error), unlike the add-list form, which keeps the name for a retry
-- [ ] The list title is click-only: make it keyboard-reachable like `CardEditDialog`'s title
+- [x] A failed card create clears the add-card title (`submitCreateCard` resolves after recording the error), unlike the add-list form, which keeps the name for a retry. `submitCreateCard` now resolves to whether the card was created, and the form keeps the title and priority on failure
+- [x] The list title is click-only: make it keyboard-reachable like `CardEditDialog`'s title. It's a focusable `role="button"` (Enter/Space opens the editor, focus returns after Enter/Escape) rather than a real `<button>`, so pointer drags can still start on it
 - [ ] Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags
 - [x] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
 - [x] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up

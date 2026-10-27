@@ -105,8 +105,12 @@ describe('useBoardCards', () => {
 				})
 			);
 
-			await act(() => result.current.submitCreateCard(3, { title: 'New', priority: 'High' }));
+			let created;
+			await act(async () => {
+				created = await result.current.submitCreateCard(3, { title: 'New', priority: 'High' });
+			});
 
+			expect(created).toBe(true);
 			expect(body).toEqual({ title: 'New', priority: 'High', listId: 3, position: '00003000' });
 			expect(result.current.cardsByList[3].map((card) => card.id)).toEqual([1, 2, 9]);
 		});
@@ -175,8 +179,12 @@ describe('useBoardCards', () => {
 			const { result } = await renderLoaded([card]);
 			server.use(http.post(apiUrl('/api/cards/'), () => serverError(400, 'Bad Request')));
 
-			await act(() => result.current.submitCreateCard(3, { title: 'New', priority: 'High' }));
+			let created;
+			await act(async () => {
+				created = await result.current.submitCreateCard(3, { title: 'New', priority: 'High' });
+			});
 
+			expect(created).toBe(false);
 			expect(result.current.cardsByList[3]).toEqual([card]);
 			expect(result.current.mutationError).toEqual({
 				listId: 3,

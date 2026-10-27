@@ -58,7 +58,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
  * useTransition — setOptimisticName must be called inside a transition; this
  *                 is the manual (non-form-action) way to open one.
  */
-import { useOptimistic, useRef, useState, useTransition } from 'react';
+import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable';
@@ -187,7 +187,8 @@ const LIST_DRAG_SENSORS = [
  *                                                        `(listId, name)` when the user
  *                                                        commits an edit to the list title.
  * @param {Function}      props.onCreateCard            - Async callback invoked as
- *                                                        `(listId, data)` to create a card.
+ *                                                        `(listId, data)` to create a card;
+ *                                                        resolves to whether it was created.
  * @param {Function}      props.onDeleteCard            - Async callback invoked as
  *                                                        `(listId, cardId)` to delete a card.
  * @param {Function}      props.onEditCard              - Callback invoked as
@@ -355,6 +356,22 @@ export default function ListColumn({
 	const [optimisticName, setOptimisticName] = useOptimistic(list.name);
 	const [, startRenameTransition] = useTransition();
 
+	/*
+	 * restoreTitleFocus — set when an edit ends from the keyboard (Enter /
+	 * Escape), so focus goes back to the title rather than being lost to
+	 * <body> when the field unmounts. Blur-to-commit leaves it unset, since
+	 * the user has already moved focus elsewhere. Mirrors CardEditDialog.
+	 */
+	const listTitleRef = useRef(null);
+	const restoreTitleFocus = useRef(false);
+
+	useEffect(() => {
+		if (!isEditingTitle && restoreTitleFocus.current) {
+			restoreTitleFocus.current = false;
+			listTitleRef.current?.focus();
+		}
+	}, [isEditingTitle]);
+
 	/**
 	 * Enter title edit mode, seeding the draft from the current (optimistic)
 	 * name so a rename that's still settling doesn't get overwritten.
@@ -400,12 +417,29 @@ export default function ListColumn({
 	function handleTitleKeyDown(e) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
+			restoreTitleFocus.current = true;
 			commitTitleEdit();
 		}
 		if (e.key === 'Escape') {
 			e.preventDefault();
+			restoreTitleFocus.current = true;
 			setTitleDraft(optimisticName);
 			setIsEditingTitle(false);
+		}
+	}
+
+	/**
+	 * Open the title editor from the keyboard: Enter or Space on the focused
+	 * title, matching a native button. preventDefault stops Space scrolling
+	 * the column. The column's KeyboardSensor doesn't pick these keys up as
+	 * a drag start, because it only activates on the column element itself.
+	 *
+	 * @param {React.KeyboardEvent} e - The keydown event from the title.
+	 */
+	function handleTitleButtonKeyDown(e) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleTitleClick();
 		}
 	}
 
@@ -435,7 +469,9 @@ export default function ListColumn({
 	 * Submit the new card via the parent's create handler, reset the title
 	 * field, and restore focus to the title input so the user can immediately
 	 * add another card. Guards against empty titles. Sets isSubmitting to
-	 * disable the button during the in-flight request.
+	 * disable the button during the in-flight request. On failure the typed
+	 * title and priority are kept so the card can be retried (the error itself
+	 * shows in the column's banner).
 	 *
 	 * @async
 	 */
@@ -444,7 +480,8 @@ export default function ListColumn({
 		if (trimmedTitle === '') return;
 		setIsSubmitting(true);
 		try {
-			await onCreateCard(list.id, { title: trimmedTitle, priority: newCardPriority });
+			if (!(await onCreateCard(list.id, { title: trimmedTitle, priority: newCardPriority })))
+				return;
 			setNewCardTitle('');
 			setNewCardPriority(DEFAULT_PRIORITY);
 			titleRef.current?.focus();
@@ -597,6 +634,11 @@ export default function ListColumn({
 						 * List title — Typography by default; clicking it swaps in a
 						 * TextField for a Trello-style inline rename. Enter/blur commits,
 						 * Escape discards (see handleTitleKeyDown/commitTitleEdit above).
+						 *
+						 * The Typography is role="button" with a tabIndex rather than a
+						 * real <button> (unlike CardEditDialog's title): LIST_DRAG_SENSORS'
+						 * preventActivation skips pointer drags that start on a <button>,
+						 * and the title is part of the column's grab area.
 						 */}
 						{isEditingTitle ? (
 							<TextField
@@ -616,7 +658,13 @@ export default function ListColumn({
 							/>
 						) : (
 							<Typography
+								ref={listTitleRef}
+								// biome-ignore lint/a11y/useSemanticElements: a real <button> would block list drags that start on the title — see the comment above.
+								role="button"
+								tabIndex={0}
+								aria-label={`Rename list ${optimisticName}`}
 								onClick={handleTitleClick}
+								onKeyDown={handleTitleButtonKeyDown}
 								sx={{
 									fontWeight: 700,
 									color: 'text.primary',
@@ -627,6 +675,10 @@ export default function ListColumn({
 									px: 0.5,
 									mx: -0.5,
 									'&:hover': { bgcolor: 'action.hover' },
+									'&:focus-visible': {
+										outline: '2px solid',
+										outlineColor: 'primary.main',
+									},
 								}}
 							>
 								{optimisticName}

@@ -7,7 +7,8 @@
  * dragging itself is covered by the BoardDetailPage tests.
  *
  * The column is a <section> named by its list name. Its controls are found by
- * role and name; the list title is plain text that becomes a field on click.
+ * role and name; the list title is a "Rename list …" button that becomes a
+ * field on click, Enter or Space.
  */
 
 import { DragDropProvider } from '@dnd-kit/react';
@@ -38,7 +39,7 @@ function renderColumn(props = {}) {
 	const handlers = {
 		deleteExistingList: vi.fn().mockResolvedValue(undefined),
 		renameList: vi.fn().mockResolvedValue(undefined),
-		onCreateCard: vi.fn().mockResolvedValue(undefined),
+		onCreateCard: vi.fn().mockResolvedValue(true),
 		onDeleteCard: vi.fn().mockResolvedValue(undefined),
 		onEditCard: vi.fn(),
 		onDismissMutationError: vi.fn(),
@@ -80,9 +81,37 @@ describe('ListColumn', () => {
 	describe('renaming', () => {
 		/** Click the title to swap in the (auto-focused, pre-selected) name field. */
 		async function startRename(user) {
-			await user.click(screen.getByText('To Do'));
+			await user.click(screen.getByRole('button', { name: 'Rename list To Do' }));
 			return screen.getByRole('textbox', { name: 'List name' });
 		}
+
+		it.each([
+			['Enter', '{Enter}'],
+			['Space', ' '],
+		])('opens the name field from the keyboard with %s', async (_key, keys) => {
+			const { user } = renderColumn();
+
+			await user.tab();
+			expect(screen.getByRole('button', { name: 'Rename list To Do' })).toHaveFocus();
+			await user.keyboard(keys);
+
+			const input = screen.getByRole('textbox', { name: 'List name' });
+			expect(input).toHaveValue('To Do');
+			expect(input).toHaveFocus();
+		});
+
+		/* Ending the edit from the keyboard hands focus back to the title rather than <body>. */
+		it.each([
+			['Enter', 'Backlog{Enter}', 'Rename list Backlog'],
+			['Escape', 'Backlog{Escape}', 'Rename list To Do'],
+		])('returns focus to the title after %s', async (_key, keys, name) => {
+			const { user } = renderColumn();
+
+			await startRename(user);
+			await user.keyboard(keys);
+
+			expect(screen.getByRole('button', { name })).toHaveFocus();
+		});
 
 		it('renames on Enter with the trimmed name', async () => {
 			const { user, renameList } = renderColumn();
@@ -228,6 +257,28 @@ describe('ListColumn', () => {
 				title: 'Ship it',
 				priority: 'High',
 			});
+		});
+
+		/*
+		 * onCreateCard resolves to false when the server rejects the card (the
+		 * error shows in the column's banner), so the typed card stays put for
+		 * a retry, like the add-list form.
+		 */
+		it('keeps the title and priority when the create fails', async () => {
+			const { user, onCreateCard } = renderColumn({
+				onCreateCard: vi.fn().mockResolvedValue(false),
+			});
+
+			const title = await openForm(user);
+			await user.type(title, 'Ship it');
+			await user.click(screen.getByRole('combobox', { name: 'Priority' }));
+			await user.click(screen.getByRole('option', { name: 'High' }));
+			await user.click(screen.getByRole('button', { name: 'Add (Shift+↵)' }));
+
+			expect(onCreateCard).toHaveBeenCalledOnce();
+			expect(await screen.findByRole('button', { name: 'Add (Shift+↵)' })).toBeEnabled();
+			expect(title).toHaveValue('Ship it');
+			expect(screen.getByRole('combobox', { name: 'Priority' })).toHaveTextContent('High');
 		});
 
 		it('ignores a blank title', async () => {
