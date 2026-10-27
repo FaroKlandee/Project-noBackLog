@@ -347,7 +347,7 @@ Test files sit next to the code they cover (`rank.js` → `rank.test.js`). No ba
 cd frontend
 pnpm test            # run once
 pnpm test:watch      # re-run affected tests on save
-pnpm test:coverage   # coverage report (text + coverage/index.html)
+pnpm test:coverage   # coverage report (text + coverage/index.html); fails below the thresholds
 ```
 
 - **Runner:** Vitest, configured in `vite.config.js` so tests go through the same transform pipeline as the app. `globals` is off — tests import `describe`/`it`/`expect` explicitly, so `src/test/setup.js` calls Testing Library's `cleanup()` itself.
@@ -359,13 +359,14 @@ pnpm test:coverage   # coverage report (text + coverage/index.html)
 - **Queries on the board:** dnd-kit gives each draggable `role="button"` with `aria-roledescription="draggable"`, so a column isn't a `region` and a card isn't a `listitem`. Columns are found by their name (`getByLabelText('To Do', { selector: 'section' })`) and cards by their title text.
 - **HTTP client:** `api.test.js` covers the error envelope's `message`, the status-line fallback for empty, non-JSON and blank-message bodies, and the 5000 ms timeout. For the timeout, MSW holds the response with `delay('infinite')` while only `setTimeout`/`clearTimeout` are faked.
 - **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one. One known exception: `ListColumn`'s Escape resets the title draft in case the field's unmount also fires a `blur`, which jsdom never does.
+- **Coverage thresholds:** `vite.config.js` fails `pnpm test:coverage` when project-wide coverage drops below 94% statements, 88% branches, 95% functions or 95% lines, about a point under the figures measured on 2026-10-27 (95.7 / 89.2 / 96.0 / 96.3%). Raise them as coverage grows.
 - **Not covered:** `main.jsx` and `routes.jsx` (app bootstrap), and real pointer/keyboard drags, which need a browser (Playwright).
 
 ### Continuous Integration
 `.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
 
 - **Backend:** `dotnet test backend-tests` on .NET 10.
-- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test`, then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
+- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test:coverage` (fails under the coverage thresholds), then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
 
 A newer push to the same branch cancels the run it supersedes. `frontend/.gitattributes` checks the frontend out with LF line endings, so `pnpm lint` passes on Windows exactly as it does in CI; run `pnpm format` (or `pnpm biome check --write .`) to fix formatting locally.
 
@@ -547,7 +548,7 @@ pnpm dev
 - [x] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null. Not needed: `TimeLogSection` only mounts while the dialog has a card, so closing it unmounts the hook
 - [x] Run `pnpm test` in CI alongside `dotnet test`
 - [x] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
-- [ ] Add coverage thresholds once components are tested
+- [x] Add coverage thresholds once components are tested (enforced in CI via `pnpm test:coverage`)
 
 ### Future Features
 - [ ] User authentication

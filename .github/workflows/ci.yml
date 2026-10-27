@@ -3,8 +3,8 @@
 # Two independent jobs, run in parallel on separate runners:
 #   - backend:  `dotnet test` over backend-tests/ (xUnit, in-memory SQLite —
 #               no Postgres service needed).
-#   - frontend: `pnpm lint` (Biome format + lint), `pnpm test` (Vitest +
-#               MSW — no backend needed), then `pnpm build` to catch anything
+#   - frontend: `pnpm lint` (Biome format + lint), `pnpm test:coverage` (Vitest +
+#               MSW — no backend needed; fails under the coverage thresholds), then `pnpm build` to catch anything
 #               that only breaks the bundle.
 
 name: CI
@@ -70,8 +70,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Runs with coverage so the thresholds in vite.config.js are enforced.
       - name: Test
-        run: pnpm test
+        run: pnpm test:coverage
 
       - name: Build
         run: pnpm build

@@ -62,7 +62,11 @@ export default defineConfig({
 	 *  - `setupFiles` — runs before every test file; see src/test/setup.js.
 	 *  - `coverage` — used by `pnpm test:coverage`. Measures all of `src/`, not
 	 *    just files some test imports, so untested components show up as 0%
-	 *    rather than being silently left out. Report only, no thresholds yet.
+	 *    rather than being silently left out. `thresholds` fail the run when
+	 *    project-wide coverage drops below them; they sit about a point under
+	 *    the measured figures (2026-10-27: 95.7% statements, 89.2% branches,
+	 *    96.0% functions, 96.3% lines), so a small refactor doesn't trip them
+	 *    but untested new code does. Raise them as coverage grows.
 	 *
 	 * `globals` is left at its default (false): tests import `describe`/`it`/
 	 * `expect` explicitly, matching the codebase's explicit-import style.
@@ -76,6 +80,12 @@ export default defineConfig({
 			exclude: ['src/test/**', 'src/**/*.test.{js,jsx}'],
 			/* skipFull: false — list 100%-covered files too, rather than omitting them. */
 			reporter: ['text-summary', ['text', { skipFull: false }], 'html'],
+			thresholds: {
+				statements: 94,
+				branches: 88,
+				functions: 95,
+				lines: 95,
+			},
 		},
 	},
 });
