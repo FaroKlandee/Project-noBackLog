@@ -607,7 +607,7 @@ export default function BoardDetailPage() {
 				}
 
 				updateCardOrder((prev) => {
-					const cardId = source.id;
+					const cardId = fromDndId(source.id);
 					const currentListId = Object.entries(prev).find(([, cards]) =>
 						cards.some((card) => card.id === cardId)
 					)?.[0];

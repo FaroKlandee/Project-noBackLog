@@ -590,6 +590,29 @@ describe('BoardDetailPage', () => {
 
 			expect(cardTitles('To Do')).toEqual(['Card 1', 'Card 2']);
 		});
+
+		/*
+		 * Applying a cross-list hover live remounts the card in another column
+		 * mid-drag, which left a ghost card behind; the move waits for the drop.
+		 */
+		it('leaves a card in its own list while it hovers over another, then moves it on drop', async () => {
+			await renderLoaded({ cards: [makeCard(1, 3, '00001000'), makeCard(5, 4, '00001000')] });
+			const bodies = captureReorders();
+
+			fire('onDragStart');
+			fire('onDragOver', { operation: { source: cardSource(1), target: { id: 'card-5' } } });
+
+			expect(cardTitles('To Do')).toEqual(['Card 1']);
+			expect(cardTitles('Doing')).toEqual(['Card 5']);
+
+			fire('onDragEnd', {
+				canceled: false,
+				operation: { source: cardSource(1), target: { id: 'card-5' } },
+			});
+
+			expect(cardTitles('Doing')).toEqual(['Card 1', 'Card 5']);
+			await waitFor(() => expect(bodies[1]).toEqual({ listId: 4, position: '00000500' }));
+		});
 	});
 
 	describe('drag overlay', () => {
