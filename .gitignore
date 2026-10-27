@@ -1,2 +1,5 @@
 # Local secrets / credentials — never commit
 nobacklog-cluster.txt
+
+# Claude Code planning notes
+.claude/plans/
