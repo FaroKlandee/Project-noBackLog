@@ -85,25 +85,28 @@ public class CardsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Create_BlankTitleOrPosition_ReturnsValidationProblem()
+    public async Task Create_BlankTitleOrPosition_Returns400EnvelopeWithEachField()
     {
         var list = _api.Db.AddList(_api.Db.AddBoard().Id);
 
-        var errors = await ApiAssert.ValidationProblem(
+        var (message, errors) = await ApiAssert.ValidationFailure(
             await _client.PostAsJsonAsync("/api/cards", new { listId = list.Id, title = " ", position = "" }));
 
+        Assert.Contains(message, new[] { "Card title is required.", "Position is required." });
         Assert.True(errors.TryGetProperty("Title", out _));
         Assert.True(errors.TryGetProperty("Position", out _));
     }
 
     [Fact]
-    public async Task Create_UnknownPriority_ReturnsValidationProblem()
+    public async Task Create_UnknownPriority_Returns400EnvelopeNamingTheField()
     {
         var list = _api.Db.AddList(_api.Db.AddBoard().Id);
 
-        await ApiAssert.ValidationProblem(
+        var (message, _) = await ApiAssert.ValidationFailure(
             await _client.PostAsJsonAsync("/api/cards",
                 new { listId = list.Id, title = "T", position = "m", priority = "Urgent" }));
+
+        Assert.Equal("Invalid value for 'priority'.", message);
     }
 
     [Fact]

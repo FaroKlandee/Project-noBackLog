@@ -75,14 +75,14 @@ public class ListsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Create_NameOverMaxLength_ReturnsValidationProblem()
+    public async Task Create_NameOverMaxLength_Returns400Envelope()
     {
         var board = _api.Db.AddBoard();
 
-        var errors = await ApiAssert.ValidationProblem(
+        var (message, _) = await ApiAssert.ValidationFailure(
             await _client.PostAsJsonAsync("/api/lists", new { boardId = board.Id, name = new string('x', 51) }));
 
-        Assert.True(errors.TryGetProperty("Name", out _));
+        Assert.Equal("List name must be 50 characters or fewer.", message);
     }
 
     /* ---- Update / delete ---- */

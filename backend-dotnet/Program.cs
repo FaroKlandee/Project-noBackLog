@@ -18,6 +18,11 @@ builder.Services.AddControllers()
 		// An Include()d parent gets the child back through EF's relationship fixup
 		// (Card.List.Cards → Card…); write that back-reference as null instead of throwing.
 		options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+	})
+.ConfigureApiBehaviorOptions(options =>
+	{
+		// Model-validation 400s use the same { success, message } envelope as the controllers.
+		options.InvalidModelStateResponseFactory = ValidationErrorEnvelope.Create;
 	});
 
 // PostgreSQL + EF Core

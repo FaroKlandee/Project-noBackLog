@@ -51,10 +51,11 @@ public class BoardsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetById_NonNumericId_ReturnsValidationProblem()
+    public async Task GetById_NonNumericId_Returns400Envelope()
     {
-        var errors = await ApiAssert.ValidationProblem(await _client.GetAsync("/api/boards/abc"));
+        var (message, errors) = await ApiAssert.ValidationFailure(await _client.GetAsync("/api/boards/abc"));
 
+        Assert.Equal("The value 'abc' is not valid.", message);
         Assert.True(errors.TryGetProperty("id", out _));
     }
 
@@ -75,31 +76,34 @@ public class BoardsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Create_WhitespaceName_ReturnsValidationProblem()
+    public async Task Create_WhitespaceName_Returns400Envelope()
     {
         // The name is trimmed to "" before validation, so [Required] rejects it
-        // ahead of the controller's own blank-name check.
-        var errors = await ApiAssert.ValidationProblem(
+        // ahead of the controller's own blank-name check, with the same message.
+        var (message, errors) = await ApiAssert.ValidationFailure(
             await _client.PostAsJsonAsync("/api/boards", new { name = "   " }));
 
+        Assert.Equal("Board name is required.", message);
         Assert.True(errors.TryGetProperty("Name", out _));
     }
 
     [Fact]
-    public async Task Create_NameOverMaxLength_ReturnsValidationProblem()
+    public async Task Create_NameOverMaxLength_Returns400Envelope()
     {
-        var errors = await ApiAssert.ValidationProblem(
+        var (message, _) = await ApiAssert.ValidationFailure(
             await _client.PostAsJsonAsync("/api/boards", new { name = new string('x', 101) }));
 
-        Assert.True(errors.TryGetProperty("Name", out _));
+        Assert.Equal("Board name must be 100 characters or fewer.", message);
     }
 
     [Fact]
-    public async Task Create_MalformedJson_ReturnsValidationProblem()
+    public async Task Create_MalformedJson_Returns400Envelope()
     {
         var content = new StringContent("{ \"name\": ", Encoding.UTF8, "application/json");
 
-        await ApiAssert.ValidationProblem(await _client.PostAsync("/api/boards", content));
+        var (message, _) = await ApiAssert.ValidationFailure(await _client.PostAsync("/api/boards", content));
+
+        Assert.Equal("Invalid value for 'name'.", message);
 
         using var context = _api.Db.NewContext();
         Assert.Empty(context.Boards);

@@ -18,19 +18,19 @@ public class Card
     [Required]
     public int ListId { get; set; }
 
-    [Required]
+    [Required(ErrorMessage = "Position is required.")]
     public string Position { get; set; } = string.Empty;
 
-    [Required]
-    [MaxLength(100)]
+    [Required(ErrorMessage = "Card title is required.")]
+    [MaxLength(100, ErrorMessage = "Card title must be 100 characters or fewer.")]
     public string Title { get; set; } = string.Empty;
 
-    [MaxLength(2000)]
+    [MaxLength(2000, ErrorMessage = "Description must be 2000 characters or fewer.")]
     public string? Description { get; set; }
 
     public Priority Priority { get; set; } = Priority.Medium;
 
-    [MaxLength(50)]
+    [MaxLength(50, ErrorMessage = "Time estimate must be 50 characters or fewer.")]
     public string? TimeEstimate { get; set; }
 
     public int TimeTracked { get; set; } = 0;

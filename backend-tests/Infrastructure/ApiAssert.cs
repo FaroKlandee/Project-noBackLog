@@ -4,12 +4,12 @@ using System.Text.Json;
 namespace NoBacklog.Api.Tests.Infrastructure;
 
 /*
- * Assertions for the response envelope every controller returns by hand:
+ * Assertions for the response envelope every endpoint returns:
  *   { success: bool, message?: string, data?: ... }
  *
- * Model-validation failures caught by [ApiController] before a controller runs
- * (malformed JSON, [MaxLength], a non-numeric route id) are not enveloped —
- * they come back as ValidationProblemDetails — so they have their own helper.
+ * Failures caught by [ApiController] before a controller runs (malformed JSON,
+ * [Required]/[MaxLength], a non-numeric route id) use the same envelope plus a
+ * per-field `errors` object (ValidationErrorEnvelope), so they have their own helper.
  */
 public static class ApiAssert
 {
@@ -32,14 +32,13 @@ public static class ApiAssert
         return body.GetProperty("message").GetString()!;
     }
 
-    /* Asserts a 400 ValidationProblemDetails and returns its errors object. */
-    public static async Task<JsonElement> ValidationProblem(HttpResponseMessage response)
+    /* Asserts a model-validation 400 envelope and returns its message and errors object. */
+    public static async Task<(string Message, JsonElement Errors)> ValidationFailure(HttpResponseMessage response)
     {
         var body = await ReadJson(response);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-        Assert.False(body.TryGetProperty("success", out _));
-        return body.GetProperty("errors");
+        Assert.False(body.GetProperty("success").GetBoolean());
+        return (body.GetProperty("message").GetString()!, body.GetProperty("errors"));
     }
 
     private static async Task<JsonElement> ReadJson(HttpResponseMessage response)
