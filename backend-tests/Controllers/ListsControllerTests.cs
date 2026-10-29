@@ -142,15 +142,15 @@ public class ListsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Reorder_UnknownId_IsSkippedNot404()
+    public async Task Reorder_UnknownId_Returns404AndChangesNothing()
     {
-        // ReorderListsAsync skips IDs it can't find rather than throwing, so the
-        // controller's KeyNotFoundException → 404 branch is never reached.
         var list = _api.Db.AddList(_api.Db.AddBoard().Id, position: 3);
 
-        await ApiAssert.Success(await _client.PatchAsJsonAsync("/api/lists/reorder", new[] { 999, list.Id }));
+        var message = await ApiAssert.Failure(
+            await _client.PatchAsJsonAsync("/api/lists/reorder", new[] { 999, list.Id }), HttpStatusCode.NotFound);
 
+        Assert.Equal("List with ID 999 not found.", message);
         using var context = _api.Db.NewContext();
-        Assert.Equal(1, context.Lists.Single().Position);
+        Assert.Equal(3, context.Lists.Single().Position);
     }
 }

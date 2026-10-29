@@ -258,7 +258,7 @@ POST   /lists            - Create new list
 GET    /lists/:id        - Get list by ID
 PUT    /lists/:id        - Update list
 DELETE /lists/:id        - Delete list
-PATCH  /lists/reorder    - Persist a new list order (body: ordered array of list IDs)
+PATCH  /lists/reorder    - Persist a new list order (body: ordered array of list IDs; an unknown ID → 404, nothing moved)
 ```
 
 ### Card Endpoints
@@ -545,8 +545,8 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 - [x] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
 - [x] `GET /api/cards/:id` and `GET /api/timelogs/:id` returned 500: the `Include()`d parent got the entity back through EF's relationship fixup (`Card.List.Cards → Card…`) and serialization threw on the cycle. `Program.cs` now sets `ReferenceHandler.IgnoreCycles`, which writes that back-reference as `null`
 - [x] Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`), so `api.js` shows e.g. "Board name is required." instead of the status line. The `[Required]`/`[MaxLength]` attributes carry the same wording as the controllers' own checks; those blank-name checks on board/list/card create stay as a backstop but aren't reachable through model binding
-- [ ] `PATCH /api/lists/reorder` silently skips unknown list IDs, so its `KeyNotFoundException` → 404 branch never runs. Decide whether an unknown ID should be a 404
-- [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
+- [x] `PATCH /api/lists/reorder` silently skipped unknown list IDs, so its `KeyNotFoundException` → 404 branch never ran. An unknown ID now returns 404 and no list is moved
+- Optional Postgres Testcontainers run: moved to [Next release](#next-release)
 - [x] Run `dotnet test` in CI (GitHub Actions)
 
 ### Previous Sprint: Hardening (Complete)
@@ -568,6 +568,9 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 - [x] Run `pnpm test` in CI alongside `dotnet test`
 - [x] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
 - [x] Add coverage thresholds once components are tested (enforced in CI via `pnpm test:coverage`)
+
+### Next release
+- [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 
 ### Future Features
 - [ ] User authentication

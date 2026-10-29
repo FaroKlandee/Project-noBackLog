@@ -104,17 +104,27 @@ public class ListService : IListService
         /* Convert to a list so we can iterate with an index. */
         var ordered = orderedIds.ToList();
 
+        var lists = await _context.Lists
+            .Where(l => ordered.Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id);
+
         /*
-         * Loop through the supplied IDs in their new sequence.
+         * Every ID must exist, checked before anything is written: an unknown ID
+         * means the client's view of the board is stale, so no partial reorder
+         * is applied (the controller maps this to 404).
+         */
+        var unknownIds = ordered.Where(id => !lists.ContainsKey(id)).ToList();
+        if (unknownIds.Count > 0)
+            throw new KeyNotFoundException($"List with ID {unknownIds[0]} not found.");
+
+        /*
+         * Walk the supplied IDs in their new sequence.
          * Each list's position is set to its zero-based index in the array,
          * so the first ID gets position 0, the second gets 1, and so on.
          */
         for (int i = 0; i < ordered.Count; i++)
         {
-            var list = await _context.Lists.FindAsync(ordered[i]);
-
-            /* Skip silently if an ID doesn't match any list in the database. */
-            if (list is null) continue;
+            var list = lists[ordered[i]];
 
             list.Position = i;
             list.UpdatedAt = DateTime.UtcNow;
