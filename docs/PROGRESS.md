@@ -15,7 +15,7 @@ Phase 2 (frontend) is in progress: 40 of 50 roadmap items are done, and 5 follow
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 11 commits on `dev` are not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 14 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
@@ -44,8 +44,8 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
-| One running timer per card enforced by a partial unique index; a lost start race returns the usual 409 | Backend | TBD | 2026-10-29 |
-| Model-validation 400s returned in the `{ success, message }` envelope, with field messages | Backend | TBD | 2026-10-29 |
+| One running timer per card enforced by a partial unique index; a lost start race returns the usual 409 | Backend | `744be66` | 2026-10-29 |
+| Model-validation 400s returned in the `{ success, message }` envelope, with field messages | Backend | `c299d67` | 2026-10-29 |
 | `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | `5c29850` | 2026-10-29 |
 | Card rank rebalancing endpoint (`PATCH /lists/:listId/cards/rebalance`) | Backend | `3d5f8f8` | 2026-09-30 |
 | xUnit service-layer test project on in-memory SQLite | Backend | `d7728a9` | 2026-09-28 |
@@ -86,10 +86,13 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-97 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
+100 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-10-29 | `744be66` | Enforce one running timer per card in the database |
+| 2026-10-29 | `c299d67` | Return model-validation 400s in the success/message envelope |
+| 2026-10-29 | `8a699a9` | Fill in the controller-test commit in the progress doc |
 | 2026-10-29 | `5c29850` | Add controller integration tests and fix the GET-by-id cycle 500 |
 | 2026-10-29 | `fb71723` | Add the project progress doc under docs/ |
 | 2026-10-27 | `1aa5816` | Enforce frontend coverage thresholds in CI |
