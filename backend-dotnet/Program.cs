@@ -15,6 +15,9 @@ builder.Services.AddControllers()
 		options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 		// Trims whitespace off every inbound string before model validation runs.
 		options.JsonSerializerOptions.Converters.Add(new TrimmingStringConverter());
+		// An Include()d parent gets the child back through EF's relationship fixup
+		// (Card.List.Cards → Card…); write that back-reference as null instead of throwing.
+		options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 	});
 
 // PostgreSQL + EF Core
@@ -53,3 +56,6 @@ app.MapControllers();
 app.MapGet("/", () => Results.Ok(new { message = "NoBacklog API is running..." }));
 
 app.Run();
+
+// Exposes the implicit top-level Program class to WebApplicationFactory<Program> in backend-tests.
+public partial class Program { }

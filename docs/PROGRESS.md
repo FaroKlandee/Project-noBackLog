@@ -1,12 +1,12 @@
 # nobacklog — Project Progress
 
-As of 2026-10-27 · Faro
+As of 2026-10-29 · Faro
 
 > Exported from the [project progress doc](https://claude.ai/artifact/TJGFtDXZnCsdsAs2fYzRY5), which is the copy that gets edited. Re-export it here when it changes.
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 36 of 47 roadmap items are done, and 6 follow-ups plus 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 38 of 50 roadmap items are done, and 7 follow-ups plus 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -19,13 +19,15 @@ Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 7 commit
 
 ## Planned work
 
-11 of 12 planned items are still open. When an item lands, set it to Done and add a row to Committed work.
+12 of 14 planned items are still open. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
 | Add coverage thresholds now that components are tested | Frontend tests | Frontend-test follow-up | Done |
 | Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Planned |
-| Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Planned |
+| Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Done |
+| Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Planned |
+| Decide whether `PATCH /api/lists/reorder` should 404 on an unknown list ID (it skips them today) | Backend | Controller-test follow-up | Planned |
 | Optional Postgres Testcontainers run to verify `Position` ordering under the real collation | Backend tests | Backend-test follow-up | Planned |
 | DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`) | Time tracking | Time-tracking follow-up | Planned |
 | Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop) | Time tracking | Time-tracking follow-up | Planned |
@@ -42,6 +44,7 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
+| `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | TBD | 2026-10-29 |
 | Card rank rebalancing endpoint (`PATCH /lists/:listId/cards/rebalance`) | Backend | `3d5f8f8` | 2026-09-30 |
 | xUnit service-layer test project on in-memory SQLite | Backend | `d7728a9` | 2026-09-28 |
 | Server-stamped Start/Finish timers with per-card and global limits | Backend | `d79b158` | 2026-09-27 |
@@ -71,6 +74,7 @@ Every completed work item, grouped by area and newest first within each, with th
 | List create and delete | Frontend | `a224b35`, `4bd9d14` | 2026-05-07 – 05-20 |
 | Boards page and board detail page | Frontend | `855c050`, `29c1333` | 2026-04-21 – 04-28 |
 | Project migration to Vite, MUI, Biome, pnpm; API client | Frontend | `a66525a`, `83fad48` | 2026-04-03 |
+| Controller integration tests (`WebApplicationFactory` + SQLite) for all four controllers | Tests and CI | TBD | 2026-10-29 |
 | Coverage thresholds enforced in CI (94/88/95/95%) | Tests and CI | `1aa5816` | 2026-10-27 |
 | Page and drag-and-drop component tests | Tests and CI | `0164428` | 2026-10-23 |
 | Biome formatting project-wide; `pnpm lint` in CI | Tests and CI | `fc6c067`, `2af357e` | 2026-10-17 |

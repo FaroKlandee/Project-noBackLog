@@ -44,7 +44,7 @@ NoBacklog is a modern task management system that combines:
 - 4 ASP.NET controllers, each backed by an injected service class and interface
 - EF Core migrations tracking schema evolution (including the card `Position` ranking column and nullable `TimeEstimate`)
 - `.http` request file for manual endpoint testing
-- xUnit test project (`backend-tests/`) covering all four services against an in-memory SQLite database
+- xUnit test project (`backend-tests/`) covering all four services and all four controllers (via `WebApplicationFactory`) against an in-memory SQLite database
 
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
@@ -149,7 +149,10 @@ nobacklog/
 │
 ├── backend-tests/
 │   ├── Infrastructure/
-│   │   └── TestDb.cs              # per-test in-memory SQLite database + seed helpers
+│   │   ├── TestDb.cs              # per-test in-memory SQLite database + seed helpers
+│   │   ├── ApiFactory.cs          # in-memory API host (WebApplicationFactory) on that database
+│   │   └── ApiAssert.cs           # response envelope / ValidationProblemDetails assertions
+│   ├── Controllers/               # HTTP-level tests, one class per controller
 │   ├── Services/                  # BoardService, ListService, CardService, TimeLogService tests
 │   └── NoBacklog.Api.Tests.csproj
 │
@@ -329,7 +332,7 @@ them in `appsettings*.json`:
 **QA-Driven Development:** Leveraging ISTQB Foundation Level principles — positive/negative cases, boundary value analysis, equivalence partitioning, reference integrity testing.
 
 ### Backend (xUnit)
-`backend-tests/` holds an xUnit project that exercises every service class directly (`BoardService`, `ListService`, `CardService`, `TimeLogService`). No database server or Docker is needed:
+`backend-tests/` holds an xUnit project with two layers: `Services/` exercises every service class directly (`BoardService`, `ListService`, `CardService`, `TimeLogService`), and `Controllers/` sends real HTTP requests through the whole API. No database server or Docker is needed:
 
 ```bash
 dotnet test backend-tests
@@ -338,7 +341,9 @@ dotnet test backend-tests
 - **Database:** each test gets its own in-memory SQLite database (`Infrastructure/TestDb.cs`), created from the EF model with `EnsureCreated()`. SQLite was chosen over EF's InMemory provider because it's a real relational engine, so foreign keys and `ON DELETE CASCADE` are actually enforced.
 - **Assertions read back through a fresh `DbContext`**, so they check what was persisted rather than the change tracker's in-memory copy.
 - **Coverage focus:** reference-integrity errors (unknown parent IDs), not-found paths, partial-update semantics (card/list `PUT`), cascade deletes, ordering and tie-breaks, and boundary values for the time-tracking limits (one below / at `MaxEntriesPerCard` and `MaxRunningTimers`).
-- **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself. Controllers (request validation, status codes, response envelope) aren't covered yet. The next step there would be `WebApplicationFactory` integration tests.
+- **Controller tests:** `Infrastructure/ApiFactory.cs` hosts the real app (`Program.cs`: routing, `[ApiController]` model validation, JSON options, controllers, services) in memory with `WebApplicationFactory<Program>`, swapping Postgres for the test's SQLite database and overriding the time-tracking limits through configuration. Seeding and read-back go through the same `TestDb` helpers. They cover the `{ success, message, data }` envelope, the controllers' own 400 checks, the exception mapping (`KeyNotFoundException` → 404, `ArgumentException` → 400, `InvalidOperationException` → 409), route constraints, enum-as-string JSON and inbound trimming.
+- **Two kinds of 400:** a controller's own checks (e.g. `listId` missing, blank `PUT` title) return the envelope, but anything `[ApiController]` rejects before the action runs (blank or whitespace names, which trim to `""` and fail `[Required]`; `[MaxLength]`; malformed JSON; unknown enum values; a non-numeric `{id}`) returns `ValidationProblemDetails` with no `success`/`message`. The tests pin both shapes (`ApiAssert.Failure` vs `ApiAssert.ValidationProblem`).
+- **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself.
 
 ### Frontend (Vitest)
 Test files sit next to the code they cover (`rank.js` → `rank.test.js`). No backend or database is needed:
@@ -528,7 +533,10 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 - [x] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Follow-ups from backend tests
-- [ ] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
+- [x] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
+- [x] `GET /api/cards/:id` and `GET /api/timelogs/:id` returned 500: the `Include()`d parent got the entity back through EF's relationship fixup (`Card.List.Cards → Card…`) and serialization threw on the cycle. `Program.cs` now sets `ReferenceHandler.IgnoreCycles`, which writes that back-reference as `null`
+- [ ] Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`). Today blank names, `[MaxLength]` and malformed JSON come back as `ValidationProblemDetails`, so `api.js` shows the status line instead of a message, and the controllers' own blank-name checks on board/list/card create are unreachable
+- [ ] `PATCH /api/lists/reorder` silently skips unknown list IDs, so its `KeyNotFoundException` → 404 branch never runs. Decide whether an unknown ID should be a 404
 - [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 - [x] Run `dotnet test` in CI (GitHub Actions)
 
