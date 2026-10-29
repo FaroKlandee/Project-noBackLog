@@ -15,7 +15,7 @@ Phase 2 (frontend) is in progress: 38 of 50 roadmap items are done, and 7 follow
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 7 commits have landed on `dev` since.
+Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 11 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
@@ -44,7 +44,7 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
-| `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | TBD | 2026-10-29 |
+| `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | `5c29850` | 2026-10-29 |
 | Card rank rebalancing endpoint (`PATCH /lists/:listId/cards/rebalance`) | Backend | `3d5f8f8` | 2026-09-30 |
 | xUnit service-layer test project on in-memory SQLite | Backend | `d7728a9` | 2026-09-28 |
 | Server-stamped Start/Finish timers with per-card and global limits | Backend | `d79b158` | 2026-09-27 |
@@ -74,7 +74,7 @@ Every completed work item, grouped by area and newest first within each, with th
 | List create and delete | Frontend | `a224b35`, `4bd9d14` | 2026-05-07 – 05-20 |
 | Boards page and board detail page | Frontend | `855c050`, `29c1333` | 2026-04-21 – 04-28 |
 | Project migration to Vite, MUI, Biome, pnpm; API client | Frontend | `a66525a`, `83fad48` | 2026-04-03 |
-| Controller integration tests (`WebApplicationFactory` + SQLite) for all four controllers | Tests and CI | TBD | 2026-10-29 |
+| Controller integration tests (`WebApplicationFactory` + SQLite) for all four controllers | Tests and CI | `5c29850` | 2026-10-29 |
 | Coverage thresholds enforced in CI (94/88/95/95%) | Tests and CI | `1aa5816` | 2026-10-27 |
 | Page and drag-and-drop component tests | Tests and CI | `0164428` | 2026-10-23 |
 | Biome formatting project-wide; `pnpm lint` in CI | Tests and CI | `fc6c067`, `2af357e` | 2026-10-17 |
@@ -84,10 +84,12 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-95 commits (merge commits left out) from 2025-12-27 to 2026-10-27, newest first, as written in git.
+97 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-10-29 | `5c29850` | Add controller integration tests and fix the GET-by-id cycle 500 |
+| 2026-10-29 | `fb71723` | Add the project progress doc under docs/ |
 | 2026-10-27 | `1aa5816` | Enforce frontend coverage thresholds in CI |
 | 2026-10-27 | `3fc1659` | Keep a failed card's title and make the list title keyboard-reachable |
 | 2026-10-27 | `79502b4` | Ignore Claude Code planning notes in .claude/plans/ |
