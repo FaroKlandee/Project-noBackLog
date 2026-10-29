@@ -71,8 +71,7 @@ public class TimeLogService : ITimeLogService
         timeLog.CreatedAt = DateTime.UtcNow;
         timeLog.UpdatedAt = DateTime.UtcNow;
 
-        _context.TimeLogs.Add(timeLog);
-        await _context.SaveChangesAsync();
+        await AddTimeLogAsync(timeLog);
 
         return timeLog;
     }
@@ -166,8 +165,7 @@ public class TimeLogService : ITimeLogService
             UpdatedAt = now,
         };
 
-        _context.TimeLogs.Add(timeLog);
-        await _context.SaveChangesAsync();
+        await AddTimeLogAsync(timeLog);
 
         return timeLog;
     }
@@ -192,6 +190,31 @@ public class TimeLogService : ITimeLogService
         await _context.SaveChangesAsync();
 
         return timeLog;
+    }
+
+    /*
+     * Insert a new entry. EnsureNoRunningTimerAsync is a read-then-write check, so
+     * two concurrent starts on one card can both pass it; the second insert is then
+     * rejected by the ix_time_logs_card_id_running unique index. That case is
+     * reported as the same conflict the check raises, not as a database error.
+     */
+    private async Task AddTimeLogAsync(TimeLog timeLog)
+    {
+        _context.TimeLogs.Add(timeLog);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (timeLog.EndTime is null)
+        {
+            _context.Entry(timeLog).State = EntityState.Detached;
+
+            var hasRunning = await _context.TimeLogs.AnyAsync(t => t.CardId == timeLog.CardId && t.EndTime == null);
+            if (hasRunning)
+                throw new InvalidOperationException("A timer is already running on this card.");
+
+            throw;
+        }
     }
 
     private async Task EnsureNoRunningTimerAsync(int cardId)

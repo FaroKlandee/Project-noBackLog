@@ -181,7 +181,11 @@ namespace NoBacklog.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CardId");
+                    b.HasIndex(new[] { "CardId" }, "IX_time_logs_card_id");
+
+                    b.HasIndex(new[] { "CardId" }, "ix_time_logs_card_id_running")
+                        .IsUnique()
+                        .HasFilter("end_time IS NULL");
 
                     b.ToTable("time_logs", (string)null);
                 });

@@ -42,7 +42,7 @@ NoBacklog is a modern task management system that combines:
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
 - 4 ASP.NET controllers, each backed by an injected service class and interface
-- EF Core migrations tracking schema evolution (including the card `Position` ranking column and nullable `TimeEstimate`)
+- EF Core migrations tracking schema evolution (including the card `Position` ranking column, nullable `TimeEstimate`, and the one-running-timer-per-card partial unique index)
 - `.http` request file for manual endpoint testing
 - xUnit test project (`backend-tests/`) covering all four services and all four controllers (via `WebApplicationFactory`) against an in-memory SQLite database
 
@@ -151,7 +151,7 @@ nobacklog/
 │   ├── Infrastructure/
 │   │   ├── TestDb.cs              # per-test in-memory SQLite database + seed helpers
 │   │   ├── ApiFactory.cs          # in-memory API host (WebApplicationFactory) on that database
-│   │   └── ApiAssert.cs           # response envelope / ValidationProblemDetails assertions
+│   │   └── ApiAssert.cs           # response envelope assertions (incl. model-validation 400s)
 │   ├── Controllers/               # HTTP-level tests, one class per controller
 │   ├── Services/                  # BoardService, ListService, CardService, TimeLogService tests
 │   └── NoBacklog.Api.Tests.csproj
@@ -285,7 +285,7 @@ PUT    /timelogs/:id        - Correct a time log's startTime/endTime (omitted = 
 DELETE /timelogs/:id        - Delete time log
 ```
 Time-tracking rules (each returns `409 Conflict` when violated):
-- A card may have **one running timer** at a time.
+- A card may have **one running timer** at a time. The database enforces this too (partial unique index `ix_time_logs_card_id_running` on `card_id WHERE end_time IS NULL`), so two concurrent starts can't both succeed; the loser gets the same 409.
 - A card stores at most `TimeTracking:MaxEntriesPerCard` entries, running included (**default 5**).
 - At most `TimeTracking:MaxRunningTimers` timers may run at once across **all** cards (**default 2**).
 
@@ -316,6 +316,15 @@ them in `appsettings*.json`:
 }
 ```
 
+Requests rejected by model validation before a controller runs (`[Required]`, `[MaxLength]`, unreadable JSON, unknown enum values, a non-numeric `{id}`) use the same envelope with a per-field `errors` object added (`Json/ValidationErrorEnvelope.cs`):
+```json
+{
+  "success": false,
+  "message": "Board name is required.",
+  "errors": { "Name": ["Board name is required."] }
+}
+```
+
 ### HTTP Status Codes
 - `200` - Success (GET, PUT, DELETE, PATCH)
 - `201` - Created (POST)
@@ -342,7 +351,7 @@ dotnet test backend-tests
 - **Assertions read back through a fresh `DbContext`**, so they check what was persisted rather than the change tracker's in-memory copy.
 - **Coverage focus:** reference-integrity errors (unknown parent IDs), not-found paths, partial-update semantics (card/list `PUT`), cascade deletes, ordering and tie-breaks, and boundary values for the time-tracking limits (one below / at `MaxEntriesPerCard` and `MaxRunningTimers`).
 - **Controller tests:** `Infrastructure/ApiFactory.cs` hosts the real app (`Program.cs`: routing, `[ApiController]` model validation, JSON options, controllers, services) in memory with `WebApplicationFactory<Program>`, swapping Postgres for the test's SQLite database and overriding the time-tracking limits through configuration. Seeding and read-back go through the same `TestDb` helpers. They cover the `{ success, message, data }` envelope, the controllers' own 400 checks, the exception mapping (`KeyNotFoundException` → 404, `ArgumentException` → 400, `InvalidOperationException` → 409), route constraints, enum-as-string JSON and inbound trimming.
-- **Two kinds of 400:** a controller's own checks (e.g. `listId` missing, blank `PUT` title) return the envelope, but anything `[ApiController]` rejects before the action runs (blank or whitespace names, which trim to `""` and fail `[Required]`; `[MaxLength]`; malformed JSON; unknown enum values; a non-numeric `{id}`) returns `ValidationProblemDetails` with no `success`/`message`. The tests pin both shapes (`ApiAssert.Failure` vs `ApiAssert.ValidationProblem`).
+- **Two sources of 400:** a controller's own checks (e.g. `listId` missing, blank `PUT` title) and anything `[ApiController]` rejects before the action runs (blank or whitespace names, which trim to `""` and fail `[Required]`; `[MaxLength]`; malformed JSON; unknown enum values; a non-numeric `{id}`). Both return the `{ success, message }` envelope; the second also carries `errors` and is checked with `ApiAssert.ValidationFailure`.
 - **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself.
 
 ### Frontend (Vitest)
@@ -528,14 +537,14 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 ### Follow-ups from time tracking
 - [x] Manual editing of a time entry's start/finish times
 - [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
-- [ ] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`)
+- [x] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`); a start that loses the race to a concurrent one gets the usual 409
 - [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
 - [x] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Follow-ups from backend tests
 - [x] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
 - [x] `GET /api/cards/:id` and `GET /api/timelogs/:id` returned 500: the `Include()`d parent got the entity back through EF's relationship fixup (`Card.List.Cards → Card…`) and serialization threw on the cycle. `Program.cs` now sets `ReferenceHandler.IgnoreCycles`, which writes that back-reference as `null`
-- [ ] Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`). Today blank names, `[MaxLength]` and malformed JSON come back as `ValidationProblemDetails`, so `api.js` shows the status line instead of a message, and the controllers' own blank-name checks on board/list/card create are unreachable
+- [x] Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`), so `api.js` shows e.g. "Board name is required." instead of the status line. The `[Required]`/`[MaxLength]` attributes carry the same wording as the controllers' own checks; those blank-name checks on board/list/card create stay as a backstop but aren't reachable through model binding
 - [ ] `PATCH /api/lists/reorder` silently skips unknown list IDs, so its `KeyNotFoundException` → 404 branch never runs. Decide whether an unknown ID should be a 404
 - [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 - [x] Run `dotnet test` in CI (GitHub Actions)

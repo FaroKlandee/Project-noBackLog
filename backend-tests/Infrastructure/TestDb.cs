@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NoBacklog.Api.Data;
 using NoBacklog.Api.Models;
 
@@ -43,6 +44,13 @@ public sealed class TestDb : IDisposable
     }
 
     public AppDbContext NewContext() => new(_options);
+
+    /* A context with EF interceptors attached, e.g. to run something mid-SaveChanges. */
+    public AppDbContext NewContext(params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(interceptors)
+            .Options);
 
     /* The open connection, so ApiFactory can point the API at this same database. */
     public SqliteConnection Connection => _connection;

@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using NoBacklog.Api.Models;
 using NoBacklog.Api.Services;
@@ -165,6 +167,63 @@ public class TimeLogServiceTests : IDisposable
         var log = await CreateService(maxRunningTimers: 1).StartTimeLogAsync(card.Id);
 
         Assert.Null(log.EndTime);
+    }
+
+    /* ---- One running timer per card (ix_time_logs_card_id_running) ---- */
+
+    [Fact]
+    public void RunningTimerIndex_RejectsSecondRunningEntryOnCard()
+    {
+        var card = _db.AddCardWithParents();
+        _db.AddTimeLog(card.Id, Start);
+
+        Assert.Throws<DbUpdateException>(() => _db.AddTimeLog(card.Id, Start.AddHours(1)));
+    }
+
+    [Fact]
+    public void RunningTimerIndex_AllowsFinishedEntriesBesideRunningOne()
+    {
+        var card = _db.AddCardWithParents();
+        _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        _db.AddTimeLog(card.Id, Start.AddHours(1), Start.AddHours(2));
+        _db.AddTimeLog(card.Id, Start.AddHours(2));
+
+        using var context = _db.NewContext();
+        Assert.Equal(3, context.TimeLogs.Count());
+    }
+
+    [Fact]
+    public async Task StartTimeLog_LosesRaceToConcurrentStart_ThrowsConflictNotDbError()
+    {
+        // A concurrent request starts a timer on the same card after this one's
+        // "already running?" check passed but before its insert is saved.
+        var card = _db.AddCardWithParents();
+        var service = new TimeLogService(
+            _db.NewContext(new BeforeSaveInterceptor(() => _db.AddTimeLog(card.Id, Start))),
+            Options.Create(new TimeTrackingOptions()));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartTimeLogAsync(card.Id));
+
+        Assert.Equal("A timer is already running on this card.", ex.Message);
+        using var context = _db.NewContext();
+        Assert.Single(context.TimeLogs);
+    }
+
+    /* Runs an action once, just before the first SaveChanges on its context. */
+    private sealed class BeforeSaveInterceptor(Action action) : SaveChangesInterceptor
+    {
+        private bool _ran;
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!_ran)
+            {
+                _ran = true;
+                action();
+            }
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
     }
 
     /* ---- Finish ---- */

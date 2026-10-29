@@ -86,6 +86,18 @@ public class AppDbContext : DbContext
                   .WithMany(c => c.TimeLogs)
                   .HasForeignKey(t => t.CardId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+             * At most one running (end_time IS NULL) entry per card, enforced by the
+             * database as well as TimeLogService, so two concurrent starts can't both
+             * insert. The FK's plain card_id index is declared explicitly: otherwise EF
+             * counts this filtered one as covering the FK and drops the plain index,
+             * which lookups over all of a card's entries still need.
+             */
+            entity.HasIndex(t => t.CardId, "IX_time_logs_card_id");
+            entity.HasIndex(t => t.CardId, "ix_time_logs_card_id_running")
+                  .IsUnique()
+                  .HasFilter("end_time IS NULL");
         });
     }
 }

@@ -6,7 +6,7 @@ As of 2026-10-29 · Faro
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 38 of 50 roadmap items are done, and 7 follow-ups plus 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 40 of 50 roadmap items are done, and 5 follow-ups plus 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -19,17 +19,17 @@ Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 11 commi
 
 ## Planned work
 
-12 of 14 planned items are still open. When an item lands, set it to Done and add a row to Committed work.
+10 of 14 planned items are still open. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
 | Add coverage thresholds now that components are tested | Frontend tests | Frontend-test follow-up | Done |
 | Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Planned |
 | Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Done |
-| Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Planned |
+| Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Done |
 | Decide whether `PATCH /api/lists/reorder` should 404 on an unknown list ID (it skips them today) | Backend | Controller-test follow-up | Planned |
 | Optional Postgres Testcontainers run to verify `Position` ordering under the real collation | Backend tests | Backend-test follow-up | Planned |
-| DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`) | Time tracking | Time-tracking follow-up | Planned |
+| DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`) | Time tracking | Time-tracking follow-up | Done |
 | Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop) | Time tracking | Time-tracking follow-up | Planned |
 | Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (needs auth/roles) | Time tracking | Time-tracking follow-up | Blocked |
 | User authentication | Platform | Future feature | Planned |
@@ -44,6 +44,8 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
+| One running timer per card enforced by a partial unique index; a lost start race returns the usual 409 | Backend | TBD | 2026-10-29 |
+| Model-validation 400s returned in the `{ success, message }` envelope, with field messages | Backend | TBD | 2026-10-29 |
 | `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | `5c29850` | 2026-10-29 |
 | Card rank rebalancing endpoint (`PATCH /lists/:listId/cards/rebalance`) | Backend | `3d5f8f8` | 2026-09-30 |
 | xUnit service-layer test project on in-memory SQLite | Backend | `d7728a9` | 2026-09-28 |
