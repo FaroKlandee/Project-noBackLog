@@ -494,6 +494,8 @@ pnpm dev
 
 ## Development Roadmap
 
+Progress by work item, with the commits behind each one, is tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
+
 ### Completed
 - [x] Backend API architecture design (ASP.NET Core + EF Core + PostgreSQL)
 - [x] Database schema modeling + migrations
