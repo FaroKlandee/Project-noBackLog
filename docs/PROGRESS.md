@@ -6,7 +6,7 @@ As of 2026-10-29 · Faro
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 41 of 50 roadmap items are done; 3 follow-ups, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 42 of 50 roadmap items are done; 2 follow-ups, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -15,11 +15,11 @@ Phase 2 (frontend) is in progress: 41 of 50 roadmap items are done; 3 follow-ups
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 16 commits on `dev` are not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 18 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
-9 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
+8 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
@@ -30,7 +30,7 @@ Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 16 commi
 | `PATCH /api/lists/reorder` returns 404 on an unknown list ID instead of skipping it | Backend | Controller-test follow-up | Done |
 | Optional Postgres Testcontainers run to verify `Position` ordering under the real collation | Backend tests | Backend-test follow-up | Next release |
 | DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`) | Time tracking | Time-tracking follow-up | Done |
-| Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop) | Time tracking | Time-tracking follow-up | Planned |
+| Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop) | Time tracking | Time-tracking follow-up | Done |
 | Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (needs auth/roles) | Time tracking | Time-tracking follow-up | Blocked |
 | User authentication | Platform | Future feature | Planned |
 | Mobile responsiveness optimization | Frontend | Future feature | Planned |
@@ -44,6 +44,7 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
+| Unused `Card.TimeTracked` column dropped (never written; the UI sums time-log entries) | Backend | `65b2366` | 2026-10-29 |
 | `PATCH /api/lists/reorder` returns 404 on an unknown list ID; nothing is moved | Backend | `1f23067` | 2026-10-29 |
 | One running timer per card enforced by a partial unique index; a lost start race returns the usual 409 | Backend | `744be66` | 2026-10-29 |
 | Model-validation 400s returned in the `{ success, message }` envelope, with field messages | Backend | `c299d67` | 2026-10-29 |
@@ -87,10 +88,12 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-102 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
+104 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-10-29 | `65b2366` | Drop the unused Card.TimeTracked column |
+| 2026-10-29 | `4cea330` | Sync the progress doc with the reorder 404 and next-release move |
 | 2026-10-29 | `1f23067` | Return 404 from list reorder on an unknown list ID |
 | 2026-10-29 | `c3765f0` | Fill in the envelope and timer-index commits in the progress doc |
 | 2026-10-29 | `744be66` | Enforce one running timer per card in the database |
