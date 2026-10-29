@@ -42,7 +42,7 @@ NoBacklog is a modern task management system that combines:
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
 - 4 ASP.NET controllers, each backed by an injected service class and interface
-- EF Core migrations tracking schema evolution (including the card `Position` ranking column, nullable `TimeEstimate`, and the one-running-timer-per-card partial unique index)
+- EF Core migrations tracking schema evolution (including the card `Position` ranking column, nullable `TimeEstimate`, the one-running-timer-per-card partial unique index, and dropping the unused `time_tracked` column)
 - `.http` request file for manual endpoint testing
 - xUnit test project (`backend-tests/`) covering all four services and all four controllers (via `WebApplicationFactory`) against an in-memory SQLite database
 
@@ -194,7 +194,6 @@ Board (Dashboard/Workspace)
                     ├── Position: string  (rank-based ordering)
                     ├── Priority: enum[Low, Medium, High]
                     ├── TimeEstimate: string? (free text, max 50)
-                    ├── TimeTracked: int  (currently unused)
                     └── TimeLogs[] ─┐
                                     │
                               TimeLog (Work Log Entry)
@@ -538,7 +537,7 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 - [x] Manual editing of a time entry's start/finish times
 - [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
 - [x] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`); a start that loses the race to a concurrent one gets the usual 409
-- [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
+- [x] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop): dropped. It was meant as a cached per-card total of logged time, but nothing ever wrote it, and the UI sums the time-log entries instead (migration `DropCardTimeTracked`)
 - [x] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Follow-ups from backend tests

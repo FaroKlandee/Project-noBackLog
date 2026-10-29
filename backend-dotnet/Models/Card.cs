@@ -33,8 +33,6 @@ public class Card
     [MaxLength(50, ErrorMessage = "Time estimate must be 50 characters or fewer.")]
     public string? TimeEstimate { get; set; }
 
-    public int TimeTracked { get; set; } = 0;
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

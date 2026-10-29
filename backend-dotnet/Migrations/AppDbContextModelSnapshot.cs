@@ -87,10 +87,6 @@ namespace NoBacklog.Api.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("time_estimate");
 
-                    b.Property<int>("TimeTracked")
-                        .HasColumnType("integer")
-                        .HasColumnName("time_tracked");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(100)
