@@ -6,7 +6,7 @@ As of 2026-10-29 · Faro
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 40 of 50 roadmap items are done, and 5 follow-ups plus 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 41 of 50 roadmap items are done; 3 follow-ups, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -15,11 +15,11 @@ Phase 2 (frontend) is in progress: 40 of 50 roadmap items are done, and 5 follow
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 14 commits on `dev` are not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 16 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
-10 of 14 planned items are still open. When an item lands, set it to Done and add a row to Committed work.
+9 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
@@ -27,8 +27,8 @@ Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 14 commi
 | Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Planned |
 | Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Done |
 | Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Done |
-| Decide whether `PATCH /api/lists/reorder` should 404 on an unknown list ID (it skips them today) | Backend | Controller-test follow-up | Planned |
-| Optional Postgres Testcontainers run to verify `Position` ordering under the real collation | Backend tests | Backend-test follow-up | Planned |
+| `PATCH /api/lists/reorder` returns 404 on an unknown list ID instead of skipping it | Backend | Controller-test follow-up | Done |
+| Optional Postgres Testcontainers run to verify `Position` ordering under the real collation | Backend tests | Backend-test follow-up | Next release |
 | DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`) | Time tracking | Time-tracking follow-up | Done |
 | Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop) | Time tracking | Time-tracking follow-up | Planned |
 | Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (needs auth/roles) | Time tracking | Time-tracking follow-up | Blocked |
@@ -44,6 +44,7 @@ Every completed work item, grouped by area and newest first within each, with th
 
 | Item | Area | Commits | Landed |
 | --- | --- | --- | --- |
+| `PATCH /api/lists/reorder` returns 404 on an unknown list ID; nothing is moved | Backend | `1f23067` | 2026-10-29 |
 | One running timer per card enforced by a partial unique index; a lost start race returns the usual 409 | Backend | `744be66` | 2026-10-29 |
 | Model-validation 400s returned in the `{ success, message }` envelope, with field messages | Backend | `c299d67` | 2026-10-29 |
 | `GET /api/cards/:id` and `GET /api/timelogs/:id` no longer 500 on an EF back-reference cycle | Backend | `5c29850` | 2026-10-29 |
@@ -86,10 +87,12 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-100 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
+102 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-10-29 | `1f23067` | Return 404 from list reorder on an unknown list ID |
+| 2026-10-29 | `c3765f0` | Fill in the envelope and timer-index commits in the progress doc |
 | 2026-10-29 | `744be66` | Enforce one running timer per card in the database |
 | 2026-10-29 | `c299d67` | Return model-validation 400s in the success/message envelope |
 | 2026-10-29 | `8a699a9` | Fill in the controller-test commit in the progress doc |
