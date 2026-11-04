@@ -128,24 +128,25 @@ public class TimeLogsController : ControllerBase
     }
 
     // PUT /api/timelogs/:id
+    // Manually corrects an entry's start and/or end time; omitted fields are unchanged.
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] TimeLog timeLog)
+    public async Task<IActionResult> Update(int id, [FromBody] TimeLogUpdateRequest request)
     {
         try
         {
-            var updated = await _timeLogService.UpdateTimeLogAsync(id, timeLog);
+            var updated = await _timeLogService.UpdateTimeLogAsync(id, request);
             if (updated is null)
                 return NotFound(new { success = false, message = "Time log not found." });
 
             return Ok(new { success = true, message = "Time log successfully updated.", data = updated });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { success = false, message = ex.Message });
-        }
         catch (ArgumentException ex)
         {
             return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { success = false, message = ex.Message });
         }
     }
 

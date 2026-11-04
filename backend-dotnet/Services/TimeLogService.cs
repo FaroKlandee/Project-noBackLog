@@ -71,28 +71,33 @@ public class TimeLogService : ITimeLogService
         timeLog.CreatedAt = DateTime.UtcNow;
         timeLog.UpdatedAt = DateTime.UtcNow;
 
-        _context.TimeLogs.Add(timeLog);
-        await _context.SaveChangesAsync();
+        await AddTimeLogAsync(timeLog);
 
         return timeLog;
     }
 
-    public async Task<TimeLog?> UpdateTimeLogAsync(int id, TimeLog updated)
+    /*
+     * Manually correct an entry's start and/or end time (null = unchanged),
+     * recomputing Duration. Returns null when the entry doesn't exist.
+     *
+     * Rules: the end must follow the start, neither may lie in the future
+     * (beyond a minute of client/server clock skew), and a running entry's
+     * end can't be set here — only its start (see TimeLogUpdateRequest).
+     */
+    public async Task<TimeLog?> UpdateTimeLogAsync(int id, TimeLogUpdateRequest request)
     {
         var timeLog = await _context.TimeLogs.FindAsync(id);
         if (timeLog is null) return null;
 
-        if (updated.CardId != 0 && updated.CardId != timeLog.CardId)
-        {
-            var cardExists = await _context.Cards.AnyAsync(c => c.Id == updated.CardId);
-            if (!cardExists)
-                throw new KeyNotFoundException($"Card with ID {updated.CardId} not found.");
+        if (request.EndTime.HasValue && !timeLog.EndTime.HasValue)
+            throw new InvalidOperationException("Finish this timer before editing its end time.");
 
-            timeLog.CardId = updated.CardId;
-        }
+        var newStartTime = request.StartTime.HasValue ? ToUtc(request.StartTime.Value) : timeLog.StartTime;
+        var newEndTime = request.EndTime.HasValue ? ToUtc(request.EndTime.Value) : timeLog.EndTime;
 
-        var newStartTime = updated.StartTime != default ? updated.StartTime : timeLog.StartTime;
-        var newEndTime = updated.EndTime ?? timeLog.EndTime;
+        var latest = DateTime.UtcNow.Add(ClockSkewTolerance);
+        if (newStartTime > latest || newEndTime > latest)
+            throw new ArgumentException("Time entries can't be in the future.");
 
         if (newEndTime.HasValue && newEndTime <= newStartTime)
             throw new ArgumentException("End time must be after start time.");
@@ -109,6 +114,19 @@ public class TimeLogService : ITimeLogService
 
         return timeLog;
     }
+
+    private static readonly TimeSpan ClockSkewTolerance = TimeSpan.FromMinutes(1);
+
+    /*
+     * Timestamps are stored as UTC. A client time with an offset binds as
+     * Local, and one with no offset as Unspecified, which is taken to be UTC.
+     */
+    private static DateTime ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+    };
 
     public async Task<bool> DeleteTimeLogAsync(int id)
     {
@@ -147,8 +165,7 @@ public class TimeLogService : ITimeLogService
             UpdatedAt = now,
         };
 
-        _context.TimeLogs.Add(timeLog);
-        await _context.SaveChangesAsync();
+        await AddTimeLogAsync(timeLog);
 
         return timeLog;
     }
@@ -173,6 +190,31 @@ public class TimeLogService : ITimeLogService
         await _context.SaveChangesAsync();
 
         return timeLog;
+    }
+
+    /*
+     * Insert a new entry. EnsureNoRunningTimerAsync is a read-then-write check, so
+     * two concurrent starts on one card can both pass it; the second insert is then
+     * rejected by the ix_time_logs_card_id_running unique index. That case is
+     * reported as the same conflict the check raises, not as a database error.
+     */
+    private async Task AddTimeLogAsync(TimeLog timeLog)
+    {
+        _context.TimeLogs.Add(timeLog);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (timeLog.EndTime is null)
+        {
+            _context.Entry(timeLog).State = EntityState.Detached;
+
+            var hasRunning = await _context.TimeLogs.AnyAsync(t => t.CardId == timeLog.CardId && t.EndTime == null);
+            if (hasRunning)
+                throw new InvalidOperationException("A timer is already running on this card.");
+
+            throw;
+        }
     }
 
     private async Task EnsureNoRunningTimerAsync(int cardId)

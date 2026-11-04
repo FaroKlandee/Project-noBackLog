@@ -164,17 +164,17 @@ public class ListServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ReorderLists_SkipsUnknownIdsButKeepsTheirSlot()
+    public async Task ReorderLists_UnknownId_ThrowsAndChangesNothing()
     {
-        // The index is taken from the id's place in the request, so an unknown
-        // id still consumes a position — the remaining lists are not compacted.
         var board = _db.AddBoard();
-        var a = _db.AddList(board.Id, "A");
-        var b = _db.AddList(board.Id, "B");
+        var a = _db.AddList(board.Id, "A", position: 0);
+        var b = _db.AddList(board.Id, "B", position: 1);
 
-        Assert.True(await CreateService().ReorderListsAsync([b.Id, 999, a.Id]));
+        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => CreateService().ReorderListsAsync([b.Id, 999, a.Id]));
 
+        Assert.Equal("List with ID 999 not found.", ex.Message);
         var lists = await CreateService().GetAllListsAsync(board.Id);
-        Assert.Equal([("B", 0), ("A", 2)], lists.Select(l => (l.Name, l.Position)));
+        Assert.Equal([("A", 0), ("B", 1)], lists.Select(l => (l.Name, l.Position)));
     }
 }

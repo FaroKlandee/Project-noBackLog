@@ -6,8 +6,8 @@ public class Board
 {
     public int Id { get; set; }
 
-    [Required]
-    [MaxLength(100)]
+    [Required(ErrorMessage = "Board name is required.")]
+    [MaxLength(100, ErrorMessage = "Board name must be 100 characters or fewer.")]
     public string Name { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

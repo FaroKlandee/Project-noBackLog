@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using NoBacklog.Api.Models;
 using NoBacklog.Api.Services;
@@ -167,6 +169,63 @@ public class TimeLogServiceTests : IDisposable
         Assert.Null(log.EndTime);
     }
 
+    /* ---- One running timer per card (ix_time_logs_card_id_running) ---- */
+
+    [Fact]
+    public void RunningTimerIndex_RejectsSecondRunningEntryOnCard()
+    {
+        var card = _db.AddCardWithParents();
+        _db.AddTimeLog(card.Id, Start);
+
+        Assert.Throws<DbUpdateException>(() => _db.AddTimeLog(card.Id, Start.AddHours(1)));
+    }
+
+    [Fact]
+    public void RunningTimerIndex_AllowsFinishedEntriesBesideRunningOne()
+    {
+        var card = _db.AddCardWithParents();
+        _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        _db.AddTimeLog(card.Id, Start.AddHours(1), Start.AddHours(2));
+        _db.AddTimeLog(card.Id, Start.AddHours(2));
+
+        using var context = _db.NewContext();
+        Assert.Equal(3, context.TimeLogs.Count());
+    }
+
+    [Fact]
+    public async Task StartTimeLog_LosesRaceToConcurrentStart_ThrowsConflictNotDbError()
+    {
+        // A concurrent request starts a timer on the same card after this one's
+        // "already running?" check passed but before its insert is saved.
+        var card = _db.AddCardWithParents();
+        var service = new TimeLogService(
+            _db.NewContext(new BeforeSaveInterceptor(() => _db.AddTimeLog(card.Id, Start))),
+            Options.Create(new TimeTrackingOptions()));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartTimeLogAsync(card.Id));
+
+        Assert.Equal("A timer is already running on this card.", ex.Message);
+        using var context = _db.NewContext();
+        Assert.Single(context.TimeLogs);
+    }
+
+    /* Runs an action once, just before the first SaveChanges on its context. */
+    private sealed class BeforeSaveInterceptor(Action action) : SaveChangesInterceptor
+    {
+        private bool _ran;
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!_ran)
+            {
+                _ran = true;
+                action();
+            }
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
     /* ---- Finish ---- */
 
     [Fact]
@@ -282,9 +341,39 @@ public class TimeLogServiceTests : IDisposable
         var card = _db.AddCardWithParents();
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
-        var updated = await CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { EndTime = Start.AddHours(2) });
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { EndTime = Start.AddHours(2) });
 
         Assert.Equal(Start, updated!.StartTime);
+        Assert.Equal(2 * 3_600_000, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_BothTimes_ReplacesBothAndRecomputesDuration()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { StartTime = Start.AddMinutes(30), EndTime = Start.AddMinutes(45) });
+
+        Assert.Equal(Start.AddMinutes(30), updated!.StartTime);
+        Assert.Equal(Start.AddMinutes(45), updated.EndTime);
+        Assert.Equal(15 * 60_000, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_OffsetTime_IsStoredAsUtc()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        var local = Start.AddHours(2).ToLocalTime();
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { EndTime = local });
+
+        Assert.Equal(DateTimeKind.Utc, updated!.EndTime!.Value.Kind);
+        Assert.Equal(Start.AddHours(2), updated.EndTime.Value);
         Assert.Equal(2 * 3_600_000, updated.Duration);
     }
 
@@ -295,23 +384,70 @@ public class TimeLogServiceTests : IDisposable
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { StartTime = Start.AddHours(2) }));
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { StartTime = Start.AddHours(2) }));
     }
 
     [Fact]
-    public async Task UpdateTimeLog_UnknownTargetCard_Throws()
+    public async Task UpdateTimeLog_EndEqualToStart_Throws()
     {
         var card = _db.AddCardWithParents();
         var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            CreateService().UpdateTimeLogAsync(log.Id, new TimeLog { CardId = 999 }));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = Start }));
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_EndInTheFuture_Throws()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id,
+                new TimeLogUpdateRequest { EndTime = DateTime.UtcNow.AddMinutes(5) }));
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_EndWithinClockSkew_IsAccepted()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start, Start.AddHours(1));
+        var end = DateTime.UtcNow.AddSeconds(30);
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = end });
+
+        Assert.Equal(end, updated!.EndTime);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_RunningEntryStart_KeepsItRunning()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start);
+
+        var updated = await CreateService().UpdateTimeLogAsync(log.Id,
+            new TimeLogUpdateRequest { StartTime = Start.AddMinutes(-10) });
+
+        Assert.Equal(Start.AddMinutes(-10), updated!.StartTime);
+        Assert.Null(updated.EndTime);
+        Assert.Equal(0, updated.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateTimeLog_RunningEntryEnd_Throws()
+    {
+        var card = _db.AddCardWithParents();
+        var log = _db.AddTimeLog(card.Id, Start);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().UpdateTimeLogAsync(log.Id, new TimeLogUpdateRequest { EndTime = Start.AddHours(1) }));
     }
 
     [Fact]
     public async Task UpdateTimeLog_UnknownId_ReturnsNull()
     {
-        Assert.Null(await CreateService().UpdateTimeLogAsync(999, new TimeLog()));
+        Assert.Null(await CreateService().UpdateTimeLogAsync(999, new TimeLogUpdateRequest()));
     }
 
     /* ---- Delete ---- */

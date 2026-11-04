@@ -87,10 +87,6 @@ namespace NoBacklog.Api.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("time_estimate");
 
-                    b.Property<int>("TimeTracked")
-                        .HasColumnType("integer")
-                        .HasColumnName("time_tracked");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -181,7 +177,11 @@ namespace NoBacklog.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CardId");
+                    b.HasIndex(new[] { "CardId" }, "IX_time_logs_card_id");
+
+                    b.HasIndex(new[] { "CardId" }, "ix_time_logs_card_id_running")
+                        .IsUnique()
+                        .HasFilter("end_time IS NULL");
 
                     b.ToTable("time_logs", (string)null);
                 });

@@ -10,8 +10,8 @@ public class List
     [Required]
     public int BoardId { get; set; }
 
-    [Required]
-    [MaxLength(50)]
+    [Required(ErrorMessage = "List name is required.")]
+    [MaxLength(50, ErrorMessage = "List name must be 50 characters or fewer.")]
     public string Name { get; set; } = string.Empty;
 
     public int Position { get; set; } = 0;

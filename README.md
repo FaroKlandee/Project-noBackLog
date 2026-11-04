@@ -4,7 +4,7 @@ AI-powered task management application with natural language command interface. 
 
 **Developer:** Patiphak Klandee (Faro)  
 **Technical Background:** ISTQB Certified | 3+ Years QA/Development Experience  
-**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook/Component Tests | Hardening Sprint Complete | Phase 2 Close-out Complete
+**Project Status:** Backend Complete (CRUD, Reordering, Timers + xUnit Service Tests) | Frontend Core Kanban Complete (Boards/Lists/Cards, Drag-and-Drop, Card Editing, Time Tracking) + Vitest Util/Hook/Component/Page Tests | Hardening Sprint Complete | Phase 2 Close-out Complete
 
 ---
 
@@ -42,9 +42,9 @@ NoBacklog is a modern task management system that combines:
 **Total Backend Deliverables:**
 - 4 EF Core entity models with relationships (`Board`, `List`, `Card`, `TimeLog`)
 - 4 ASP.NET controllers, each backed by an injected service class and interface
-- EF Core migrations tracking schema evolution (including the card `Position` ranking column and nullable `TimeEstimate`)
+- EF Core migrations tracking schema evolution (including the card `Position` ranking column, nullable `TimeEstimate`, the one-running-timer-per-card partial unique index, and dropping the unused `time_tracked` column)
 - `.http` request file for manual endpoint testing
-- xUnit test project (`backend-tests/`) covering all four services against an in-memory SQLite database
+- xUnit test project (`backend-tests/`) covering all four services and all four controllers (via `WebApplicationFactory`) against an in-memory SQLite database
 
 ### Phase 2: Frontend Development (CURRENT)
 **Framework:** React 19 (Vite)  
@@ -55,19 +55,19 @@ NoBacklog is a modern task management system that combines:
 - Boards list and board detail pages (`react-router` routed)
 - List columns: create, delete, inline click-to-edit rename, drag-and-drop reordering
 - Cards: create (inline form with title + priority, keyboard shortcuts), delete, drag-and-drop reordering within a column and across columns
-- Card detail dialog (`CardEditDialog`) with per-field saving for title, description, priority, and time estimate
+- Card detail dialog (`CardEditDialog`) with per-field saving for title, description, priority, and time estimate; the open card is kept in the URL (`/boards/:boardId?card=<id>`), so it can be linked to and stays open after a refresh
 - Rank-based position encoding (`generateRank`) so client-assigned positions sort correctly against the backend's plain string ordering
 - `@dnd-kit` integration with a shared `DragDropProvider`, type-scoped sortables (`list` vs `card`), and a `DragOverlay` (dragged lists render a clone of their cards) to avoid DOM-relocation conflicts with React's reconciliation
-- Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers
+- Time tracking inside the card detail dialog: Start/Finish timers (server-stamped), live elapsed counter, per-entry durations and a card total, capped entries per card and a global cap on simultaneously running timers, and manual correction of an entry's start/finish times (inline `datetime-local` editor; finish after start, nothing in the future)
+- Shared Dialog, outlined-input and Select styling lives in `theme.js` component overrides rather than per-component `sx`
 - Per-feature loading/error states: the board name, list columns and cards each load independently with skeleton placeholders, and a failed load shows what failed with its own Retry (`LoadError`) instead of blanking the page; add-card controls stay hidden until a column's cards have loaded
 - Failed drag persistence rolls back: a list reorder or card move the server rejects is restored to its pre-drag position, with the error shown in the affected column
 - Server error messages reach the UI: `api.js` throws the backend envelope's `message` (e.g. which time-tracking limit a `409` hit), falling back to the HTTP status line, with the status code on `error.status`
 - `CardEditDialog` is fully labelled and keyboard-reachable: the title is a real button (Tab, then Enter/Space opens the editor; focus returns after Enter/Escape), the dialog is named by the card title, and every field has an accessible name
-- Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and the `LoadError`, `CardEditDialog` and `TimeLogSection` components (React Testing Library)
+- Vitest test suite for the shared HTTP client (`api.js`), the pure utils (`generateRank`, `formatDuration`, `priorityChipSx`) and the data-owning hooks (`useLists`, `useBoardCards`, `useCardTimeLogs`), with MSW standing in for the backend, and every component and page: `BoardsPage`, `BoardDetailPage`, the drag-and-drop columns and cards (`Lists`, `ListColumn`, `Cards`, `CardItem`), `LoadError`, `CardEditDialog` and `TimeLogSection` (React Testing Library)
+- The board's icon buttons and inputs (`Add card`, `List options`, `Card options`, `Cancel`, `List name`, `Card title`, `Priority`) have accessible names, and each column is named by its list
+- A list's title is keyboard-reachable (Tab, then Enter/Space to rename), and a failed card create keeps the typed title and priority for a retry
 
-**Not yet built:**
-- Manual editing of time entries
-- Tests for pages and the drag-and-drop components
 
 ### Phase 3: AI Integration (FUTURE)
 **Planned Technology:** Anthropic Claude API  
@@ -149,7 +149,10 @@ nobacklog/
 │
 ├── backend-tests/
 │   ├── Infrastructure/
-│   │   └── TestDb.cs              # per-test in-memory SQLite database + seed helpers
+│   │   ├── TestDb.cs              # per-test in-memory SQLite database + seed helpers
+│   │   ├── ApiFactory.cs          # in-memory API host (WebApplicationFactory) on that database
+│   │   └── ApiAssert.cs           # response envelope assertions (incl. model-validation 400s)
+│   ├── Controllers/               # HTTP-level tests, one class per controller
 │   ├── Services/                  # BoardService, ListService, CardService, TimeLogService tests
 │   └── NoBacklog.Api.Tests.csproj
 │
@@ -191,7 +194,6 @@ Board (Dashboard/Workspace)
                     ├── Position: string  (rank-based ordering)
                     ├── Priority: enum[Low, Medium, High]
                     ├── TimeEstimate: string? (free text, max 50)
-                    ├── TimeTracked: int  (currently unused)
                     └── TimeLogs[] ─┐
                                     │
                               TimeLog (Work Log Entry)
@@ -255,7 +257,7 @@ POST   /lists            - Create new list
 GET    /lists/:id        - Get list by ID
 PUT    /lists/:id        - Update list
 DELETE /lists/:id        - Delete list
-PATCH  /lists/reorder    - Persist a new list order (body: ordered array of list IDs)
+PATCH  /lists/reorder    - Persist a new list order (body: ordered array of list IDs; an unknown ID → 404, nothing moved)
 ```
 
 ### Card Endpoints
@@ -278,11 +280,11 @@ POST   /timelogs/:id/finish - Finish a running timer (server stamps end time, co
 GET    /timelogs/running    - Every running timer across all cards ({ id, cardId, cardTitle, startTime }[])
 GET    /timelogs/settings   - Time-tracking settings ({ maxEntriesPerCard, maxRunningTimers })
 GET    /timelogs/:id        - Get time log by ID
-PUT    /timelogs/:id        - Update time log
+PUT    /timelogs/:id        - Correct a time log's startTime/endTime (omitted = unchanged; end must follow start, no future times, a running entry's end can't be set)
 DELETE /timelogs/:id        - Delete time log
 ```
 Time-tracking rules (each returns `409 Conflict` when violated):
-- A card may have **one running timer** at a time.
+- A card may have **one running timer** at a time. The database enforces this too (partial unique index `ix_time_logs_card_id_running` on `card_id WHERE end_time IS NULL`), so two concurrent starts can't both succeed; the loser gets the same 409.
 - A card stores at most `TimeTracking:MaxEntriesPerCard` entries, running included (**default 5**).
 - At most `TimeTracking:MaxRunningTimers` timers may run at once across **all** cards (**default 2**).
 
@@ -313,6 +315,15 @@ them in `appsettings*.json`:
 }
 ```
 
+Requests rejected by model validation before a controller runs (`[Required]`, `[MaxLength]`, unreadable JSON, unknown enum values, a non-numeric `{id}`) use the same envelope with a per-field `errors` object added (`Json/ValidationErrorEnvelope.cs`):
+```json
+{
+  "success": false,
+  "message": "Board name is required.",
+  "errors": { "Name": ["Board name is required."] }
+}
+```
+
 ### HTTP Status Codes
 - `200` - Success (GET, PUT, DELETE, PATCH)
 - `201` - Created (POST)
@@ -329,7 +340,7 @@ them in `appsettings*.json`:
 **QA-Driven Development:** Leveraging ISTQB Foundation Level principles — positive/negative cases, boundary value analysis, equivalence partitioning, reference integrity testing.
 
 ### Backend (xUnit)
-`backend-tests/` holds an xUnit project that exercises every service class directly (`BoardService`, `ListService`, `CardService`, `TimeLogService`). No database server or Docker is needed:
+`backend-tests/` holds an xUnit project with two layers: `Services/` exercises every service class directly (`BoardService`, `ListService`, `CardService`, `TimeLogService`), and `Controllers/` sends real HTTP requests through the whole API. No database server or Docker is needed:
 
 ```bash
 dotnet test backend-tests
@@ -338,7 +349,9 @@ dotnet test backend-tests
 - **Database:** each test gets its own in-memory SQLite database (`Infrastructure/TestDb.cs`), created from the EF model with `EnsureCreated()`. SQLite was chosen over EF's InMemory provider because it's a real relational engine, so foreign keys and `ON DELETE CASCADE` are actually enforced.
 - **Assertions read back through a fresh `DbContext`**, so they check what was persisted rather than the change tracker's in-memory copy.
 - **Coverage focus:** reference-integrity errors (unknown parent IDs), not-found paths, partial-update semantics (card/list `PUT`), cascade deletes, ordering and tie-breaks, and boundary values for the time-tracking limits (one below / at `MaxEntriesPerCard` and `MaxRunningTimers`).
-- **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself. Controllers (request validation, status codes, response envelope) aren't covered yet. The next step there would be `WebApplicationFactory` integration tests.
+- **Controller tests:** `Infrastructure/ApiFactory.cs` hosts the real app (`Program.cs`: routing, `[ApiController]` model validation, JSON options, controllers, services) in memory with `WebApplicationFactory<Program>`, swapping Postgres for the test's SQLite database and overriding the time-tracking limits through configuration. Seeding and read-back go through the same `TestDb` helpers. They cover the `{ success, message, data }` envelope, the controllers' own 400 checks, the exception mapping (`KeyNotFoundException` → 404, `ArgumentException` → 400, `InvalidOperationException` → 409), route constraints, enum-as-string JSON and inbound trimming.
+- **Two sources of 400:** a controller's own checks (e.g. `listId` missing, blank `PUT` title) and anything `[ApiController]` rejects before the action runs (blank or whitespace names, which trim to `""` and fail `[Required]`; `[MaxLength]`; malformed JSON; unknown enum values; a non-numeric `{id}`). Both return the `{ success, message }` envelope; the second also carries `errors` and is checked with `ApiAssert.ValidationFailure`.
+- **Known gap vs. production:** SQLite orders strings with a binary collation, while Postgres uses the database collation, so `Card.Position` ordering isn't verified against Postgres itself.
 
 ### Frontend (Vitest)
 Test files sit next to the code they cover (`rank.js` → `rank.test.js`). No backend or database is needed:
@@ -347,23 +360,26 @@ Test files sit next to the code they cover (`rank.js` → `rank.test.js`). No ba
 cd frontend
 pnpm test            # run once
 pnpm test:watch      # re-run affected tests on save
-pnpm test:coverage   # coverage report (text + coverage/index.html)
+pnpm test:coverage   # coverage report (text + coverage/index.html); fails below the thresholds
 ```
 
 - **Runner:** Vitest, configured in `vite.config.js` so tests go through the same transform pipeline as the app. `globals` is off — tests import `describe`/`it`/`expect` explicitly, so `src/test/setup.js` calls Testing Library's `cleanup()` itself.
 - **Backend stand-in:** MSW (`src/test/server.js`) intercepts `fetch`, so the real `api.js` and service modules run in every hook test: URLs, verbs, request bodies and error conversion are all exercised. The server starts with no handlers; each test declares exactly the endpoints it expects with `server.use(...)`, and any undeclared request fails the test (`onUnhandledRequest: 'error'`).
 - **Components** render through `renderWithTheme` (`src/test/render.jsx`), which wraps them in the app's `ThemeProvider` (their `sx` callbacks read custom palette tokens MUI's default theme lacks) and returns a `user-event` session (`delay: null`, so typing doesn't wait a timer tick per keystroke). Elements are queried role-first (`getByRole('button', { name: 'Save' })`), then label/placeholder/text — never MUI class names. `jest-dom` matchers (`toBeDisabled`, `toHaveValue`, …) are registered in `setup.js`.
 - **Hooks** are driven with `renderHook` / `waitFor` / `act`. Error assertions match the exact message (e.g. `HTTP error: 500 Internal Server Error`), because an unmatched handler also produces an error (`TypeError: fetch failed`) and a vague assertion would pass for the wrong reason.
-- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit without closing the dialog, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). Drag-and-drop logic is tested through the hook calls the drop handler makes, not by simulating dnd-kit pointer events.
+- **Coverage focus:** rank boundaries (`RANK_MAX`, exhausted gaps) plus a repeated-bisection test asserting *string* sort order; duration rollovers and the negative clamp; for each hook, load → error → reload transitions, a stale-response guard, every mutation's success and rejection, the rebalance-before-create path, and rollback of a rejected drag. For components (`LoadError`, `CardEditDialog`, `TimeLogSection`): each optimistic edit's revert on failure, Save/Discard dirty-tracking and in-flight states, Escape cancelling a title edit (or a time-entry edit) without closing the dialog, the time-entry editor's validation (finish after start, no future or blank times) and sending only the changed field, the Start button and limit captions at each cap's boundary, and the live elapsed counter (fake `setInterval`/`Date` only). For pages and the drag-and-drop components: `BoardsPage`'s links resolve through a memory router; `BoardDetailPage` loads the board name, lists and cards independently (each with its own error and Retry, and no cards banner until the lists are on screen) and merges the card's priority into every dialog save, applies a same-list card hover live but holds a cross-list one until the drop, and keeps the open card in `?card=<id>` (deep link, refresh, stale/malformed ids dropped, kept through a failed load); `ListColumn`'s rename (Enter, blur, Escape, blank/unchanged, optimistic name settling) and add-card form (Shift+Enter, L/M/H outside the title, focus-leave closing that ignores the priority dropdown); `Lists`' per-column slicing and error scoping; `CardItem`'s delayed single-click open, double click, and moved-press rejection.
+- **Drag-and-drop:** jsdom has no layout, so dnd-kit can't resolve a real pointer drag. `BoardDetailPage.test.jsx` wraps `DragDropProvider` to reach the handlers the page passes it, and calls `onDragStart`/`onDragOver`/`onDragEnd` with synthetic events shaped like dnd-kit's. It asserts on the rendered order and on the request each drop sends: list reorder and its rollback, same-list and cross-list card moves (onto a card, into an empty column, below the last card), the rebalance when ranks are exhausted, the rejected-move rollback, and cancelled drags. The real provider still renders, so every `useSortable`/`useDroppable` registration runs. `setup.js` stubs `ResizeObserver`, which `@dnd-kit/dom` constructs on import.
+- **Queries on the board:** dnd-kit gives each draggable `role="button"` with `aria-roledescription="draggable"`, so a column isn't a `region` and a card isn't a `listitem`. Columns are found by their name (`getByLabelText('To Do', { selector: 'section' })`) and cards by their title text.
 - **HTTP client:** `api.test.js` covers the error envelope's `message`, the status-line fallback for empty, non-JSON and blank-message bodies, and the 5000 ms timeout. For the timeout, MSW holds the response with `delay('infinite')` while only `setTimeout`/`clearTimeout` are faked.
-- **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one.
-- **Not covered yet:** pages and the drag-and-drop components (the coverage report lists them at 0%).
+- **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one. One known exception: `ListColumn`'s Escape resets the title draft in case the field's unmount also fires a `blur`, which jsdom never does.
+- **Coverage thresholds:** `vite.config.js` fails `pnpm test:coverage` when project-wide coverage drops below 94% statements, 88% branches, 95% functions or 95% lines, about a point under the figures measured on 2026-10-27 (95.7 / 89.2 / 96.0 / 96.3%). Raise them as coverage grows.
+- **Not covered:** `main.jsx` and `routes.jsx` (app bootstrap), and real pointer/keyboard drags, which need a browser (Playwright).
 
 ### Continuous Integration
 `.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
 
 - **Backend:** `dotnet test backend-tests` on .NET 10.
-- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test`, then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
+- **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test:coverage` (fails under the coverage thresholds), then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
 
 A newer push to the same branch cancels the run it supersedes. `frontend/.gitattributes` checks the frontend out with LF line endings, so `pnpm lint` passes on Windows exactly as it does in CI; run `pnpm format` (or `pnpm biome check --write .`) to fix formatting locally.
 
@@ -491,6 +507,8 @@ pnpm dev
 
 ## Development Roadmap
 
+Progress by work item, with the commits behind each one, is tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
+
 ### Completed
 - [x] Backend API architecture design (ASP.NET Core + EF Core + PostgreSQL)
 - [x] Database schema modeling + migrations
@@ -511,20 +529,23 @@ pnpm dev
 - [x] Automated backend test project (xUnit against the service layer, in-memory SQLite)
 
 ### Follow-ups from card editing
-- [ ] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
+- [x] Sync the open card editor to a `?card=<id>` URL param (deep-linkable, survives refresh)
 - [x] Dedupe the priority-chip colour lookup shared by `CardItem` and `CardPreview` (`priorityChipSx`)
-- [ ] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
+- [x] Add `theme.js` component overrides for MUI `Dialog`/form controls instead of local `sx` fixes
 
 ### Follow-ups from time tracking
-- [ ] Manual editing of a time entry's start/finish times
+- [x] Manual editing of a time entry's start/finish times
 - [ ] Project-manager settings UI for `MaxEntriesPerCard` / `MaxRunningTimers` (after auth/roles)
-- [ ] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`)
-- [ ] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop)
+- [x] DB-level guard for one running timer per card (partial unique index on `card_id WHERE end_time IS NULL`); a start that loses the race to a concurrent one gets the usual 409
+- [x] Decide the fate of the unused `Card.TimeTracked` column (sync from logs or drop): dropped. It was meant as a cached per-card total of logged time, but nothing ever wrote it, and the UI sums the time-log entries instead (migration `DropCardTimeTracked`)
 - [x] Surface the server's error `message` in `api.js` instead of the generic `HTTP error: 409`
 
 ### Follow-ups from backend tests
-- [ ] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
-- [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
+- [x] Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope
+- [x] `GET /api/cards/:id` and `GET /api/timelogs/:id` returned 500: the `Include()`d parent got the entity back through EF's relationship fixup (`Card.List.Cards → Card…`) and serialization threw on the cycle. `Program.cs` now sets `ReferenceHandler.IgnoreCycles`, which writes that back-reference as `null`
+- [x] Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`), so `api.js` shows e.g. "Board name is required." instead of the status line. The `[Required]`/`[MaxLength]` attributes carry the same wording as the controllers' own checks; those blank-name checks on board/list/card create stay as a backstop but aren't reachable through model binding
+- [x] `PATCH /api/lists/reorder` silently skipped unknown list IDs, so its `KeyNotFoundException` → 404 branch never ran. An unknown ID now returns 404 and no list is moved
+- Optional Postgres Testcontainers run: moved to [Next release](#next-release)
 - [x] Run `dotnet test` in CI (GitHub Actions)
 
 ### Previous Sprint: Hardening (Complete)
@@ -534,14 +555,21 @@ pnpm dev
 
 ### Follow-ups from frontend tests
 - [x] Component tests with React Testing Library (`CardEditDialog`, `TimeLogSection`, `LoadError`)
-- [ ] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [x] Tests for pages (`BoardsPage`, `BoardDetailPage`) and the drag-and-drop components (`ListColumn`, `CardItem`, `Lists`, `Cards`)
+- [x] `BoardDetailPage`'s `onDragOver` looked the dragged card up by its dnd-kit id (`card-3`) instead of its numeric id, so its "only commit same-list hovers" guard never fired and cross-list hovers were applied live too (see its comment for the ghost-card bug the guard prevents)
+- [x] A failed card create clears the add-card title (`submitCreateCard` resolves after recording the error), unlike the add-list form, which keeps the name for a retry. `submitCreateCard` now resolves to whether the card was created, and the form keeps the title and priority on failure
+- [x] The list title is click-only: make it keyboard-reachable like `CardEditDialog`'s title. It's a focusable `role="button"` (Enter/Space opens the editor, focus returns after Enter/Escape) rather than a real `<button>`, so pointer drags can still start on it
+- [ ] Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags
 - [x] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
 - [x] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
 - [x] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)
 - [x] Check whether `useCardTimeLogs` should clear its state when `cardId` becomes null. Not needed: `TimeLogSection` only mounts while the dialog has a card, so closing it unmounts the hook
 - [x] Run `pnpm test` in CI alongside `dotnet test`
 - [x] Project-wide Biome cleanup (`pnpm lint` reports pre-existing errors in files outside the test suite), then add `pnpm lint` to CI
-- [ ] Add coverage thresholds once components are tested
+- [x] Add coverage thresholds once components are tested (enforced in CI via `pnpm test:coverage`)
+
+### Next release
+- [ ] Optional Postgres Testcontainers run to verify `Position` ordering under the real collation
 
 ### Future Features
 - [ ] User authentication

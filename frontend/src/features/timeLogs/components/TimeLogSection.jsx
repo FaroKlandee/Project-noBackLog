@@ -6,7 +6,8 @@
  * server-computed duration is shown as soon as the request resolves. While a
  * timer runs, a live elapsed counter ticks locally from the server's start
  * time — the dialog can be closed and reopened without affecting it, since the
- * timer lives on the server.
+ * timer lives on the server. Each entry's pencil button swaps its row for
+ * TimeLogEntryEditor, to correct its start (and, once finished, end) by hand.
  *
  * Rules (enforced server-side, mirrored here for the UI):
  *   - At most one running timer per card.
@@ -20,6 +21,7 @@
  *   BoardDetailPage (src/pages/BoardDetailPage.jsx)
  *     └─ CardEditDialog (features/cards)
  *          └─ TimeLogSection  ← YOU ARE HERE
+ *               └─ TimeLogEntryEditor
  */
 
 import { useEffect, useState } from 'react';
@@ -27,6 +29,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
@@ -34,6 +37,7 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import FieldLabel from '../../../shared/components/FieldLabel';
 import { useCardTimeLogs } from '../hooks/useCardTimeLogs';
 import { formatClock, formatDuration, formatTime } from '../utils/formatDuration';
+import TimeLogEntryEditor from './TimeLogEntryEditor';
 
 /**
  * Live elapsed time since `startTime`, re-rendering once a second.
@@ -69,18 +73,22 @@ export default function TimeLogSection({ cardId }) {
 		totalMs,
 		start,
 		finish,
+		update,
 		remove,
 	} = useCardTimeLogs(cardId);
 
 	/* busyId — 'start' or the id of the entry with a request in flight. */
 	const [busyId, setBusyId] = useState(null);
 	const [actionError, setActionError] = useState(null);
+	/* editingId — the entry whose times are open in TimeLogEntryEditor, if any. */
+	const [editingId, setEditingId] = useState(null);
 
-	/* Clear a stale action error when a different card opens. */
+	/* Clear a stale action error or open editor when a different card opens. */
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on cardId by design.
 	useEffect(() => {
 		setActionError(null);
 		setBusyId(null);
+		setEditingId(null);
 	}, [cardId]);
 
 	async function run(key, action) {
@@ -138,6 +146,16 @@ export default function TimeLogSection({ cardId }) {
 
 						{logs.map((log) => {
 							const isRunning = log.endTime == null;
+							if (log.id === editingId) {
+								return (
+									<TimeLogEntryEditor
+										key={log.id}
+										log={log}
+										onSave={(fields) => update(log.id, fields)}
+										onCancel={() => setEditingId(null)}
+									/>
+								);
+							}
 							return (
 								<Stack
 									key={log.id}
@@ -176,6 +194,19 @@ export default function TimeLogSection({ cardId }) {
 											{busyId === log.id ? 'Finishing…' : 'Finish'}
 										</Button>
 									)}
+									<Tooltip title="Edit times">
+										<span>
+											<IconButton
+												size="small"
+												aria-label="Edit time entry"
+												disabled={isBusy}
+												onClick={() => setEditingId(log.id)}
+												sx={{ color: 'text.secondary' }}
+											>
+												<EditOutlinedIcon fontSize="small" />
+											</IconButton>
+										</span>
+									</Tooltip>
 									<Tooltip title="Delete entry">
 										<span>
 											<IconButton

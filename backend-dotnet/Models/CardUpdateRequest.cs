@@ -20,13 +20,13 @@ public class CardUpdateRequest
 {
     public int? ListId { get; set; }
 
-    [MaxLength(100)]
+    [MaxLength(100, ErrorMessage = "Card title must be 100 characters or fewer.")]
     public string? Title { get; set; }
 
-    [MaxLength(2000)]
+    [MaxLength(2000, ErrorMessage = "Description must be 2000 characters or fewer.")]
     public string? Description { get; set; }
 
-    [MaxLength(50)]
+    [MaxLength(50, ErrorMessage = "Time estimate must be 50 characters or fewer.")]
     public string? TimeEstimate { get; set; }
 
     public Priority Priority { get; set; } = Priority.Medium;

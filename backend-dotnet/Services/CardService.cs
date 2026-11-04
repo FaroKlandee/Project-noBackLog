@@ -101,7 +101,6 @@ public class CardService : ICardService
         card.TimeEstimate = updated.TimeEstimate ?? card.TimeEstimate;
         card.Priority = updated.Priority;
         card.UpdatedAt = DateTime.UtcNow;
-        /* TimeTracked is deliberately not read here — owned by the (future) time-log flow. */
 
         await _context.SaveChangesAsync();
 

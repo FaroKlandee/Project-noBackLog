@@ -56,25 +56,6 @@ const TITLE_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 2000;
 const TIME_ESTIMATE_MAX_LENGTH = 50;
 
-/*
- * Shared dark-surface styling for the free-text inputs (description, time
- * estimate) so they read as inset panels rather than standard outlined
- * MUI fields — no floating label chrome, just a bordered surface under an
- * overline label rendered separately above each field.
- */
-const surfaceFieldSx = (theme) => ({
-	bgcolor: theme.palette.background.surface,
-	borderRadius: '8px',
-	'& .MuiOutlinedInput-root': {
-		bgcolor: theme.palette.background.surface,
-		borderRadius: '8px',
-		color: theme.palette.text.primary,
-		'& fieldset': { borderColor: theme.palette.divider },
-		'&:hover fieldset': { borderColor: theme.palette.border.hover },
-		'&.Mui-focused fieldset': { borderColor: theme.palette.border.active },
-	},
-});
-
 /**
  * CardEditDialog component.
  *
@@ -281,19 +262,7 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 			onClose={onClose}
 			aria-labelledby={titleId}
 			maxWidth={false}
-			slotProps={{
-				paper: {
-					sx: {
-						width: 1080,
-						maxWidth: '92vw',
-						background: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
-						border: '1px solid rgba(168, 85, 247, 0.25)',
-						borderRadius: '16px',
-						boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
-						overflow: 'hidden',
-					},
-				},
-			}}
+			slotProps={{ paper: { sx: { width: 1080, maxWidth: '92vw' } } }}
 		>
 			{/* Header — click-to-edit title + close button. */}
 			<Box sx={{ px: 4, pt: 3.5, pb: 2.5 }}>
@@ -316,13 +285,9 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 											maxLength: TITLE_MAX_LENGTH,
 										},
 									}}
-									sx={(theme) => ({
-										'& .MuiOutlinedInput-root': {
-											bgcolor: theme.palette.background.surface,
-											fontSize: '1.75rem',
-											fontWeight: 700,
-										},
-									})}
+									sx={{
+										'& .MuiOutlinedInput-root': { fontSize: '1.75rem', fontWeight: 700 },
+									}}
 								/>
 							) : (
 								/*
@@ -420,7 +385,6 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							value={timeEstimate}
 							onChange={(e) => setTimeEstimate(e.target.value)}
 							error={!!timeEstimateError}
-							sx={surfaceFieldSx}
 							slotProps={{ htmlInput: { maxLength: TIME_ESTIMATE_MAX_LENGTH } }}
 						/>
 						{isTimeEstimateDirty && (
@@ -467,7 +431,6 @@ export default function CardEditDialog({ open, card, onClose, onSave }) {
 							onChange={(e) => setDescription(e.target.value)}
 							error={!!descriptionError}
 							helperText={`${description.length}/${DESCRIPTION_MAX_LENGTH}`}
-							sx={surfaceFieldSx}
 							slotProps={{ htmlInput: { maxLength: DESCRIPTION_MAX_LENGTH } }}
 						/>
 						{isDescriptionDirty && (

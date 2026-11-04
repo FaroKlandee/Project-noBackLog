@@ -6,8 +6,9 @@
  * returned to the caller. On failure the error is propagated so the calling
  * hook can handle it.
  *
- * Start and finish times are always stamped by the server — the client only
- * says *which* card to start and *which* entry to finish, never *when*.
+ * Start and Finish are always stamped by the server — the client only says
+ * *which* card to start and *which* entry to finish, never *when*. The one
+ * exception is `updateTimeLog`, a manual correction of an existing entry.
  *
  * Consumed primarily by the `useCardTimeLogs` hook
  * (features/timeLogs/hooks/useCardTimeLogs.js).
@@ -90,6 +91,24 @@ async function finishTimeLog(id) {
 }
 
 /**
+ * Manually correct a time log's start and/or end time.
+ *
+ * Calls `PUT /api/timelogs/<id>`. Omitted fields are left unchanged; the
+ * server recomputes `duration`. Rejects with 400 if the end isn't after the
+ * start or either time is in the future, and with 409 if an end time is sent
+ * for a running entry (finish it instead).
+ *
+ * @async
+ * @param {number|string} id - The time log to update.
+ * @param {{ startTime?: string, endTime?: string }} fields - ISO-8601 UTC timestamps.
+ * @returns {Promise<Object>} Parsed JSON response (typically `{ data: TimeLog }`).
+ * @throws {Error} On network failure, timeout, or non-2xx HTTP status.
+ */
+async function updateTimeLog(id, fields) {
+	return await api.put(`/api/timelogs/${id}`, fields);
+}
+
+/**
  * Permanently delete a time log.
  *
  * Calls `DELETE /api/timelogs/<id>`. Destructive and irreversible.
@@ -110,5 +129,6 @@ export {
 	getRunningTimers,
 	startTimeLog,
 	finishTimeLog,
+	updateTimeLog,
 	deleteTimeLog,
 };

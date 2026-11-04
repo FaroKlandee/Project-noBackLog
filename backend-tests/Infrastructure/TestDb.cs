@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NoBacklog.Api.Data;
 using NoBacklog.Api.Models;
 
@@ -20,6 +21,9 @@ namespace NoBacklog.Api.Tests.Infrastructure;
  * for the lifetime of the test and every context shares it. Use NewContext()
  * for the "assert" step so results come from the database, not from the
  * change tracker of the context the service wrote through.
+ *
+ * Controller tests (ApiFactory) reuse this class: the API under test is
+ * pointed at Connection, and the seed helpers below write to the same database.
  */
 public sealed class TestDb : IDisposable
 {
@@ -40,6 +44,16 @@ public sealed class TestDb : IDisposable
     }
 
     public AppDbContext NewContext() => new(_options);
+
+    /* A context with EF interceptors attached, e.g. to run something mid-SaveChanges. */
+    public AppDbContext NewContext(params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(interceptors)
+            .Options);
+
+    /* The open connection, so ApiFactory can point the API at this same database. */
+    public SqliteConnection Connection => _connection;
 
     /* Seed helpers — each writes through its own context and returns the saved entity. */
 

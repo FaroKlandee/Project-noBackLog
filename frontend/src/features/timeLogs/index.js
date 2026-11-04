@@ -12,11 +12,12 @@
  *
  * Exported surface:
  *   getTimeLogsByCard, getTimeLogSettings,
- *   startTimeLog, finishTimeLog, deleteTimeLog — raw async HTTP functions
- *                                                 (timeLogService.js)
+ *   startTimeLog, finishTimeLog,
+ *   updateTimeLog, deleteTimeLog — raw async HTTP functions (timeLogService.js)
  *   useCardTimeLogs  — hook: one card's time logs + the server's entry limit,
- *                      with start/finish/remove mutations
+ *                      with start/finish/update/remove mutations
  *   formatDuration, formatClock, formatTime — display formatters
+ *   toDateTimeLocal, fromDateTimeLocal — ISO ↔ datetime-local input values
  *   TimeLogSection   — component: the "Time tracking" section rendered inside
  *                      the card detail dialog (CardEditDialog)
  *
@@ -31,6 +32,7 @@ export * from './hooks/useCardTimeLogs';
 
 /* Utils — pure display formatters. */
 export * from './utils/formatDuration';
+export * from './utils/dateTimeLocal';
 
 /* Components — presentational components for the timeLogs feature. */
 export { default as TimeLogSection } from './components/TimeLogSection';

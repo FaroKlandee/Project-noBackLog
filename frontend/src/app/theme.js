@@ -37,6 +37,13 @@
  *
  *   badge.bg             — card count pill background
  *   badge.text           — card count pill text
+ *
+ *   dialog.gradientFrom/To — Dialog paper background gradient
+ *   dialog.border          — Dialog paper edge
+ *
+ * Component overrides (see `components` below) apply the shared Dialog,
+ * outlined-input and Select styling, so usage sites only add layout and
+ * one-off typography through `sx`.
  */
 
 /*
@@ -119,9 +126,75 @@ const theme = createTheme({
 			bg: '#1E1B3A',
 			text: '#7C6BAE',
 		},
+
+		/*
+		 * Dialog tokens — the slate gradient and violet edge every MUI Dialog
+		 * paper gets from the MuiDialog override below.
+		 */
+		dialog: {
+			gradientFrom: '#1e293b',
+			gradientTo: '#0f172a',
+			border: 'rgba(168, 85, 247, 0.25)',
+		},
 	},
 
 	components: {
+		/*
+		 * MuiDialog override
+		 * ──────────────────
+		 * Gives every Dialog the app's dark gradient panel, so usage sites only
+		 * set what is specific to them (e.g. CardEditDialog's width).
+		 */
+		MuiDialog: {
+			styleOverrides: {
+				paper: ({ theme }) => ({
+					background: `linear-gradient(to bottom right, ${theme.palette.dialog.gradientFrom}, ${theme.palette.dialog.gradientTo})`,
+					border: `1px solid ${theme.palette.dialog.border}`,
+					borderRadius: 16,
+					boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+					overflow: 'hidden',
+				}),
+			},
+		},
+
+		/*
+		 * MuiOutlinedInput override
+		 * ─────────────────────────
+		 * Every outlined field (TextField, Select) renders as an inset
+		 * `background.surface` panel with white text and theme border states,
+		 * so no component needs to restyle `.MuiOutlinedInput-root` or its
+		 * fieldset through `sx`.
+		 */
+		MuiOutlinedInput: {
+			styleOverrides: {
+				root: ({ theme }) => ({
+					backgroundColor: theme.palette.background.surface,
+					borderRadius: 8,
+					color: theme.palette.text.primary,
+					'&:hover .MuiOutlinedInput-notchedOutline': {
+						borderColor: theme.palette.border.hover,
+					},
+					'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+						borderColor: theme.palette.border.active,
+					},
+				}),
+				notchedOutline: ({ theme }) => ({
+					borderColor: theme.palette.divider,
+				}),
+			},
+		},
+
+		/*
+		 * MuiSelect override — lavender dropdown arrow on every Select.
+		 */
+		MuiSelect: {
+			styleOverrides: {
+				icon: ({ theme }) => ({
+					color: theme.palette.secondary.main,
+				}),
+			},
+		},
+
 		/*
 		 * MuiMenu override
 		 * ────────────────

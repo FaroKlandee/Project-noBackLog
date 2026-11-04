@@ -146,7 +146,8 @@ function groupCardsByList(cards) {
  *                             reorder failed, so the UI can render the error
  *                             scoped to its originating column; otherwise null.
  *   - `setMutationError`    — Setter so the UI can dismiss the mutation error.
- *   - `submitCreateCard`    — Create a card in a given list and add it to state.
+ *   - `submitCreateCard`    — Create a card in a given list and add it to state;
+ *                             resolves to whether it was created.
  *   - `submitUpdateCard`    — Update a card's fields and merge the result into state.
  *   - `submitDeleteCard`    — Delete a card from a given list and remove it.
  *   - `updateCardOrder`     — Replace the whole record after a drag reorder.
@@ -315,6 +316,8 @@ export function useBoardCards(boardId) {
 	 * @async
 	 * @param {number} listId - ID of the list to create the card in.
 	 * @param {Object} data   - Card fields (e.g. `{ title: "Fix bug", priority: "High" }`).
+	 * @returns {Promise<boolean>} Whether the card was created, so the add-card
+	 *   form can keep the typed title after a failure (mirrors `createNewList`).
 	 */
 	async function submitCreateCard(listId, data) {
 		try {
@@ -335,8 +338,10 @@ export function useBoardCards(boardId) {
 
 			const response = await createCard({ ...data, listId, position });
 			addCard(listId, response.data);
+			return true;
 		} catch (err) {
 			setMutationError({ listId, message: err.message });
+			return false;
 		}
 	}
 
