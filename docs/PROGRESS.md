@@ -1,6 +1,6 @@
 # nobacklog — Project Progress
 
-As of 2026-10-29 · Faro
+As of 2026-11-04 · Faro
 
 > Exported from the [project progress doc](https://claude.ai/artifact/TJGFtDXZnCsdsAs2fYzRY5), which is the copy that gets edited. Re-export it here when it changes.
 
@@ -15,7 +15,7 @@ Phase 2 (frontend) is in progress: 42 of 50 roadmap items are done; 2 follow-ups
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-10-21, and 18 commits on `dev` are not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-11-04, and 1 commit on `dev` is not yet on `main`.
 
 ## Planned work
 
@@ -88,10 +88,11 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-104 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
+105 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-10-29 | `5c2d03c` | Sync the progress doc with the TimeTracked column drop |
 | 2026-10-29 | `65b2366` | Drop the unused Card.TimeTracked column |
 | 2026-10-29 | `4cea330` | Sync the progress doc with the reorder 404 and next-release move |
 | 2026-10-29 | `1f23067` | Return 404 from list reorder on an unknown list ID |
