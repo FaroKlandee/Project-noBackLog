@@ -104,6 +104,7 @@ NoBacklog is a modern task management system that combines:
 | Lint/Format | Biome | ^1.9.4 |
 | Unit Testing | Vitest + jsdom + React Testing Library | ^5.0.3 / ^30.1.2 / ^16.3.3 |
 | API Mocking | MSW (Mock Service Worker) | ^3.0.2 |
+| Browser Testing | Playwright | ^1.64.1 |
 | Component Testing | `@testing-library/user-event` + `@testing-library/jest-dom` | ^14.6.7 / ^7.0.1 |
 
 ### Future Integrations
@@ -373,13 +374,30 @@ pnpm test:coverage   # coverage report (text + coverage/index.html); fails below
 - **HTTP client:** `api.test.js` covers the error envelope's `message`, the status-line fallback for empty, non-JSON and blank-message bodies, and the 5000 ms timeout. For the timeout, MSW holds the response with `delay('infinite')` while only `setTimeout`/`clearTimeout` are faked.
 - **Mutation-checked:** while writing the suite, deliberate bugs were injected into each module under test to confirm a test fails for each one. One known exception: `ListColumn`'s Escape resets the title draft in case the field's unmount also fires a `blur`, which jsdom never does.
 - **Coverage thresholds:** `vite.config.js` fails `pnpm test:coverage` when project-wide coverage drops below 94% statements, 88% branches, 95% functions or 95% lines, about a point under the figures measured on 2026-10-27 (95.7 / 89.2 / 96.0 / 96.3%). Raise them as coverage grows.
-- **Not covered:** `main.jsx` and `routes.jsx` (app bootstrap), and real pointer/keyboard drags, which need a browser (Playwright).
+- **Not covered:** `main.jsx` and `routes.jsx` (app bootstrap). Real pointer and keyboard drags are covered by the browser tests below.
+
+### Browser (Playwright)
+Real drags in Chromium, in `frontend/e2e/`. Playwright starts its own Vite dev server on port 5199, and the API is stubbed per test (`e2e/support/board.js`), so no backend or database is needed:
+
+```bash
+cd frontend
+pnpm exec playwright install chromium   # once
+pnpm test:e2e
+```
+
+- **Why a browser:** jsdom has no layout, so the Vitest suite can only call the drag handlers with synthetic events. These tests check that a gesture on the rendered board activates a drag, collides with the right target, and ends in the expected order and request.
+- **Pointer drags:** list reorder (including that the columns really moved on screen), same-list and cross-list card moves, a drop into an empty column, a cross-list hover held until the drop, Escape cancelling either kind of drag, and rollback with the server's message when the save fails. A card's double-press gesture is tested from both sides: a single click opens the card, and a press and move without the first click does nothing.
+- **Keyboard drags:** Space to lift, arrow keys to move, Space to drop or Escape to cancel, for list reorder, same-list card moves, and card moves into the next list and into an empty one. A key is followed by a short pause, because dnd-kit finishes a keyboard step asynchronously.
+- **Fixture:** card 3 shares its numeric id with list 3 on purpose, to guard the `list-`/`card-` id prefixes against the registry collision described in `ListColumn.jsx`.
+- **Mutation-checked:** committing cross-list hovers live fails the hold-until-drop test, and removing the column's `KeyboardSensor` fails the keyboard list tests.
+- **Not covered:** the stubbed API returns nothing from a write, so persistence itself rests on the backend's controller tests. Touch gestures and browsers other than Chromium aren't run.
 
 ### Continuous Integration
-`.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as two parallel jobs:
+`.github/workflows/ci.yml` runs on every push (and on demand from the Actions tab), as three parallel jobs:
 
 - **Backend:** `dotnet test backend-tests` on .NET 10.
 - **Frontend:** `pnpm install --frozen-lockfile`, `pnpm lint` (Biome: formatting and lint rules), `pnpm test:coverage` (fails under the coverage thresholds), then `pnpm build`. pnpm's version comes from `packageManager` in `frontend/package.json`.
+- **E2E:** `pnpm exec playwright install --with-deps chromium`, then `pnpm test:e2e`, with one retry and the report uploaded as an artifact on failure.
 
 A newer push to the same branch cancels the run it supersedes. `frontend/.gitattributes` checks the frontend out with LF line endings, so `pnpm lint` passes on Windows exactly as it does in CI; run `pnpm format` (or `pnpm biome check --write .`) to fix formatting locally.
 
@@ -501,6 +519,7 @@ pnpm dev
 - [xUnit Documentation](https://xunit.net/)
 - [Vitest Documentation](https://vitest.dev/guide/)
 - [MSW Documentation](https://mswjs.io/docs/)
+- [Playwright Documentation](https://playwright.dev/docs/intro)
 - [React Testing Library — `renderHook`](https://testing-library.com/docs/react-testing-library/api/#renderhook)
 
 ---
@@ -559,7 +578,7 @@ Progress by work item, with the commits behind each one, is tracked in [docs/PRO
 - [x] `BoardDetailPage`'s `onDragOver` looked the dragged card up by its dnd-kit id (`card-3`) instead of its numeric id, so its "only commit same-list hovers" guard never fired and cross-list hovers were applied live too (see its comment for the ghost-card bug the guard prevents)
 - [x] A failed card create clears the add-card title (`submitCreateCard` resolves after recording the error), unlike the add-list form, which keeps the name for a retry. `submitCreateCard` now resolves to whether the card was created, and the form keeps the title and priority on failure
 - [x] The list title is click-only: make it keyboard-reachable like `CardEditDialog`'s title. It's a focusable `role="button"` (Enter/Space opens the editor, focus returns after Enter/Escape) rather than a real `<button>`, so pointer drags can still start on it
-- [ ] Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags
+- [x] Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags
 - [x] Accessibility gaps found while testing `CardEditDialog`: the time-estimate and description fields have no accessible name (`FieldLabel` isn't a `<label>`), the title isn't keyboard-reachable and its input has no name, and the dialog has no accessible name (`aria-labelledby`)
 - [x] Test `api.js`'s timeout path (fake timers + MSW), alongside the server-error-message follow-up
 - [x] Remove the unused `useCards` hook (superseded by `useBoardCards`, still exported from `features/cards/index.js`)

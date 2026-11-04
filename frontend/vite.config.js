@@ -19,7 +19,7 @@
  * a superset that also types the `test` key below. Vite itself ignores `test`,
  * so `vite dev` / `vite build` behave exactly as before.
  */
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
  * `@vitejs/plugin-react` enables full React support inside Vite:
@@ -60,6 +60,8 @@ export default defineConfig({
 	 *  - `environment: 'jsdom'` — gives each test file a simulated browser DOM,
 	 *    which `renderHook` needs to mount a React root.
 	 *  - `setupFiles` — runs before every test file; see src/test/setup.js.
+	 *  - `exclude` — e2e/ holds Playwright specs (`pnpm test:e2e`), which Vitest's
+	 *    default pattern would otherwise pick up and fail on.
 	 *  - `coverage` — used by `pnpm test:coverage`. Measures all of `src/`, not
 	 *    just files some test imports, so untested components show up as 0%
 	 *    rather than being silently left out. `thresholds` fail the run when
@@ -74,6 +76,7 @@ export default defineConfig({
 	test: {
 		environment: 'jsdom',
 		setupFiles: ['./src/test/setup.js'],
+		exclude: [...configDefaults.exclude, 'e2e/**'],
 		coverage: {
 			provider: 'v8',
 			include: ['src/**/*.{js,jsx}'],
