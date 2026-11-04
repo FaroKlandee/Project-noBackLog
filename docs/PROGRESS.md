@@ -6,7 +6,7 @@ As of 2026-11-04 · Faro
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 42 of 50 roadmap items are done; 2 follow-ups, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 43 of 50 roadmap items are done; 1 follow-up, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -15,16 +15,16 @@ Phase 2 (frontend) is in progress: 42 of 50 roadmap items are done; 2 follow-ups
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-11-04, and 1 commit on `dev` is not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-11-04, and 3 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
-8 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
+7 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
 | Add coverage thresholds now that components are tested | Frontend tests | Frontend-test follow-up | Done |
-| Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Planned |
+| Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Done |
 | Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Done |
 | Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Done |
 | `PATCH /api/lists/reorder` returns 404 on an unknown list ID instead of skipping it | Backend | Controller-test follow-up | Done |
@@ -78,6 +78,7 @@ Every completed work item, grouped by area and newest first within each, with th
 | List create and delete | Frontend | `a224b35`, `4bd9d14` | 2026-05-07 – 05-20 |
 | Boards page and board detail page | Frontend | `855c050`, `29c1333` | 2026-04-21 – 04-28 |
 | Project migration to Vite, MUI, Biome, pnpm; API client | Frontend | `a66525a`, `83fad48` | 2026-04-03 |
+| Playwright tests for real pointer and keyboard drags, run in a new CI job | Tests and CI | `695deeb` | 2026-11-04 |
 | Controller integration tests (`WebApplicationFactory` + SQLite) for all four controllers | Tests and CI | `5c29850` | 2026-10-29 |
 | Coverage thresholds enforced in CI (94/88/95/95%) | Tests and CI | `1aa5816` | 2026-10-27 |
 | Page and drag-and-drop component tests | Tests and CI | `0164428` | 2026-10-23 |
@@ -88,10 +89,12 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-105 commits (merge commits left out) from 2025-12-27 to 2026-10-29, newest first, as written in git.
+107 commits (merge commits left out) from 2025-12-27 to 2026-11-04, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-11-04 | `695deeb` | Add Playwright tests for real pointer and keyboard drags |
+| 2026-11-04 | `2f98c10` | Sync the progress doc with the 2026-11-04 merge to main |
 | 2026-10-29 | `5c2d03c` | Sync the progress doc with the TimeTracked column drop |
 | 2026-10-29 | `65b2366` | Drop the unused Card.TimeTracked column |
 | 2026-10-29 | `4cea330` | Sync the progress doc with the reorder 404 and next-release move |
