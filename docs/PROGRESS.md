@@ -1,12 +1,12 @@
 # nobacklog — Project Progress
 
-As of 2026-11-04 · Faro
+As of 2026-11-05 · Faro
 
 > Exported from the [project progress doc](https://claude.ai/artifact/TJGFtDXZnCsdsAs2fYzRY5), which is the copy that gets edited. Re-export it here when it changes.
 
 ## Summary
 
-Phase 2 (frontend) is in progress: 43 of 50 roadmap items are done; 1 follow-up, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
+Phase 2 (frontend) is in progress: 44 of 51 roadmap items are done; 1 follow-up, 1 next-release item and 5 future features remain open. The backend API is complete; Phases 3 (AI) and 4 (deployment) have not started.
 
 | Phase | Scope | State | Work dates |
 | --- | --- | --- | --- |
@@ -15,16 +15,17 @@ Phase 2 (frontend) is in progress: 43 of 50 roadmap items are done; 1 follow-up,
 | 3. AI integration | Natural-language commands via the Claude API | Not started | — |
 | 4. Deployment | Hosting platform and production database | Not started | — |
 
-Active branch is `dev`; it was last merged to `main` on 2026-11-04, and 3 commits on `dev` are not yet on `main`.
+Active branch is `dev`; it was last merged to `main` on 2026-11-04, and 5 commits on `dev` are not yet on `main`.
 
 ## Planned work
 
-7 of 14 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
+7 of 15 planned items are still open, one of them deferred to the next release. When an item lands, set it to Done and add a row to Committed work.
 
 | Item | Area | Source | Status |
 | --- | --- | --- | --- |
 | Add coverage thresholds now that components are tested | Frontend tests | Frontend-test follow-up | Done |
 | Browser-level drag-and-drop tests (Playwright): real pointer and keyboard drags | Frontend tests | Frontend-test follow-up | Done |
+| Keyboard ArrowUp/ArrowDown stay in the column the card is over, so a card can be placed below another list's last card | Frontend | Playwright-test follow-up | Done |
 | Controller-level integration tests (`WebApplicationFactory`): validation 400s, 404/409 mapping, response envelope | Backend tests | Backend-test follow-up | Done |
 | Return model-validation 400s in the `{ success, message }` envelope (`InvalidModelStateResponseFactory`) | Backend | Controller-test follow-up | Done |
 | `PATCH /api/lists/reorder` returns 404 on an unknown list ID instead of skipping it | Backend | Controller-test follow-up | Done |
@@ -59,6 +60,7 @@ Every completed work item, grouped by area and newest first within each, with th
 | Card API | Backend | `959bd0b` | 2026-01-30 |
 | Board and List APIs | Backend | `747c25a` | 2026-01-18 |
 | Data models and database setup | Backend | `e3ef7de` | 2025-12-27 |
+| Keyboard ArrowUp/ArrowDown stay in the card's current column | Frontend | `0c7bed9` | 2026-11-05 |
 | Failed card create keeps title and priority; list title keyboard-reachable | Frontend | `3fc1659` | 2026-10-27 |
 | Cross-list card hover held until the drop (`onDragOver` guard fix) | Frontend | `d6980b1` | 2026-10-27 |
 | Shared Dialog and form-control styling in `theme.js` overrides | Frontend | `59e324a` | 2026-10-26 |
@@ -89,10 +91,12 @@ Every completed work item, grouped by area and newest first within each, with th
 
 ## Changelog
 
-107 commits (merge commits left out) from 2025-12-27 to 2026-11-04, newest first, as written in git.
+109 commits (merge commits left out) from 2025-12-27 to 2026-11-05, newest first, as written in git.
 
 | Date | Commit | Message |
 | --- | --- | --- |
+| 2026-11-05 | `0c7bed9` | Keep keyboard ArrowUp/ArrowDown in the card's current column |
+| 2026-11-04 | `abef773` | Sync the progress doc with the Playwright drag tests |
 | 2026-11-04 | `695deeb` | Add Playwright tests for real pointer and keyboard drags |
 | 2026-11-04 | `2f98c10` | Sync the progress doc with the 2026-11-04 merge to main |
 | 2026-10-29 | `5c2d03c` | Sync the progress doc with the TimeTracked column drop |
