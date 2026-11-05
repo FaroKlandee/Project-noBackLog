@@ -213,6 +213,51 @@ test.describe('keyboard drags', () => {
 			.toEqual([{ path: '/api/cards/11/reorder', body: { listId: 4, position: '00000500' } }]);
 	});
 
+	test('moves a card to the next list, below its last card', async ({ page }) => {
+		const writes = await openBoard(page);
+
+		await cardItem(page, 'Card A').focus();
+		await dragKey(page, 'Space');
+		await dragKey(page, 'ArrowRight');
+		await dragKey(page, 'ArrowDown');
+		await dragKey(page, 'Space');
+
+		await expect.poll(() => cardOrder(page, 'Doing')).toEqual(['Card D', 'Card A']);
+		await expect.poll(() => cardOrder(page, 'To Do')).toEqual(['Card B', 'Card C']);
+		await expect
+			.poll(() => writes)
+			.toEqual([{ path: '/api/cards/11/reorder', body: { listId: 4, position: '00002000' } }]);
+	});
+
+	test('ArrowUp returns from the bottom of the next list to its last card', async ({ page }) => {
+		const writes = await openBoard(page);
+
+		await cardItem(page, 'Card A').focus();
+		await dragKey(page, 'Space');
+		await dragKey(page, 'ArrowRight');
+		await dragKey(page, 'ArrowDown');
+		await dragKey(page, 'ArrowUp');
+		await dragKey(page, 'Space');
+
+		await expect.poll(() => cardOrder(page, 'Doing')).toEqual(['Card A', 'Card D']);
+		await expect
+			.poll(() => writes)
+			.toEqual([{ path: '/api/cards/11/reorder', body: { listId: 4, position: '00000500' } }]);
+	});
+
+	test('ArrowDown on the last card of its own list stays in that list', async ({ page }) => {
+		const writes = await openBoard(page);
+
+		await cardItem(page, 'Card C').focus();
+		await dragKey(page, 'Space');
+		await dragKey(page, 'ArrowDown');
+		await dragKey(page, 'Space');
+
+		await expect.poll(() => cardOrder(page, 'To Do')).toEqual(INITIAL_TO_DO);
+		await expect.poll(() => cardOrder(page, 'Doing')).toEqual(['Card D']);
+		for (const write of writes) expect(write.body.listId).toBe(3);
+	});
+
 	test('moves a card across two lists into an empty one', async ({ page }) => {
 		const writes = await openBoard(page);
 
