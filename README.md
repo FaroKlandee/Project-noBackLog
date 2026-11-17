@@ -526,7 +526,7 @@ pnpm dev
 
 ## Development Roadmap
 
-Progress by work item, with the commits behind each one, is tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
+Detailed progress by work item, with the commits behind each one, is kept in the maintainer's private project notes.
 
 ### Completed
 - [x] Backend API architecture design (ASP.NET Core + EF Core + PostgreSQL)
