@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@dnd-kit/dom@0.4.0':
-    hash: qw6qj3nfewkiipntmbkqf5o5qi
+    hash: b527464fppzeb24x2fguwycuam
     path: patches/@dnd-kit__dom@0.4.0.patch
 
 importers:
@@ -18,7 +18,7 @@ importers:
         version: 0.4.0
       '@dnd-kit/dom':
         specifier: 0.4.0
-        version: 0.4.0(patch_hash=qw6qj3nfewkiipntmbkqf5o5qi)
+        version: 0.4.0(patch_hash=b527464fppzeb24x2fguwycuam)
       '@dnd-kit/helpers':
         specifier: ^0.4.0
         version: 0.4.0
@@ -50,6 +50,9 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.4
         version: 1.9.4
+      '@playwright/test':
+        specifier: ^1.64.1
+        version: 1.64.1
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -698,6 +701,11 @@ packages:
 
   '@open-draft/until@3.0.1':
     resolution: {integrity: sha512-s7/9ELP4aP9YZtW7RJaa0Xf3RISaRH9+EFN18FtykJYRHGNrl8f9ymvoNXzjhrjmftFvkQudtuDU9RYhk0xs3A==}
+
+  '@playwright/test@1.64.1':
+    resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
@@ -1403,6 +1411,16 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.64.1:
+    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   postcss@8.5.8:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -1953,7 +1971,7 @@ snapshots:
       '@dnd-kit/geometry': 0.4.0
       tslib: 2.8.1
 
-  '@dnd-kit/dom@0.4.0(patch_hash=qw6qj3nfewkiipntmbkqf5o5qi)':
+  '@dnd-kit/dom@0.4.0(patch_hash=b527464fppzeb24x2fguwycuam)':
     dependencies:
       '@dnd-kit/abstract': 0.4.0
       '@dnd-kit/collision': 0.4.0
@@ -1974,7 +1992,7 @@ snapshots:
   '@dnd-kit/react@0.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@dnd-kit/abstract': 0.4.0
-      '@dnd-kit/dom': 0.4.0(patch_hash=qw6qj3nfewkiipntmbkqf5o5qi)
+      '@dnd-kit/dom': 0.4.0(patch_hash=b527464fppzeb24x2fguwycuam)
       '@dnd-kit/state': 0.4.0
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -2295,6 +2313,10 @@ snapshots:
       '@types/react': 19.2.14
 
   '@open-draft/until@3.0.1': {}
+
+  '@playwright/test@1.64.1':
+    dependencies:
+      playwright: 1.64.1
 
   '@popperjs/core@2.11.8': {}
 
@@ -2918,6 +2940,12 @@ snapshots:
   picomatch@4.0.4: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.64.1: {}
+
+  playwright@1.64.1:
+    dependencies:
+      playwright-core: 1.64.1
 
   postcss@8.5.8:
     dependencies:

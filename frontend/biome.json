@@ -27,6 +27,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", "coverage"]
+    "ignore": ["node_modules", "dist", "coverage", "test-results", "playwright-report"]
   }
 }

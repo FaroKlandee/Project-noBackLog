@@ -1,8 +1,16 @@
 diff --git a/sortable.cjs b/sortable.cjs
-index d931a15..0e84fc3 100644
+index d931a15f84ffc1f457244dc1e7ba3f8b32d8867f..c060ff2775b7b5499d15e1e8479098c33a614d5b 100644
 --- a/sortable.cjs
 +++ b/sortable.cjs
-@@ -411,6 +411,9 @@ var defaultGroup = "__default__";
+@@ -151,6 +151,7 @@ var SortableKeyboardPlugin = class extends abstract.Plugin {
+                 getBoundingClientRect: (element) => utilities.getVisibleBoundingRectangle(element, void 0, 0.2)
+               });
+               if (!shape.height || !shape.width) continue;
++              if ((direction == "up" || direction == "down") && (center.x < shape.left || center.x > shape.right)) continue;
+               if (direction == "down" && center.y + TOLERANCE < shape.center.y || direction == "up" && center.y - TOLERANCE > shape.center.y || direction == "left" && center.x - TOLERANCE > shape.center.x || direction == "right" && center.x + TOLERANCE < shape.center.x) {
+                 potentialTargets.push(droppable);
+                 droppable.shape = shape;
+@@ -411,6 +412,9 @@ var defaultGroup = "__default__";
  var OptimisticSortingPlugin = class extends abstract.Plugin {
    constructor(manager) {
      super(manager);
@@ -12,7 +20,7 @@ index d931a15..0e84fc3 100644
      const getSortableInstances = () => {
        const sortableInstances = /* @__PURE__ */ new Map();
        for (const droppable of manager.registry.droppables) {
-@@ -431,6 +434,20 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
+@@ -431,6 +435,20 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
        return sortableInstances;
      };
      const unsubscribe = [
@@ -33,7 +41,7 @@ index d931a15..0e84fc3 100644
        manager.monitor.addEventListener("dragover", (event, manager2) => {
          if (this.disabled) {
            return;
-@@ -499,6 +516,16 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
+@@ -499,6 +517,16 @@ var OptimisticSortingPlugin = class extends abstract.Plugin {
          });
        }),
        manager.monitor.addEventListener("dragend", (event, manager2) => {
@@ -51,10 +59,18 @@ index d931a15..0e84fc3 100644
            return;
          }
 diff --git a/sortable.js b/sortable.js
-index bfa62cc..0388323 100644
+index bfa62cc2de751b7e27406a303dd27ba0397399a7..5241bbe4fa7a402d02bdbde1d19ccfaea0fbec74 100644
 --- a/sortable.js
 +++ b/sortable.js
-@@ -409,6 +409,9 @@ var defaultGroup = "__default__";
+@@ -149,6 +149,7 @@ var SortableKeyboardPlugin = class extends Plugin {
+                 getBoundingClientRect: (element) => getVisibleBoundingRectangle(element, void 0, 0.2)
+               });
+               if (!shape.height || !shape.width) continue;
++              if ((direction == "up" || direction == "down") && (center.x < shape.left || center.x > shape.right)) continue;
+               if (direction == "down" && center.y + TOLERANCE < shape.center.y || direction == "up" && center.y - TOLERANCE > shape.center.y || direction == "left" && center.x - TOLERANCE > shape.center.x || direction == "right" && center.x + TOLERANCE < shape.center.x) {
+                 potentialTargets.push(droppable);
+                 droppable.shape = shape;
+@@ -409,6 +410,9 @@ var defaultGroup = "__default__";
  var OptimisticSortingPlugin = class extends Plugin {
    constructor(manager) {
      super(manager);
@@ -64,7 +80,7 @@ index bfa62cc..0388323 100644
      const getSortableInstances = () => {
        const sortableInstances = /* @__PURE__ */ new Map();
        for (const droppable of manager.registry.droppables) {
-@@ -429,6 +432,20 @@ var OptimisticSortingPlugin = class extends Plugin {
+@@ -429,6 +433,20 @@ var OptimisticSortingPlugin = class extends Plugin {
        return sortableInstances;
      };
      const unsubscribe = [
@@ -85,7 +101,7 @@ index bfa62cc..0388323 100644
        manager.monitor.addEventListener("dragover", (event, manager2) => {
          if (this.disabled) {
            return;
-@@ -497,6 +514,16 @@ var OptimisticSortingPlugin = class extends Plugin {
+@@ -497,6 +515,16 @@ var OptimisticSortingPlugin = class extends Plugin {
          });
        }),
        manager.monitor.addEventListener("dragend", (event, manager2) => {

@@ -23,6 +23,7 @@ pnpm format          # apply Biome formatting
 pnpm test            # Vitest, run once
 pnpm test:watch      # Vitest in watch mode
 pnpm test:coverage   # coverage report (text + coverage/index.html)
+pnpm test:e2e        # Playwright drag tests (first: pnpm exec playwright install chromium)
 ```
 
 ## Layout

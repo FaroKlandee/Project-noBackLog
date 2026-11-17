@@ -1,11 +1,14 @@
 # CI — lints the frontend and runs both test suites on every push.
 #
-# Two independent jobs, run in parallel on separate runners:
+# Three independent jobs, run in parallel on separate runners:
 #   - backend:  `dotnet test` over backend-tests/ (xUnit, in-memory SQLite —
 #               no Postgres service needed).
 #   - frontend: `pnpm lint` (Biome format + lint), `pnpm test:coverage` (Vitest +
 #               MSW — no backend needed; fails under the coverage thresholds), then `pnpm build` to catch anything
 #               that only breaks the bundle.
+#   - e2e:      `pnpm test:e2e` (Playwright, real pointer and keyboard drags in
+#               Chromium against the Vite dev server — the API is stubbed, so no
+#               backend needed).
 
 name: CI
 
@@ -76,3 +79,44 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: Browser drag-and-drop tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Chromium and the system libraries it needs on the runner.
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test
+        run: pnpm test:e2e
+
+      # The HTML report and the retry's trace, for debugging a failed drag.
+      - name: Upload report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
